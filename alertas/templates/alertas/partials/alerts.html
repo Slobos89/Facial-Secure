@@ -1,0 +1,136 @@
+   
+
+            {% for alerta in alertas_activas %}
+
+            <div
+
+                class="alert-card"
+
+                onclick="mostrarDetalle(this)"
+
+                data-tipo="
+
+                    {% if alerta.resultado == 'DENEGADO' %}
+
+                        Acceso no autorizado
+
+                    {% else %}
+
+                        Coincidencia facial baja
+
+                    {% endif %}
+
+                "
+
+                data-estado="Activo"
+
+                data-camara="{{ alerta.camara }}"
+
+                data-coincidencia="{{ alerta.coincidencia }}%"
+
+                data-ubicacion="{{ alerta.camara }}"
+
+                data-operador="Administrador"
+
+                data-hora="{{ alerta.fecha_hora|time:'H:i' }}">
+
+                <div class="alert-left">
+
+                    <div class="alert-icon
+
+                        {% if alerta.resultado == 'DENEGADO' %}
+                            icon-critical
+                        {% else %}
+                            icon-warning
+                        {% endif %}
+
+                    ">
+
+                        {% if alerta.resultado == 'DENEGADO' %}
+                            🚨
+                        {% else %}
+                            ⚠️
+                        {% endif %}
+
+                    </div>
+
+                    <div class="alert-info">
+
+                        <h3>
+
+                            {% if alerta.resultado == 'DENEGADO' %}
+
+                                Acceso no autorizado detectado
+
+                            {% else %}
+
+                                Coincidencia facial baja
+
+                            {% endif %}
+
+                        </h3>
+
+                        <p>
+
+                            {{ alerta.camara }}
+
+                            •
+
+                            {{ alerta.fecha_hora|time:"H:i" }}
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <div class="alert-actions">
+
+                    <button class="btn btn-view">
+
+                        Ver evidencia
+
+                    </button>
+
+                    <button class="btn btn-resolve">
+
+                        Resolver
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            {% empty %}
+
+            <div class="alert-card">
+
+                <div class="alert-left">
+
+                    <div class="alert-icon icon-info">
+                        ✅
+                    </div>
+
+                    <div class="alert-info">
+
+                        <h3>
+                            No existen alertas activas
+                        </h3>
+
+                        <p>
+                            Sistema operando normalmente
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+   
+
+
+    

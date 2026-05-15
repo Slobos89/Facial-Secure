@@ -1,0 +1,28 @@
+                {% if alertas_activas.has_previous %}
+
+                    <button data-page="{{ alertas_activas.previous_page_number }}" class="btn-alert-page">
+
+                        ← Anterior
+
+                    </button>
+
+                {% endif %}
+
+                <span>
+
+                    Página {{ alertas_activas.number }}
+                    de
+                    {{ alertas_activas.paginator.num_pages }}
+
+                </span>
+
+                {% if alertas_activas.has_next %}
+
+                    <button data-page="{{ alertas_activas.next_page_number }}" class="btn-alert-page">
+
+                        Siguiente →
+
+                    </button>
+
+                {% endif %}
+

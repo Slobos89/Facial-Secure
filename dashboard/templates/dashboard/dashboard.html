@@ -1,0 +1,731 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Dashboard
+{% endblock %}
+
+{% block content %}
+
+<section class="panel">
+
+    <div class="filter-bar">
+
+        <form method="GET">
+
+            <select
+                name="periodo"
+                onchange="this.form.submit()"
+                class="filter-select"
+            >
+
+                <option value="hoy"
+                    {% if periodo == 'hoy' %}
+                        selected
+                    {% endif %}
+                >
+                    Hoy
+                </option>
+
+                <option value="7"
+                    {% if periodo == '7' %}
+                        selected
+                    {% endif %}
+                >
+                    Últimos 7 días
+                </option>
+
+                <option value="30"
+                    {% if periodo == '30' %}
+                        selected
+                    {% endif %}
+                >
+                    Últimos 30 días
+                </option>
+
+            </select>
+
+        </form>
+
+    </div>
+
+</section>
+
+<!-- KPIs -->
+<section class="kpis">
+
+    <div class="kpi-card1 kpi-green">
+        <small>🟢 Accesos Permitidos Hoy</small>
+        <h2>{{ permitidos }}</h2>
+        <p>{% if porcentaje_cambio > 0 %}
+
+                +{{ porcentaje_cambio }}%
+
+            {% else %}
+
+                {{ porcentaje_cambio }}%
+
+            {% endif %}
+
+            respecto ayer</p>
+    </div>
+
+    <div class="kpi-card1 kpi-red">
+        <small>🚨 Alertas Críticas Hoy</small>
+        <h2>{{ denegados }}</h2>
+        <p>intentos no autorizados</p>
+    </div>
+
+    <div class="kpi-card1 kpi-blue">
+        <small>📷 Cámaras Operativas</small>
+        <h2>12/12</h2>
+        <p>100% conectadas</p>
+    </div>
+
+    <div class="kpi-card1 kpi-yellow">
+        <small>🧠 Precisión IA</small>
+        <h2>{{ promedio }}%</h2>
+        <p>Tiempo promedio 0.8s</p>
+    </div>
+
+</section>
+
+<!-- MONITOR -->
+<section class="monitor-grid">
+
+    <div class="panel">
+
+        <div class="panel-header">
+            <div class="panel-title">Monitoreo en Tiempo Real</div>
+            <div class="live">🟢 LIVE</div>
+        </div>
+
+        <div class="event-feed" id="event-feed">
+
+            {% for evento in eventos %}
+
+                <div class="event
+
+                    {% if evento.resultado == 'DENEGADO' %}
+                        red
+                    {% elif evento.coincidencia < 70 %}
+                        yellow
+                    {% endif %}
+                ">
+
+                    <h4>
+
+                        {% if evento.persona %}
+                            {{ evento.persona.nombre }}
+                            {{ evento.persona.apellido }}
+                        {% else %}
+                            Desconocido
+                        {% endif %}
+
+                    </h4>
+
+                    <span>
+
+                        {{ evento.resultado }}
+
+                        -
+
+                        {{ evento.coincidencia }}%
+
+                        -
+
+                        {{ evento.fecha_hora|time:"H:i" }}
+
+                    </span>
+
+                </div>
+
+            {% empty %}
+
+                <div class="event">
+
+                    <h4>
+                        Sin eventos
+                    </h4>
+
+                    <span>
+                        No existen accesos registrados
+                    </span>
+
+                </div>
+
+            {% endfor %}
+
+
+        </div>
+
+    </div>
+
+    <div class="panel">
+
+        <div class="panel-header">
+            <div class="panel-title">Estado Live</div>
+        </div>
+
+        <div class="stats">
+
+            <div class="stat-box">
+                <h3>{{ accesos_hoy }}</h3>
+                <span>Accesos Hoy</span>
+            </div>
+
+            <div class="stat-box">
+                <h3>0.8s</h3>
+                <span>Tiempo IA</span>
+            </div>
+
+            <div class="stat-box">
+                <h3>{{ promedio }}%</h3>
+                <span>Precisión actual</span>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- CAMERAS + ALERTS -->
+<section class="bottom-grid">
+
+    <!-- CAMERAS -->
+    <div class="panel">
+
+        <div class="panel-header">
+            <div class="panel-title">Cámaras Activas</div>
+        </div>
+
+        <div class="cameras-grid">
+
+            <div class="camera-card">
+
+                <div class="camera-header">
+                    <span>Acceso Norte</span>
+                    <span style="color:#22c55e;">🟢</span>
+                </div>
+
+                <div class="camera-preview">
+                    LIVE CAMERA
+                </div>
+
+                <div class="camera-footer">
+                    FPS: 30 • Latencia: 0.8s
+                </div>
+
+            </div>
+
+            <div class="camera-card">
+
+                <div class="camera-header">
+                    <span>Torre 1</span>
+                    <span style="color:#22c55e;">🟢</span>
+                </div>
+
+                <div class="camera-preview">
+                    LIVE CAMERA
+                </div>
+
+                <div class="camera-footer">
+                    FPS: 30 • Latencia: 0.7s
+                </div>
+
+            </div>
+
+            <div class="camera-card">
+
+                <div class="camera-header">
+                    <span>Patio Central</span>
+                    <span style="color:#22c55e;">🟢</span>
+                </div>
+
+                <div class="camera-preview">
+                    LIVE CAMERA
+                </div>
+
+                <div class="camera-footer">
+                    FPS: 29 • Latencia: 0.9s
+                </div>
+
+            </div>
+
+            <div class="camera-card">
+
+                <div class="camera-header">
+                    <span>Acceso Sur</span>
+                    <span style="color:#ef4444;">🔴</span>
+                </div>
+
+                <div class="camera-preview">
+                    OFFLINE
+                </div>
+
+                <div class="camera-footer">
+                    Sin conexión
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ALERTS -->
+    <div class="panel">
+
+        <div class="panel-header">
+            <div class="panel-title">Alertas del Sistema</div>
+        </div>
+
+        <div class="alerts">
+
+        {% if alerta_texto %}
+
+            <div class="alert-card">
+
+                <div class="alert-left">
+
+                    <div class="alert-icon
+                        {% if alerta_tipo == 'critica' %}
+                            icon-critical
+                        {% else %}
+                            icon-warning
+                        {% endif %}
+                    ">
+
+                        {% if alerta_tipo == 'critica' %}
+                            🚨
+                        {% else %}
+                            ⚠
+                        {% endif %}
+
+                    </div>
+
+                    <div class="alert-info">
+
+                        <h3>
+                            {{ alerta_texto }}
+                        </h3>
+
+                        <p>
+                            {{ denegados }}
+                            accesos denegados hoy
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        {% else %}
+
+            <div class="alert-card">
+
+                <div class="alert-left">
+
+                    <div class="alert-icon icon-info">
+                        ✅
+                    </div>
+
+                    <div class="alert-info">
+
+                        <h3>
+                            Sistema Operativo
+                        </h3>
+
+                        <p>
+                            No existen alertas críticas
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        {% endif %}
+
+        </div>
+
+    </div>
+
+</section>
+
+<section class="panel">
+
+<div class="charts-grid">
+
+    <!-- GRAFICO 1 -->
+    <section class="panel">
+
+        <div class="panel-header">
+
+            <h3 class="panel-title">
+                Actividad por Hora
+            </h3>
+
+        </div>
+
+        <div class="chart-container">
+
+            <canvas id="graficoAccesos"></canvas>
+
+        </div>
+
+    </section>
+
+
+    <!-- GRAFICO 2 -->
+    <section class="panel">
+
+        <div class="panel-header">
+
+            <h3 class="panel-title">
+                Distribución de Resultados
+            </h3>
+
+        </div>
+
+        <div class="chart-container">
+
+            <canvas id="graficoEstados"></canvas>
+
+        </div>
+
+    </section>
+
+</div>
+
+</section>
+
+<!-- TABLE -->
+<section class="table-panel">
+
+    <div class="table-header">
+
+        <h3>
+            Actividad Reciente
+        </h3>
+
+        <div class="table-actions">
+
+            <input 
+                type="text" 
+                class="search"
+                placeholder="Buscar actividad..."
+            >
+
+            <a
+                href="{% url 'exportar_pdf' %}"
+                class="btn btn-primary"
+            >
+
+                📄 Exportar PDF
+
+            </a>
+
+        </div>
+
+    </div>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Usuario</th>
+                <th>Ubicación</th>
+                <th>Hora</th>
+                <th>Coincidencia IA</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            <tr>
+                <td>Juan Pérez</td>
+                <td>Acceso Norte</td>
+                <td>09:45</td>
+                <td>98.7%</td>
+                <td>
+                    <span class="badge success">Permitido</span>
+                </td>
+            </tr>
+
+            <tr>
+                <td>Desconocido</td>
+                <td>Torre 2</td>
+                <td>09:47</td>
+                <td>43%</td>
+                <td>
+                    <span class="badge danger">Denegado</span>
+                </td>
+            </tr>
+
+            <tr>
+                <td>Carlos Muñoz</td>
+                <td>Patio Central</td>
+                <td>09:52</td>
+                <td>71%</td>
+                <td>
+                    <span class="badge warning">Advertencia</span>
+                </td>
+            </tr>
+
+        </tbody>
+
+    </table>
+
+</section>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+
+
+async function actualizarDashboard(){
+
+    try{
+
+        const response =
+            await fetch('/dashboard/data/');
+
+        const data =
+            await response.json();
+
+
+        /* =====================
+           KPIs
+        ===================== */
+
+        document.getElementById(
+            'kpi-permitidos'
+        ).innerText =
+            data.permitidos;
+
+
+        document.getElementById(
+            'kpi-denegados'
+        ).innerText =
+            data.denegados;
+
+
+        document.getElementById(
+            'kpi-ia'
+        ).innerText =
+            data.promedio + '%';
+
+
+        /* =====================
+           EVENTOS
+        ===================== */
+
+        const feed =
+            document.getElementById(
+                'event-feed'
+            );
+
+        feed.innerHTML = '';
+
+
+        data.eventos.forEach(evento => {
+
+            let clase = '';
+
+            if(evento.resultado === 'DENEGADO'){
+
+                clase = 'red';
+
+            }
+
+            else if(evento.coincidencia < 70){
+
+                clase = 'yellow';
+
+            }
+
+
+            feed.innerHTML += `
+
+                <div class="event ${clase}">
+
+                    <h4>
+                        ${evento.persona}
+                    </h4>
+
+                    <span>
+
+                        ${evento.resultado}
+
+                        -
+
+                        ${evento.coincidencia}%
+
+                        -
+
+                        ${evento.hora}
+
+                    </span>
+
+                </div>
+
+            `;
+
+        });
+
+    }
+
+    catch(error){
+
+        console.error(error);
+
+    }
+
+}
+
+
+/* =====================
+   AUTO REFRESH
+===================== */
+
+setInterval(() => {
+
+    actualizarDashboard();
+
+}, 5000);
+
+
+/* Primera carga */
+
+actualizarDashboard();
+
+const ctx =
+    document.getElementById(
+        'graficoAccesos'
+    );
+
+if(ctx){
+
+    new Chart(ctx, {
+
+        type: 'line',
+
+        data: {
+
+            labels: JSON.parse(
+                '{{ horas|escapejs }}'
+            ),
+
+            datasets: [{
+
+                label: 'Accesos',
+
+                data: JSON.parse(
+                    '{{ totales|escapejs }}'
+                ),
+
+                tension: 0.4,
+
+                fill: true,
+
+                borderWidth: 3,
+
+                pointRadius: 4,
+
+            }]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            plugins: {
+
+                legend: {
+
+                    display: false
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+const ctxEstados =
+    document.getElementById(
+        'graficoEstados'
+    );
+
+if(ctxEstados){
+
+    new Chart(ctxEstados, {
+
+        type: 'doughnut',
+
+        data: {
+
+            labels: [
+
+                'Permitidos',
+
+                'Denegados',
+
+                'Revisión'
+
+            ],
+
+            datasets: [{
+
+                data: JSON.parse(
+                    '{{ estados_chart|escapejs }}'
+                ),
+
+                borderWidth: 0,
+
+            }]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            cutout: '70%',
+
+            plugins: {
+
+                legend: {
+
+                    position: 'left',
+
+                    labels: {
+
+                        padding: 20,
+
+                        boxWidth: 14,
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+</script>
+
+
+{% endblock %}

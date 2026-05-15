@@ -1,0 +1,388 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}
+Validación Biométrica
+{% endblock %}
+
+{% block content %}
+
+        <!-- KPI -->
+        <section>
+            <select
+                class="select"
+                onchange="window.location.href=this.value"
+            >
+
+                <option
+                    value="?periodo=hoy"
+                    {% if periodo == 'hoy' %}
+                        selected
+                    {% endif %}
+                >
+                    Hoy
+                </option>
+
+                <option
+                    value="?periodo=semana"
+                    {% if periodo == 'semana' %}
+                        selected
+                    {% endif %}
+                >
+                    7 días
+                </option>
+
+                <option
+                    value="?periodo=mes"
+                    {% if periodo == 'mes' %}
+                        selected
+                    {% endif %}
+                >
+                    Mes
+                </option>
+
+            </select>
+        </section>
+
+        <section class="kpi-grid">
+
+            <div class="kpi-card2">
+                <h2 class="kpi-red">{{ total_alertas }}</h2>
+                <span>Alertas Activas</span>
+            </div>
+
+            <div class="kpi-card2">
+                <h2 class="kpi-yellow">{{ total_criticas }}</h2>
+                <span>Incidentes Críticos</span>
+            </div>
+
+            <div class="kpi-card2">
+                <h2 class="kpi-blue">{{ total_revision }}</h2>
+                <span>Coincidencias Sospechosas</span>
+            </div>
+
+            <div class="kpi-card2">
+                <h2 class="kpi-green">{{ resueltos }}</h2>
+                <span>Incidentes Resueltos</span>
+            </div>
+
+        </section>
+
+        <!-- ALERTS -->
+        <section class="alerts-panel">
+
+            <div class="panel-header">
+
+                <div class="panel-title">
+                    Alertas Activas
+                </div>
+
+                <div class="alert-count">
+                    {{ total_alertas }} incidentes detectados
+                </div>
+
+            </div>
+
+            <div class="alert-list" id="alert-list">
+
+                {% include 'alertas/partials/alerts.html' %}
+
+            </div>
+
+           
+
+            <div class="pagination" id="pagination-alertas">
+
+                {% include 'alertas/partials/pagination.html' %}
+
+            </div>
+
+
+            
+
+        </section>
+
+        <!-- BOTTOM -->
+        <section class="bottom-grid">
+
+            <!-- DETAIL -->
+            <div class="detail-panel">
+
+                <div class="panel-title">
+                    Detalle del Incidente
+                </div>
+
+                <div class="detail-grid">
+
+                    <div class="detail-item">
+                        <label>Tipo</label>
+                        <strong id="detalle-tipo">
+                            {% if alertas_activas %}
+
+                                {% if alertas_activas.0.resultado == 'DENEGADO' %}
+
+                                    Acceso no autorizado
+
+                                {% else %}
+
+                                    Coincidencia facial baja
+
+                                {% endif %}
+
+                            {% endif %}
+
+                        </strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <label>Estado</label>
+                        <strong id="detalle-estado">Activo</strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <label>Cámara</label>
+                        <strong id="detalle-camara">
+
+                            {% if alertas_activas %}
+
+                                {{ alertas_activas.0.camara }}
+
+                            {% endif %}
+
+                        </strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <label>Coincidencia IA</label>
+                        <strong id="detalle-coincidencia">
+
+                            {% if alertas_activas %}
+
+                                {{ alertas_activas.0.coincidencia }}%
+
+                            {% endif %}
+
+                        </strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <label>Ubicación</label>
+                        <strong id="detalle-ubicacion">
+
+                            {% if alertas_activas %}
+
+                                {{ alertas_activas.0.camara }}
+
+                            {% endif %}
+
+                        </strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <label>Operador</label>
+                        <strong id="detalle-operador">Administrador</strong>
+                    </div>
+
+                </div>
+
+                <div class="evidence">
+
+                    <div class="panel-title">
+                        Evidencia Visual
+                    </div>
+
+                    <div id="detalle-evidencia">
+
+                        {% if alertas_activas %}
+
+                            Última detección:
+                            {{ alertas_activas.0.fecha_hora|time:"H:i" }}
+
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- TIMELINE -->
+            <div class="timeline-panel">
+
+                <div class="panel-title">
+                    Timeline del Evento
+                </div>
+
+                <div class="timeline">
+
+                {% for evento in timeline %}
+
+                <div class="timeline-item">
+
+                    <div class="timeline-dot
+
+                        {% if evento.resultado == 'PERMITIDO' %}
+                            dot-timelinegreen
+
+                        {% elif evento.resultado == 'REVISION' %}
+                            dot-timelineyellow
+
+                        {% else %}
+                            dot-timelinered
+
+                        {% endif %}
+
+                    "></div>
+
+                    <div class="timeline-content">
+
+                        <h4>
+
+                            {% if evento.resultado == 'PERMITIDO' %}
+
+                                Acceso autorizado
+
+                            {% elif evento.resultado == 'REVISION' %}
+
+                                Coincidencia baja IA
+
+                            {% else %}
+
+                                Acceso denegado
+
+                            {% endif %}
+
+                        </h4>
+
+                        <span>
+
+                            {{ evento.fecha_hora|time:"H:i" }}
+
+                            -
+
+                            {{ evento.camara }}
+
+                        </span>
+
+                    </div>
+
+                </div>
+
+                {% endfor %}
+
+                </div>
+
+            </div>
+
+        </section>
+
+<script>
+function cargarAlertas(page){
+
+    const periodo =
+        new URLSearchParams(
+            window.location.search
+        ).get('periodo') || 'hoy';
+
+
+    fetch(
+
+        `/alertas/ajax/?page=${page}&periodo=${periodo}`
+
+    )
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        document.getElementById(
+            'alert-list'
+        ).innerHTML =
+            data.alerts;
+
+
+        document.getElementById(
+            'pagination-alertas'
+        ).innerHTML =
+            data.pagination;
+
+    });
+
+}
+
+
+document.addEventListener(
+
+    'click',
+
+    function(e){
+
+        if(
+
+            e.target.classList.contains(
+                'btn-alert-page'
+            )
+
+        ){
+
+            const page =
+                e.target.dataset.page;
+
+            cargarAlertas(page);
+
+        }
+
+    }
+
+);
+
+function mostrarDetalle(card){
+
+    document.getElementById(
+        'detalle-tipo'
+    ).innerText =
+        card.dataset.tipo;
+
+
+    document.getElementById(
+        'detalle-estado'
+    ).innerText =
+        card.dataset.estado;
+
+
+    document.getElementById(
+        'detalle-camara'
+    ).innerText =
+        card.dataset.camara;
+
+
+    document.getElementById(
+        'detalle-coincidencia'
+    ).innerText =
+        card.dataset.coincidencia;
+
+
+    document.getElementById(
+        'detalle-ubicacion'
+    ).innerText =
+        card.dataset.ubicacion;
+
+
+    document.getElementById(
+        'detalle-operador'
+    ).innerText =
+        card.dataset.operador;
+
+
+    document.getElementById(
+        'detalle-evidencia'
+    ).innerText =
+
+        'Evento detectado a las ' +
+
+        card.dataset.hora;
+
+}
+</script>
+{% endblock %}   

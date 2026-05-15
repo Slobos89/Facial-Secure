@@ -1,0 +1,135 @@
+{% for acceso in accesos %}
+
+                <tr>
+
+                    <td>
+
+                        <div class="user-cell">
+
+                            <div class="user-avatar">
+
+                                {% if acceso.persona %}
+
+                                    {{ acceso.persona.nombre|slice:":1" }}
+                                    {{ acceso.persona.apellido|slice:":1" }}
+
+                                {% else %}
+
+                                    ??
+
+                                {% endif %}
+
+                            </div>
+
+                            <div>
+
+                                <strong>
+
+                                    {% if acceso.persona %}
+
+                                        {{ acceso.persona.nombre }}
+                                        {{ acceso.persona.apellido }}
+
+                                    {% else %}
+
+                                        Desconocido
+
+                                    {% endif %}
+
+                                </strong>
+
+                                <br>
+
+                                <small style="color:#94a3b8;">
+
+                                    {% if acceso.resultado == 'PERMITIDO' %}
+
+                                        Acceso autorizado
+
+                                    {% elif acceso.resultado == 'REVISION' %}
+
+                                        Coincidencia parcial
+
+                                    {% else %}
+
+                                        Usuario no reconocido
+
+                                    {% endif %}
+
+                                </small>
+
+                            </div>
+
+                        </div>
+
+                    </td>
+
+                    <td>
+
+                        {% if acceso.persona %}
+
+                            {{ acceso.persona.rut }}
+
+                        {% else %}
+
+                            ---
+
+                        {% endif %}
+
+                    </td>
+
+                    <td>
+                        {{ acceso.camara }}
+                    </td>
+
+                    <td>
+                        Acceso Principal
+                    </td>
+
+                    <td>
+                        {{ acceso.fecha_hora|time:"H:i" }}
+                    </td>
+
+                    <td>
+                        {{ acceso.coincidencia }}%
+                    </td>
+
+                    <td>
+
+                        {% if acceso.resultado == 'PERMITIDO' %}
+
+                            <span class="badge success">
+                                Permitido
+                            </span>
+
+                        {% elif acceso.resultado == 'REVISION' %}
+
+                            <span class="badge warning">
+                                Revisión
+                            </span>
+
+                        {% else %}
+
+                            <span class="badge danger">
+                                Denegado
+                            </span>
+
+                        {% endif %}
+
+                    </td>
+
+                </tr>
+
+                {% empty %}
+
+                <tr>
+
+                    <td colspan="7">
+
+                        No existen registros biométricos
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}

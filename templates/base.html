@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}facIAL Secure{% endblock %}</title>
+
+    {% load static %}
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="main-layout">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+
+            <div class="logo">
+                <h1>facIAL Secure</h1>
+                <span>Centro Biométrico</span>
+            </div>
+
+            <nav class="nav">
+
+                <a href="{% url 'dashboard' %}" class="nav-link">
+                    <div class="nav-item">🏠 Dashboard</div>
+                </a>
+                <a href="{% url 'usuarios' %}" class="nav-link">
+                    <div class="nav-item">👤 Usuarios</div>
+                </a>
+                <a href="{% url 'validacion_biometrica' %}" class="nav-link">
+                    <div class="nav-item">📷 Validacion Biometrica</div>
+                </a>
+                <a href="{% url 'accesos' %}" class="nav-link">
+                    <div class="nav-item">📋 Accesos</div>
+                </a>
+                <a href="{% url 'alertas' %}" class="nav-link">
+                    <div class="nav-item">🚨 Alertas</div>
+                </a>
+
+            </nav>
+
+        </aside>
+
+        <!-- MAIN -->
+        <main class="content">
+
+            <!-- TOPBAR -->
+            <div class="topbar">
+
+                <div class="system-status">
+
+                    <div class="status">
+                        <span class="status-dot"></span>
+                        Sistema Online
+                    </div>
+
+                    <div class="status">
+                        <span class="status-dot"></span>
+                        IA Operativa
+                    </div>
+
+                    <div class="status">
+                        <span class="status-dot"></span>
+                        APIs Activas
+                    </div>
+
+                </div>
+
+                <div class="user">
+
+                    <div>
+                        <strong>Administrador</strong><br>
+                        <small style="color:#94a3b8;">
+                            Supervisor General
+                        </small>
+                    </div>
+
+                    <div class="user-avatar">
+                        A
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- CONTENT -->
+            <div class="content-body">
+
+                {% block content %}
+                {% endblock %}
+
+            </div>
+
+        </main>
+
+    </div>
+
+</div>
+
+</body>
+</html>

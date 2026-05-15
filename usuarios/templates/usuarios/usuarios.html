@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Usuarios
+{% endblock %}
+
+{% block content %}
+
+        <!-- KPI -->
+        <section class="kpi-grid">
+
+            <div class="kpi-card2">
+                <h2 class="kpi-blue">324</h2>
+                <span>Usuarios Registrados</span>
+            </div>
+
+            <div class="kpi-card2">
+                <h2 class="kpi-green">298</h2>
+                <span>Usuarios Activos</span>
+            </div>
+
+            <div class="kpi-card2">
+                <h2 class="kpi-red">12</h2>
+                <span>Usuarios Bloqueados</span>
+            </div>
+
+            <div class="kpi-card2">
+                <h2 class="kpi-yellow">310</h2>
+                <span>Biometrías Registradas</span>
+            </div>
+
+        </section>
+
+        <!-- USERS TABLE -->
+        <section class="users-panel">
+
+            <div class="panel-header">
+
+                <div class="panel-title">
+                    Usuarios del Sistema
+                </div>
+
+                <div class="actions">
+
+                    <input
+                        type="text"
+                        class="input"
+                        placeholder="Buscar usuario..."
+                    >
+                    <a href="{% url 'crear_persona' %}" class="btn btn-add">+ Nuevo Enrolamiento</a> 
+                            
+
+                </div>
+
+            </div>
+
+            <table>
+
+                <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>RUT</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Registro</th>
+                </tr>
+                </thead>
+
+                <tbody>
+
+                {% for persona in personas %}
+
+                <tr>
+
+                    <td>
+                        {{ persona.nombre }} {{ persona.apellido }}
+                    </td>
+
+                    <td>
+                        {{ persona.rut }}
+                    </td>
+
+                    <td>
+                        {{ persona.get_tipo_persona_display }}
+                    </td>
+
+                    <td>
+                        {{ persona.get_estado_display }}
+                    </td>
+
+                    <td>
+                        {{ persona.fecha_registro }}
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </section>
+
+        <!-- BOTTOM -->
+        <section class="bottom-grid">
+
+            <!-- PROFILE -->
+            <div class="profile-panel">
+
+                <div class="panel-title">
+                    Perfil del Usuario
+                </div>
+
+                <div class="profile-header">
+
+                    <div class="profile-avatar">
+                        JP
+                    </div>
+
+                    <div class="profile-info">
+
+                        <h2>Juan Pérez</h2>
+
+                        <p>
+                            Guardia de Seguridad • Activo
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <div class="profile-grid">
+
+                    <div class="profile-item">
+                        <label>ID</label>
+                        <strong>12.345.678-9</strong>
+                    </div>
+
+                    <div class="profile-item">
+                        <label>Rol</label>
+                        <strong>Guardia</strong>
+                    </div>
+
+                    <div class="profile-item">
+                        <label>Último acceso</label>
+                        <strong>09:45</strong>
+                    </div>
+
+                    <div class="profile-item">
+                        <label>Precisión IA</label>
+                        <strong>98.7%</strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- BIOMETRIC -->
+            <div class="biometric-panel">
+
+                <div class="panel-title">
+                    Biometría Facial
+                </div>
+
+                <div class="face-preview">
+                    Preview biométrico facial
+                </div>
+
+                <div class="bio-grid">
+
+                    <div class="bio-item">
+                        <label>Estado</label>
+                        <strong>Registrada</strong>
+                    </div>
+
+                    <div class="bio-item">
+                        <label>Precisión IA</label>
+                        <strong>98.7%</strong>
+                    </div>
+
+                    <div class="bio-item">
+                        <label>Calidad facial</label>
+                        <strong>Alta</strong>
+                    </div>
+
+                    <div class="bio-item">
+                        <label>Última actualización</label>
+                        <strong>Hoy</strong>
+                    </div>
+
+                </div>
+
+                <div class="bio-buttons">
+
+                    <button class="btn btn-primary">
+                        Actualizar biometría
+                    </button>
+
+                    <button class="btn btn-secondary">
+                        Reentrenar IA
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+{% endblock %}
+
+       

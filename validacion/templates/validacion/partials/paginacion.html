@@ -1,0 +1,35 @@
+{% if accesos.has_previous %}
+
+<button
+    data-page="{{ accesos.previous_page_number }}"
+    class="pagination-btn btn-page"
+>
+
+    ← Anterior
+
+</button>
+
+{% endif %}
+
+
+<span class="pagination-info">
+
+    Página {{ accesos.number }}
+    de
+    {{ accesos.paginator.num_pages }}
+
+</span>
+
+
+{% if accesos.has_next %}
+
+<button
+    data-page="{{ accesos.next_page_number }}"
+    class="pagination-btn btn-page"
+>
+
+    Siguiente →
+
+</button>
+
+{% endif %}

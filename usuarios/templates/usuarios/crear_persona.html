@@ -1,0 +1,416 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="content-body">
+
+    <!-- HEADER -->
+    <section class="panel">
+
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">
+                    Nuevo Enrolamiento Biométrico
+                </h2>
+
+                <span class="panel-subtitle">
+                    Registro de internos, gendarmes y visitantes
+                </span>
+            </div>
+        </div>
+
+    </section>
+
+    <form method="POST" enctype="multipart/form-data">
+
+        {% csrf_token %}
+
+        <div class="bottom-grid">
+
+            <!-- DATOS -->
+            <section class="panel">
+
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        Información Personal
+                    </h3>
+                </div>
+
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        {{ form.nombre }}
+                    </div>
+
+                    <div class="form-group">
+                        <label>Apellido</label>
+                        {{ form.apellido }}
+                    </div>
+
+                    <div class="form-group">
+                        <label>RUT</label>
+                        {{ form.rut }}
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo Persona</label>
+                        {{ form.tipo_persona }}
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estado</label>
+                        {{ form.estado }}
+                    </div>
+
+                </div>
+
+            </section>
+
+            <!-- BIOMETRIA -->
+            <section class="panel">
+
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        Biometría
+                    </h3>
+                </div>
+
+                <div class="camera-container">
+
+                    <video id="video" autoplay playsinline></video>
+
+                    <canvas id="canvas"></canvas>
+
+                </div>
+
+                <div class="camera-buttons">
+
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        onclick="iniciarCamara()"
+                    >
+                        Iniciar Cámara
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn btn-success"
+                        id="capturar-btn"
+                    >
+                        Iniciar Captura IA
+                    </button>
+
+                </div>
+
+                <input type="hidden" name="foto_base64" id="foto_base64">
+                <input
+                    type="hidden"
+                    name="capturas"
+                    id="capturas"
+                >
+
+                <div class="capture-progress">
+
+                    <div class="fingerprint-panel">
+
+                        <div class="fingerprint-scanner">
+
+                            <div
+                                class="fingerprint-icon"
+                                id="fingerprint-icon"
+                            >
+
+                                🖐️
+
+                            </div>
+
+                        </div>
+
+                        <div class="fingerprint-info">
+
+                            <h4>
+                                Escáner Dactilar
+                            </h4>
+
+                            <p id="fingerprint-status">
+
+                                Esperando escaneo...
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div class="progress-bar">
+                        <div
+                            id="progress-fill"
+                            class="progress-fill"
+                        ></div>
+                    </div>
+
+                    <p id="capture-status">
+                        Esperando captura...
+                    </p>
+
+                </div>
+
+                <div class="bio-grid">
+
+                    <div class="bio-item">
+
+                        <label>
+                            Reconocimiento Facial
+                        </label>
+
+                        <strong id="estado-facial">
+
+                            No enrolado
+
+                        </strong>
+
+                    </div>
+
+                    <div class="bio-item">
+
+                        <label>
+                            Huella Dactilar
+                        </label>
+
+                        <strong id="estado-huella">
+
+                            No enrolada
+
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+        <!-- BOTONES -->
+        <section class="panel">
+
+            <div class="buttons">
+
+                <button type="submit" class="btn btn-primary" id="guardar-btn" disabled>
+                    Guardar Enrolamiento
+                </button>
+
+                <a href="{% url 'usuarios' %}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+
+            </div>
+
+        </section>
+
+    </form>
+
+</div>
+
+
+<script>
+
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+
+const capturarBtn =
+    document.getElementById('capturar-btn');
+
+const capturasInput =
+    document.getElementById('capturas');
+
+const progressFill =
+    document.getElementById('progress-fill');
+
+const captureStatus =
+    document.getElementById('capture-status');
+
+const guardarBtn =
+    document.getElementById('guardar-btn');
+
+let capturas = [];
+
+let capturando = false;
+
+
+/* =========================
+   INICIAR CÁMARA
+========================= */
+
+async function iniciarCamara(){
+
+    try{
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video:true,
+            audio:false
+        });
+
+        video.srcObject = stream;
+
+    }catch(error){
+
+        alert('No se pudo acceder a la cámara');
+
+        console.error(error);
+    }
+
+}
+
+
+/* =========================
+   CAPTURA IA
+========================= */
+
+capturarBtn.addEventListener('click', () => {
+
+    if(capturando){
+        return;
+    }
+
+    capturas = [];
+
+    capturando = true;
+
+    progressFill.style.width = '0%';
+
+    captureStatus.innerText =
+        'Capturando dataset facial...';
+
+    iniciarCapturaAutomatica();
+
+});
+
+
+/* =========================
+   CAPTURA AUTOMÁTICA
+========================= */
+
+function iniciarCapturaAutomatica(){
+
+    let contador = 0;
+
+    const intervalo = setInterval(() => {
+
+        const context =
+            canvas.getContext('2d');
+
+        canvas.width = 320;
+
+        canvas.height = 240;
+
+        context.drawImage(
+            video,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        const imagen =
+            canvas.toDataURL('image/jpeg');
+
+        capturas.push(imagen);
+
+        contador++;
+
+        const porcentaje =
+            (contador / 10) * 100;
+
+        progressFill.style.width =
+            porcentaje + '%';
+
+        captureStatus.innerText =
+            `Captura ${contador}/10`;
+
+        if(contador >= 10){
+
+            clearInterval(intervalo);
+
+            capturando = false;
+
+            capturasInput.value =
+                JSON.stringify(capturas);
+
+            captureStatus.innerText =
+                'Dataset facial completado';
+
+            document.getElementById(
+                'estado-facial'
+            ).innerText =
+                'Enrolado';
+
+
+            iniciarEscaneoHuella();
+
+
+            setTimeout(() => {
+
+                completarHuella();
+
+                guardarBtn.disabled = false;
+
+            }, 2500);
+
+        }
+
+    }, 500);
+
+}
+
+function iniciarEscaneoHuella(){
+
+    const icon = document.getElementById(
+        'fingerprint-icon'
+    );
+
+    const status = document.getElementById(
+        'fingerprint-status'
+    );
+
+    icon.classList.add(
+        'scanning'
+    );
+
+    status.innerText =
+        'Escaneando huella...';
+
+}
+
+function completarHuella(){
+
+    const icon = document.getElementById(
+        'fingerprint-icon'
+    );
+
+    const status = document.getElementById(
+        'fingerprint-status'
+    );
+
+    icon.classList.remove(
+        'scanning'
+    );
+
+    icon.classList.add(
+        'valid'
+    );
+
+    status.innerText =
+        'Huella enrolada';
+
+    document.getElementById(
+        'estado-huella'
+    ).innerText =
+        'Enrolada';
+
+}
+</script>
+
+{% endblock %}

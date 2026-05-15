@@ -1,0 +1,70 @@
+{% for acceso in accesos %}
+
+<tr>
+
+    <td>
+
+        {% if acceso.persona %}
+
+            {{ acceso.persona.nombre }}
+            {{ acceso.persona.apellido }}
+
+        {% else %}
+
+            Desconocido
+
+        {% endif %}
+
+    </td>
+
+    <td>
+        {{ acceso.fecha_hora|time:"H:i:s" }}
+    </td>
+
+    <td>
+        {{ acceso.camara }}
+    </td>
+
+    <td>
+        {{ acceso.coincidencia|floatformat:2 }}%
+    </td>
+
+    <td>
+
+        {% if acceso.resultado == 'PERMITIDO' %}
+
+            <span class="badge success">
+                Permitido
+            </span>
+
+        {% elif acceso.resultado == 'REVISION' %}
+
+            <span class="badge warning">
+                Revisión
+            </span>
+
+        {% else %}
+
+            <span class="badge danger">
+                Denegado
+            </span>
+
+        {% endif %}
+
+    </td>
+
+</tr>
+
+{% empty %}
+
+<tr>
+
+    <td colspan="5">
+
+        No existen validaciones registradas
+
+    </td>
+
+</tr>
+
+{% endfor %}

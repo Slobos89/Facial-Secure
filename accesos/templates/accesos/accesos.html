@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}
+Validación Biométrica
+{% endblock %}
+
+{% block content %}
+
+        <!-- FILTERS -->
+        <section class="filters-panel">
+
+            <form method="GET">
+
+                <input 
+                    type="text"
+                    class="input"
+                    name="buscar"
+                    placeholder="Buscar usuario..."
+                    value="{{ request.GET.buscar }}"
+                >
+
+                <button class="btn btn-pdf">
+
+                    Buscar
+
+                </button>
+                <select
+                    class="select"
+                    onchange="window.location.href=this.value"
+                >
+                    
+
+                    <option
+                        value="?periodo=hoy"
+                        {% if request.GET.periodo == 'hoy' %}
+                            selected
+                        {% endif %}
+                    >
+                        Hoy
+                    </option>
+
+                    <option
+                        value="?periodo=semana"
+                        {% if request.GET.periodo == 'semana' %}
+                            selected
+                        {% endif %}
+                    >
+                        7 días
+                    </option>
+
+                    <option
+                        value="?periodo=mes"
+                        {% if request.GET.periodo == 'mes' %}
+                            selected
+                        {% endif %}
+                    >
+                        Mes
+                    </option>
+
+                </select>
+
+            </form>
+
+        </section>
+
+        <!-- TABLE -->
+        <section class="table-panel">
+
+            <div class="table-header">
+
+                <div>
+                    <div class="table-title">
+                        Registros de Acceso
+                    </div>
+
+                    <div class="table-info">
+                        {{ total }} registros encontrados
+                    </div>
+                </div>
+
+            </div>
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>ID</th>
+                        <th>Cámara</th>
+                        <th>Ubicación</th>
+                        <th>Hora</th>
+                        <th>Coincidencia IA</th>
+                        <th>Resultado</th>
+                    </tr>
+                </thead>
+
+                <tbody id="tabla-accesos">
+
+                    {% include 'accesos/partials/tabla.html' %}
+
+                </tbody>
+
+            </table>
+            <div class="pagination" id="pagination-accesos">
+
+                {% include 'accesos/partials/paginacion.html' %}
+
+            </div>
+
+        </section>
+
+        <!-- BOTTOM -->
+        <section class="bottom-grid">
+
+            <!-- STATS -->
+            <div class="stats-panel">
+
+                <div class="panel-title">
+                    Estadísticas Rápidas
+                </div>
+
+                <div class="stats-grid">
+
+                    <div class="stat-card">
+                        <h2>{{ total }}</h2>
+                        <span>Accesos</span>
+                    </div>
+
+                    <div class="stat-card">
+                        <h2>{{ denegados }}</h2>
+                        <span>Denegados</span>
+                    </div>
+
+                    <div class="stat-card">
+                        <h2>{{ permitidos }}</h2>
+                        <span>Permitidos</span>
+                    </div>
+
+                    <div class="stat-card">
+                        <h2>{{ revision }}</h2>
+                        <span>Revisión</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- ACTIVITY -->
+            <div class="activity-panel">
+
+                <div class="panel-title">
+                    Actividad Reciente
+                </div>
+
+                <div class="timeline">
+
+                {% for acceso in accesos|slice:":5" %}
+
+                <div class="timeline-item">
+
+                    <div class="timeline-dot
+
+                        {% if acceso.resultado == 'PERMITIDO' %}
+                            green
+                        {% elif acceso.resultado == 'REVISION' %}
+                            yellow
+                        {% else %}
+                            red
+                        {% endif %}
+
+                    "></div>
+
+                    <div class="timeline-content">
+
+                        <h4>
+
+                            {% if acceso.resultado == 'PERMITIDO' %}
+
+                                Acceso autorizado
+
+                            {% elif acceso.resultado == 'REVISION' %}
+
+                                Revisión requerida
+
+                            {% else %}
+
+                                Intento no autorizado
+
+                            {% endif %}
+
+                        </h4>
+
+                        <span>
+
+                            {% if acceso.persona %}
+
+                                {{ acceso.persona.nombre }}
+                                {{ acceso.persona.apellido }}
+
+                            {% else %}
+
+                                Desconocido
+
+                            {% endif %}
+
+                            -
+
+                            {{ acceso.camara }}
+
+                            -
+
+                            {{ acceso.fecha_hora|time:"H:i" }}
+
+                        </span>
+
+                    </div>
+
+                </div>
+
+                {% endfor %}
+
+                </div>
+
+            </div>
+
+        </section>
+
+<script>
+
+function cargarPagina(page){
+
+    fetch(
+
+        `/accesos/ajax/?page=${page}`
+
+    )
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        document.getElementById(
+            'tabla-accesos'
+        ).innerHTML =
+            data.tabla;
+
+
+        document.getElementById(
+            'pagination-accesos'
+        ).innerHTML =
+            data.paginacion;
+
+    });
+
+}
+
+document.addEventListener(
+
+    'click',
+
+    function(e){
+
+        if(
+
+            e.target.classList.contains(
+                'btn-page'
+            )
+
+        ){
+
+            const page =
+                e.target.dataset.page;
+
+            cargarPagina(page);
+
+        }
+
+    }
+
+);
+</script>
+
+{% endblock %}      
