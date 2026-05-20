@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'dashboard',
     'usuarios',
     'validacion',
+    'monitoreo',
 ]
 
 MIDDLEWARE = [

@@ -10,6 +10,7 @@ urlpatterns = [
     path('validacion/',include('validacion.urls')),
     path('accesos/',include('accesos.urls')),
     path('alertas/',include('alertas.urls')),
+    path('monitoreo/',include('monitoreo.urls')),
 ]
 
 if settings.DEBUG:

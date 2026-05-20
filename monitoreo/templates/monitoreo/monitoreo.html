@@ -1,0 +1,578 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}
+Monitoreo Biométrico
+{% endblock %}
+
+{% block content %}
+
+<div class="content-body">
+
+    <!-- =========================
+         MONITOREO LIVE
+    ========================== -->
+
+    <section class="scanner-panel panel">
+
+        <div class="panel-header">
+
+            <div class="panel-title">
+
+                Monitoreo Biométrico 24/7
+
+            </div>
+
+            <div class="live">
+
+                🟢 LIVE
+
+            </div>
+
+        </div>
+
+        <div class="camera-container">
+
+            <video
+                id="video"
+                autoplay
+                playsinline
+                muted
+            ></video>
+
+            <canvas id="canvas-monitor"></canvas>
+
+        </div>
+    </section>
+
+
+    <!-- =========================
+         DETECCIONES
+    ========================== -->
+
+    <section class="detections-panel panel">
+
+        <div
+            class="detections-list"
+            id="detections-list"
+        >
+        </div>
+
+    </section>
+
+</div>
+
+<script>
+
+const deteccionesRecientes = {};
+
+const video =
+    document.getElementById(
+        'video'
+    );
+
+const canvas =
+    document.getElementById(
+        'canvas-monitor'
+    );
+
+const ctx =
+    canvas.getContext('2d');
+
+const detectionsList =
+    document.getElementById(
+        'detections-list'
+    );
+
+
+/* =========================
+   INICIAR CÁMARA
+========================= */
+
+navigator.mediaDevices.getUserMedia({
+
+    video: true
+
+})
+
+.then(stream => {
+
+    video.srcObject = stream;
+
+    const track =
+        stream.getVideoTracks()[0];
+
+    console.log(
+        track.getSettings()
+    );
+
+})
+
+.catch(error => {
+
+    console.error(
+        'Error cámara:',
+        error
+    );
+
+});
+
+
+/* =========================
+   AJUSTAR CANVAS
+========================= */
+
+video.addEventListener(
+
+    'loadedmetadata',
+
+    () => {
+
+        ajustarCanvas();
+
+        iniciarMonitoreo();
+
+    }
+
+);
+
+
+
+function ajustarCanvas(){
+
+    canvas.width = 640;
+    canvas.height = 480;
+
+}
+
+
+/* =========================
+   LOOP CONTROLADO
+========================= */
+
+let monitoreoActivo = false;
+
+
+async function iniciarMonitoreo(){
+
+    if(monitoreoActivo){
+        return;
+    }
+
+    monitoreoActivo = true;
+
+
+    while(monitoreoActivo){
+
+        await detectarFrame();
+
+        await esperar(1500);
+
+    }
+
+}
+
+
+function esperar(ms){
+
+    return new Promise(resolve => {
+
+        setTimeout(resolve, ms);
+
+    });
+
+}
+
+
+/* =========================
+   DETECCIÓN
+========================= */
+
+async function detectarFrame(){
+
+    if(
+        document.hidden ||
+        video.readyState < 2
+    ){
+        return;
+    }
+
+
+    /* LIMPIAR OVERLAY */
+
+    ctx.clearRect(
+
+        0,
+        0,
+
+        canvas.width,
+        canvas.height
+
+    );
+
+
+    /* =========================
+       FRAME REDUCIDO
+    ========================== */
+
+    const tempCanvas =
+        document.createElement(
+            'canvas'
+        );
+
+    const tempCtx =
+        tempCanvas.getContext(
+            '2d'
+        );
+
+
+    tempCanvas.width = 320;
+    tempCanvas.height = 240;
+
+
+    tempCtx.drawImage(
+
+        video,
+
+        0,
+        0,
+
+        320,
+        240
+
+    );
+
+
+    const imagen = tempCanvas.toDataURL(
+
+        'image/jpeg',
+
+        0.5
+
+    );
+
+
+    try{
+
+        const response = await fetch(
+
+            '/monitoreo/detectar/',
+
+            {
+
+                method: 'POST',
+
+                headers: {
+
+                    'Content-Type':
+                    'application/x-www-form-urlencoded'
+
+                },
+
+                body:
+
+                    'foto_base64=' +
+
+                    encodeURIComponent(imagen)
+
+            }
+
+        );
+
+
+        const data =
+            await response.json();
+
+
+        /* =========================
+           ESCALADO REAL
+        ========================== */
+
+        const scaleX =
+            canvas.width / 320;
+
+        const scaleY =
+            canvas.height / 240;
+
+
+        data.rostros.forEach(rostro => {
+
+            const x =
+                rostro.x * scaleX;
+
+            const y =
+                rostro.y * scaleY;
+
+            const w =
+                rostro.w * scaleX;
+
+            const h =
+                rostro.h * scaleY;
+
+
+            /* =========================
+               COLOR
+            ========================== */
+
+            let color = '#22c55e';
+
+            let claseCard =
+                'card-success';
+
+
+            if(
+                rostro.estado ===
+                'REVISION'
+            ){
+
+                color = '#eab308';
+
+                claseCard =
+                    'card-warning';
+
+            }
+
+            else if(
+                rostro.estado ===
+                'DENEGADO'
+            ){
+
+                color = '#ef4444';
+
+                claseCard =
+                    'card-danger';
+
+            }
+
+
+            /* =========================
+               RECTÁNGULO
+            ========================== */
+
+            ctx.strokeStyle = color;
+
+            ctx.lineWidth = 4;
+
+            ctx.strokeRect(
+                rostro.x,
+                rostro.y,
+                rostro.w,
+                rostro.h
+            );
+
+
+            /* TEXTO */
+
+            ctx.fillStyle = color;
+
+            ctx.font =
+                '18px Arial';
+
+            ctx.fillText(
+                rostro.estado,
+                x,
+                y - 10
+            );
+
+
+            /* =========================
+               CONTROL DUPLICADOS
+            ========================== */
+
+            const identificador =
+                rostro.id;
+
+            const ahora =
+                Date.now();
+
+
+            if(
+                deteccionesRecientes[
+                    identificador
+                ]
+            ){
+
+                const diferencia =
+
+                    ahora -
+
+                    deteccionesRecientes[
+                        identificador
+                    ];
+
+
+                if(diferencia < 10000){
+
+                    return;
+
+                }
+
+            }
+
+
+            deteccionesRecientes[
+                identificador
+            ] = ahora;
+
+
+            /* =========================
+               SNAPSHOT
+            ========================== */
+
+            const faceCanvas =
+                document.createElement(
+                    'canvas'
+                );
+
+            const faceCtx =
+                faceCanvas.getContext(
+                    '2d'
+                );
+
+
+            faceCanvas.width = 100;
+            faceCanvas.height = 100;
+
+
+            faceCtx.drawImage(
+
+                video,
+
+                x,
+                y,
+
+                w,
+                h,
+
+                0,
+                0,
+
+                100,
+                100
+
+            );
+
+
+            const snapshot =
+                faceCanvas.toDataURL(
+
+                    'image/jpeg',
+
+                    0.7
+
+                );
+
+
+            /* =========================
+               CARD
+            ========================== */
+
+            const card = `
+
+            <div class="detection-card ${claseCard}">
+
+                <div class="detection-photo">
+
+                    <img
+                        src="${snapshot}"
+                        alt="rostro"
+                    >
+
+                </div>
+
+                <div class="detection-data">
+
+                    <div class="detection-header">
+
+                        <h3>
+                            ${rostro.nombre}
+                        </h3>
+
+                        <span class="status-badge ${claseCard}">
+                            ${rostro.estado}
+                        </span>
+
+                    </div>
+
+                    <div class="detection-details">
+
+                        <p>
+                            Coincidencia:
+                            ${rostro.coincidencia}%
+                        </p>
+
+                        <p>
+                            Cámara Principal
+                        </p>
+
+                        <p>
+                            ${new Date().toLocaleTimeString()}
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            `;
+
+
+            detectionsList.insertAdjacentHTML(
+
+                'afterbegin',
+
+                card
+
+            );
+
+
+            const cards =
+
+                detectionsList.querySelectorAll(
+                    '.detection-card'
+                );
+
+
+            if(cards.length > 15){
+
+                cards[
+                    cards.length - 1
+                ].remove();
+
+            }
+
+        });
+
+    }
+
+    catch(error){
+
+        console.error(error);
+
+    }
+
+}
+
+
+/* =========================
+   DETENER LOOP
+========================= */
+
+window.addEventListener(
+
+    'beforeunload',
+
+    () => {
+
+        monitoreoActivo = false;
+
+    }
+
+);
+
+
+</script>
+
+{% endblock %}
