@@ -34,8 +34,32 @@ def detectar_y_recortar_rostro(image_pil):
 
     x, y, w, h = faces[0]
 
-    rostro = image_pil.crop(
-        (x, y, x + w, y + h)
+    padding_x = int(w * 0.25)
+
+    padding_y = int(h * 0.35)
+
+
+    x1 = max(0, x - padding_x)
+
+    y1 = max(0, y - padding_y)
+
+    x2 = min(
+        image_pil.width,
+        x + w + padding_x
     )
+
+    y2 = min(
+        image_pil.height,
+        y + h + padding_y
+    )
+
+
+    rostro = image_pil.crop(
+
+        (x1, y1, x2, y2)
+
+    )
+
+    rostro = rostro.resize((300,300))
 
     return rostro

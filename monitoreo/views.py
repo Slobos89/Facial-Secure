@@ -4,7 +4,7 @@ import numpy as np
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from usuarios.models import Acceso
+from usuarios.models import Acceso, Persona
 
 
 modelo = cv2.face.LBPHFaceRecognizer_create()
@@ -104,14 +104,34 @@ def detectar_rostros(request):
 
         for(x,y,w,h) in faces:
 
+            padding_x = int(w * 0.25)
+
+            padding_y = int(h * 0.35)
+
+
+            x1 = max(0, x - padding_x)
+
+            y1 = max(0, y - padding_y)
+
+            x2 = min(
+                gray.shape[1],
+                x + w + padding_x
+            )
+
+            y2 = min(
+                gray.shape[0],
+                y + h + padding_y
+            )
+
+
             rostro = gray[
-                y:y+h,
-                x:x+w
+                y1:y2,
+                x1:x2
             ]
 
             rostro = cv2.resize(
                 rostro,
-                (200,200)
+                (300,300)
             )
 
 
@@ -132,18 +152,12 @@ def detectar_rostros(request):
 
             coincidencia = max(
 
-                0,
+                1,
 
-                min(
+                int(
 
-                    100,
-
-                    int(
-
-                        100 * (
-                            1 - (confianza / 120)
-                        )
-
+                    100 - (
+                        confianza / 2
                     )
 
                 )
@@ -158,18 +172,21 @@ def detectar_rostros(request):
 
             try:
 
-                acceso = Acceso.objects.get(
-                    persona_id=usuario_id
+                persona = Persona.objects.get(
+                    id=usuario_id
                 )
 
-                nombre = acceso.persona.nombre
+                nombre = (
+                    f'{persona.nombre} '
+                    f'{persona.apellido}'
+                )
 
 
-                if coincidencia >= 80:
+                if coincidencia >= 55:
 
                     estado = 'PERMITIDO'
 
-                elif coincidencia >= 50:
+                elif coincidencia >= 40:
 
                     estado = 'REVISION'
 
@@ -177,10 +194,19 @@ def detectar_rostros(request):
 
                     estado = 'DENEGADO'
 
-            except:
 
-                pass
+                Acceso.objects.create(
 
+                    persona=persona,
+                    coincidencia=coincidencia
+
+                )
+
+            except Persona.DoesNotExist:
+
+                nombre = 'Desconocido'
+
+                estado = 'DENEGADO'
 
             resultados.append({
 

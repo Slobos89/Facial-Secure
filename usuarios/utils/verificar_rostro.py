@@ -52,18 +52,49 @@ def reconocer_rostro(imagen_path):
 
     for (x, y, w, h) in rostros:
 
-        rostro = gray[y:y+h, x:x+w]
+        padding_x = int(w * 0.25)
+
+        padding_y = int(h * 0.35)
+
+
+        x1 = max(0, x - padding_x)
+
+        y1 = max(0, y - padding_y)
+
+        x2 = min(
+            gray.shape[1],
+            x + w + padding_x
+        )
+
+        y2 = min(
+            gray.shape[0],
+            y + h + padding_y
+        )
+
+
+        rostro = gray[
+            y1:y2,
+            x1:x2
+        ]
+
 
         rostro = cv2.resize(
             rostro,
-            (300, 300)
+            (300,300)
         )
 
         label, confianza = recognizer.predict(
             rostro
         )
 
-        if confianza < 80:
+        print(
+            'LABEL:',
+            label,
+            'CONF:',
+            confianza
+        )
+
+        if confianza < 160:
 
             try:
 
@@ -72,31 +103,17 @@ def reconocer_rostro(imagen_path):
                 )
 
                 porcentaje = max(
-                    0,
-                    min(
-                        100,
-                        round(
 
-                            max(
+                    1,
 
-                                0,
+                    int(
 
-                                min(
-
-                                    100,
-
-                                    100 * (
-                                        1 - (confianza / 120)
-                                    )
-
-                                )
-
-                            ),
-
-                            2
-
+                        100 - (
+                            confianza / 2
                         )
+
                     )
+
                 )
 
                 return {

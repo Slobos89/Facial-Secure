@@ -293,6 +293,30 @@ capturarBtn.addEventListener('click', () => {
    CAPTURA AUTOMÁTICA
 ========================= */
 
+const instrucciones = [
+
+    'Mire al frente',
+
+    'Mire levemente a la izquierda',
+
+    'Mire levemente a la derecha',
+
+    'Mire hacia arriba',
+
+    'Mire hacia abajo',
+
+    'Acérquese un poco',
+
+    'Aléjese un poco',
+
+    'Mantenga expresión neutra',
+
+    'Sonría levemente',
+
+    'Parpadee naturalmente'
+
+];
+
 function iniciarCapturaAutomatica(){
 
     let contador = 0;
@@ -322,15 +346,16 @@ function iniciarCapturaAutomatica(){
         contador++;
 
         const porcentaje =
-            (contador / 30) * 100;
+            (contador / 10) * 100;
 
         progressFill.style.width =
             porcentaje + '%';
 
         captureStatus.innerText =
-            `Captura ${contador}/10`;
+            `Captura ${contador}/10 - ` +
+            instrucciones[contador - 1];
 
-        if(contador >= 30){
+        if(contador >= 10){
 
             clearInterval(intervalo);
 
@@ -361,7 +386,7 @@ function iniciarCapturaAutomatica(){
 
         }
 
-    }, 1000);
+    }, 2000);
 
 }
 
