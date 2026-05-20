@@ -302,9 +302,9 @@ function iniciarCapturaAutomatica(){
         const context =
             canvas.getContext('2d');
 
-        canvas.width = 320;
+        canvas.width = 640;
 
-        canvas.height = 240;
+        canvas.height = 480;
 
         context.drawImage(
             video,
@@ -322,7 +322,7 @@ function iniciarCapturaAutomatica(){
         contador++;
 
         const porcentaje =
-            (contador / 10) * 100;
+            (contador / 30) * 100;
 
         progressFill.style.width =
             porcentaje + '%';
@@ -330,7 +330,7 @@ function iniciarCapturaAutomatica(){
         captureStatus.innerText =
             `Captura ${contador}/10`;
 
-        if(contador >= 10){
+        if(contador >= 30){
 
             clearInterval(intervalo);
 
@@ -361,7 +361,7 @@ function iniciarCapturaAutomatica(){
 
         }
 
-    }, 500);
+    }, 1000);
 
 }
 

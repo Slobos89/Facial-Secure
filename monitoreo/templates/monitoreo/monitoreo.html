@@ -65,7 +65,16 @@ Monitoreo Biométrico
 
 <script>
 
+/* =========================
+   VARIABLES GLOBALES
+========================= */
+
 const deteccionesRecientes = {};
+
+let estadoActual = 'ESCANEANDO';
+
+let colorActual = '#22c55e';
+
 
 const video =
     document.getElementById(
@@ -87,12 +96,37 @@ const detectionsList =
 
 
 /* =========================
+   FACE DETECTOR API
+========================= */
+
+let detector = null;
+
+
+if('FaceDetector' in window){
+
+    detector = new FaceDetector({
+
+        fastMode: true,
+
+        maxDetectedFaces: 10
+
+    });
+
+}
+
+
+/* =========================
    INICIAR CÁMARA
 ========================= */
 
 navigator.mediaDevices.getUserMedia({
 
-    video: true
+    video: {
+
+        width: 640,
+        height: 480
+
+    }
 
 })
 
@@ -100,11 +134,12 @@ navigator.mediaDevices.getUserMedia({
 
     video.srcObject = stream;
 
-    const track =
-        stream.getVideoTracks()[0];
-
     console.log(
-        track.getSettings()
+
+        stream
+        .getVideoTracks()[0]
+        .getSettings()
+
     );
 
 })
@@ -112,15 +147,18 @@ navigator.mediaDevices.getUserMedia({
 .catch(error => {
 
     console.error(
+
         'Error cámara:',
+
         error
+
     );
 
 });
 
 
 /* =========================
-   AJUSTAR CANVAS
+   VIDEO LISTO
 ========================= */
 
 video.addEventListener(
@@ -131,6 +169,8 @@ video.addEventListener(
 
         ajustarCanvas();
 
+        detectarTiempoReal();
+
         iniciarMonitoreo();
 
     }
@@ -138,17 +178,131 @@ video.addEventListener(
 );
 
 
+/* =========================
+   AJUSTAR CANVAS
+========================= */
 
 function ajustarCanvas(){
 
     canvas.width = 640;
+
     canvas.height = 480;
 
 }
 
 
 /* =========================
-   LOOP CONTROLADO
+   TRACKING TIEMPO REAL
+========================= */
+
+async function detectarTiempoReal(){
+
+    if(video.readyState < 2){
+
+        requestAnimationFrame(
+            detectarTiempoReal
+        );
+
+        return;
+
+    }
+
+
+    try{
+
+        if(!detector){
+
+            requestAnimationFrame(
+                detectarTiempoReal
+            );
+
+            return;
+
+        }
+
+
+        const faces =
+            await detector.detect(video);
+
+
+        ctx.clearRect(
+
+            0,
+            0,
+
+            canvas.width,
+            canvas.height
+
+        );
+
+
+        faces.forEach(face => {
+
+            const box =
+                face.boundingBox;
+
+
+            /* =========================
+               RECTÁNGULO
+            ========================== */
+
+            ctx.strokeStyle =
+                colorActual;
+
+            ctx.lineWidth = 4;
+
+
+            ctx.strokeRect(
+
+                box.x,
+                box.y,
+
+                box.width,
+                box.height
+
+            );
+
+
+            /* =========================
+               TEXTO
+            ========================== */
+
+            ctx.fillStyle =
+                colorActual;
+
+            ctx.font =
+                '18px Arial';
+
+
+            ctx.fillText(
+
+                estadoActual,
+
+                box.x,
+                box.y - 10
+
+            );
+
+        });
+
+    }
+
+    catch(error){
+
+        console.error(error);
+
+    }
+
+
+    requestAnimationFrame(
+        detectarTiempoReal
+    );
+
+}
+
+
+/* =========================
+   LOOP DJANGO
 ========================= */
 
 let monitoreoActivo = false;
@@ -167,7 +321,7 @@ async function iniciarMonitoreo(){
 
         await detectarFrame();
 
-        await esperar(1500);
+        await esperar(2500);
 
     }
 
@@ -186,7 +340,7 @@ function esperar(ms){
 
 
 /* =========================
-   DETECCIÓN
+   RECONOCIMIENTO DJANGO
 ========================= */
 
 async function detectarFrame(){
@@ -197,19 +351,6 @@ async function detectarFrame(){
     ){
         return;
     }
-
-
-    /* LIMPIAR OVERLAY */
-
-    ctx.clearRect(
-
-        0,
-        0,
-
-        canvas.width,
-        canvas.height
-
-    );
 
 
     /* =========================
@@ -228,6 +369,7 @@ async function detectarFrame(){
 
 
     tempCanvas.width = 320;
+
     tempCanvas.height = 240;
 
 
@@ -244,13 +386,14 @@ async function detectarFrame(){
     );
 
 
-    const imagen = tempCanvas.toDataURL(
+    const imagen =
+        tempCanvas.toDataURL(
 
-        'image/jpeg',
+            'image/jpeg',
 
-        0.5
+            0.5
 
-    );
+        );
 
 
     try{
@@ -274,7 +417,9 @@ async function detectarFrame(){
 
                     'foto_base64=' +
 
-                    encodeURIComponent(imagen)
+                    encodeURIComponent(
+                        imagen
+                    )
 
             }
 
@@ -285,37 +430,14 @@ async function detectarFrame(){
             await response.json();
 
 
-        /* =========================
-           ESCALADO REAL
-        ========================== */
-
-        const scaleX =
-            canvas.width / 320;
-
-        const scaleY =
-            canvas.height / 240;
-
-
         data.rostros.forEach(rostro => {
 
-            const x =
-                rostro.x * scaleX;
-
-            const y =
-                rostro.y * scaleY;
-
-            const w =
-                rostro.w * scaleX;
-
-            const h =
-                rostro.h * scaleY;
-
-
             /* =========================
-               COLOR
+               COLOR / ESTADO
             ========================== */
 
-            let color = '#22c55e';
+            let color =
+                '#22c55e';
 
             let claseCard =
                 'card-success';
@@ -326,7 +448,8 @@ async function detectarFrame(){
                 'REVISION'
             ){
 
-                color = '#eab308';
+                color =
+                    '#eab308';
 
                 claseCard =
                     'card-warning';
@@ -338,7 +461,8 @@ async function detectarFrame(){
                 'DENEGADO'
             ){
 
-                color = '#ef4444';
+                color =
+                    '#ef4444';
 
                 claseCard =
                     'card-danger';
@@ -346,34 +470,11 @@ async function detectarFrame(){
             }
 
 
-            /* =========================
-               RECTÁNGULO
-            ========================== */
+            estadoActual =
+                rostro.estado;
 
-            ctx.strokeStyle = color;
-
-            ctx.lineWidth = 4;
-
-            ctx.strokeRect(
-                rostro.x,
-                rostro.y,
-                rostro.w,
-                rostro.h
-            );
-
-
-            /* TEXTO */
-
-            ctx.fillStyle = color;
-
-            ctx.font =
-                '18px Arial';
-
-            ctx.fillText(
-                rostro.estado,
-                x,
-                y - 10
-            );
+            colorActual =
+                color;
 
 
             /* =========================
@@ -432,6 +533,7 @@ async function detectarFrame(){
 
 
             faceCanvas.width = 100;
+
             faceCanvas.height = 100;
 
 
@@ -439,11 +541,11 @@ async function detectarFrame(){
 
                 video,
 
-                x,
-                y,
+                rostro.x * 2,
+                rostro.y * 2,
 
-                w,
-                h,
+                rostro.w * 2,
+                rostro.h * 2,
 
                 0,
                 0,
@@ -557,7 +659,7 @@ async function detectarFrame(){
 
 
 /* =========================
-   DETENER LOOP
+   CERRAR
 ========================= */
 
 window.addEventListener(
@@ -571,7 +673,6 @@ window.addEventListener(
     }
 
 );
-
 
 </script>
 

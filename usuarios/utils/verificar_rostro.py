@@ -75,7 +75,27 @@ def reconocer_rostro(imagen_path):
                     0,
                     min(
                         100,
-                        round(100 - confianza, 2)
+                        round(
+
+                            max(
+
+                                0,
+
+                                min(
+
+                                    100,
+
+                                    100 * (
+                                        1 - (confianza / 120)
+                                    )
+
+                                )
+
+                            ),
+
+                            2
+
+                        )
                     )
                 )
 

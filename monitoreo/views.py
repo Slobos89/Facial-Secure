@@ -6,6 +6,13 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from usuarios.models import Acceso
 
+
+modelo = cv2.face.LBPHFaceRecognizer_create()
+
+modelo.read(
+    'modelo/modelo_lbph.yml'
+)
+
 def monitoreo(request):
 
     accesos = Acceso.objects.order_by(
@@ -28,6 +35,8 @@ def monitoreo(request):
 
 @csrf_exempt
 def detectar_rostros(request):
+
+
 
     if request.method == 'POST':
 
@@ -91,11 +100,7 @@ def detectar_rostros(request):
 
         resultados = []
 
-        modelo = cv2.face.LBPHFaceRecognizer_create()
-
-        modelo.read(
-            'modelo/modelo_lbph.yml'
-        )
+        
 
         for(x,y,w,h) in faces:
 
@@ -114,6 +119,16 @@ def detectar_rostros(request):
                 rostro
             )
 
+            print(
+
+                'ID:',
+                usuario_id,
+
+                'Confianza:',
+                confianza
+
+            )
+
 
             coincidencia = max(
 
@@ -123,7 +138,13 @@ def detectar_rostros(request):
 
                     100,
 
-                    int(100 - confianza)
+                    int(
+
+                        100 * (
+                            1 - (confianza / 120)
+                        )
+
+                    )
 
                 )
 
