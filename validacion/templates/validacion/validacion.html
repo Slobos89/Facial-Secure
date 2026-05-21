@@ -1,372 +1,324 @@
 {% extends 'base.html' %}
-
 {% load static %}
 
 {% block title %}
-Validación Biométrica
+Centro de Validación
 {% endblock %}
 
 {% block content %}
 
 <div class="content-body">
 
-    <!-- SCANNER -->
-    <section class="scanner-panel panel">
+    <!-- KPIS -->
+
+    <div class="kpis">
+
+        <div class="kpi-card2 kpi-yellow">
+            <h2>4</h2>
+            <span>{{ pendientes }}</span>
+        </div>
+
+        <div class="kpi-card2 kpi-green">
+            <h2>18</h2>
+            <span>Validaciones Aprobadas</span>
+        </div>
+
+        <div class="kpi-card2 kpi-red">
+            <h2>2</h2>
+            <span>Validaciones Denegadas</span>
+        </div>
+
+        
+
+    </div>
+
+    <!-- PANEL PRINCIPAL -->
+
+    <section class="users-panel">
+
+        <!-- HEADER -->
 
         <div class="panel-header">
 
-            <div class="panel-title">
-                Escaneo Facial en Tiempo Real
-            </div>
+            <div>
 
-            <div class="live">
-                🟢 LIVE
-            </div>
-
-        </div>
-
-        <div class="camera-container">
-
-            <div class="hud-overlay">
-
-                <div class="hud-top">
-
-                    <span>
-                        NEURAL SCAN ACTIVE
-                    </span>
-
-                    <span id="fps-counter">
-
-                        FPS: 30
-
-                    </span>
-
-                </div>
-
-                <div class="hud-left">
-
-                    <p>
-                        FACE TRACKING ENABLED
-                    </p>
-
-                    <p id="tracking-status">
-
-                        ANALYZING...
-
-                    </p>
-
-                </div>
-
-                <div class="hud-right">
-
-                    <p id="coord-x">
-
-                        X: 182
-
-                    </p>
-
-                    <p id="coord-y">
-
-                        Y: 331
-
-                    </p>
-
-                    <p>
-                        LBPH ENGINE ACTIVE
-                    </p>
-
-                    <p>
-                        MULTIMODAL BIOMETRICS
-                    </p>
-
-                </div>
-
-            </div>
-            <div class="scanlines"></div>
-
-            <!-- VIDEO REAL -->
-            <video id="video" autoplay playsinline></video>
-
-            <!-- Overlay -->
-            <div class="scan-line"></div>
-
-            <div class="face-box">
-                <div class="corner tl"></div>
-                <div class="corner tr"></div>
-                <div class="corner bl"></div>
-                <div class="corner br"></div>
-                <div class="face-text">
-                    Analizando rostro...
-                </div>
-            </div>
-
-        </div>
-
-        <div class="camera-actions">
-
-            <button id="btn-validar" class="btn btn-add">
-                Iniciar Validación
-            </button>
-
-        </div>
-
-    </section>
-
-
-    <!-- INFO -->
-    <section class="info-grid">
-
-        <!-- DETECTED DATA -->
-        <div class="data-panel panel">
-
-            <div class="panel-title">
-                Datos Detectados
-            </div>
-
-            <div class="data-list">
-
-                <div class="data-item">
-                    <label>Nombre</label>
-                    <strong id="nombre">Sin detectar</strong>
-                </div>
-
-                <div class="data-item">
-                    <label>RUT</label>
-                    <strong id="rut">---</strong>
-                </div>
-
-                <div class="data-item">
-                    <label>Tipo</label>
-                    <strong id="tipo">---</strong>
-                </div>
-
-                <div class="data-item">
-                    <label>Ubicación</label>
-                    <strong>Acceso Principal</strong>
-                </div>
-
-                <div class="data-item">
-                    <label>Hora</label>
-                    <strong id="hora"></strong>
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <!-- VALIDATION STATUS -->
-        <div class="validation-panel panel">
-
-            <div class="panel-title">
-                Estado de Validación
-            </div>
-
-            <div class="validation-status" id="validation-panel">
-
-                <h2 id="estado-validacion">
-                    ESPERANDO VALIDACIÓN
+                <h2 class="panel-title">
+                    Centro de Validación
                 </h2>
 
-                <p id="mensaje-validacion">
-                    Sistema listo para escanear
+                <p class="panel-subtitle">
+                    Revisión biométrica operativa en tiempo real
                 </p>
-
-                <div class="match">
-                    Coincidencia IA:
-                    <strong id="coincidencia">0%</strong>
-                </div>
-
-                <div class="match">
-
-                    Huella Dactilar:
-
-                <strong id="estado-huella">
-
-                    Esperando...
-
-                </strong>
-
-                </div>
 
             </div>
 
-            <div class="fingerprint-panel">
+            <div class="actions">
 
-                <div class="fingerprint-scanner">
+                <button class="filter-btn active">
+                    Todos
+                </button>
 
-                    <div
-                        class="fingerprint-icon"
-                        id="fingerprint-icon"
-                    >
+                <button class="filter-btn">
+                    Revisión
+                </button>
 
-                        🖐️
+                <button class="filter-btn">
+                    Denegados
+                </button>
+
+            </div>
+
+        </div>
+
+        <!-- GRID -->
+
+        <div class="validation-queue">
+
+            {% for acceso in accesos %}
+
+            <div class="validation-item">
+
+                <!-- FOTO -->
+
+                <div class="validation-face">
+
+                    {% if acceso.foto_validacion %}
+
+                        <img
+                            src="{{ acceso.foto_validacion.url }}"
+                            alt="rostro"
+                        >
+
+                    {% else %}
+
+                        <img
+                            src="{% static 'img/no-face.jpg' %}"
+                            alt="rostro"
+                        >
+
+                    {% endif %}
+
+                </div>
+
+
+                <!-- INFO -->
+
+                <div class="validation-info">
+
+                    <div class="validation-info-top">
+
+                        <h3>
+
+                            {{ acceso.nombre_detectado }}
+
+                        </h3>
+
+
+                        <span class="status-badge
+
+                            {% if acceso.resultado == 'PERMITIDO' %}
+
+                                card-success
+
+                            {% elif acceso.resultado == 'REVISION' %}
+
+                                card-warning
+
+                            {% else %}
+
+                                card-danger
+
+                            {% endif %}
+
+                        ">
+
+                            {{ acceso.resultado }}
+
+                        </span>
+
+                    </div>
+
+
+                    <!-- GRID INFO -->
+
+                    <div class="validation-grid-info">
+
+                        <div class="detail-box">
+
+                            <label>Coincidencia</label>
+
+                            <strong>
+
+                                {{ acceso.coincidencia }}%
+
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-box">
+
+                            <label>Cámara</label>
+
+                            <strong>
+
+                                {{ acceso.camara }}
+
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-box">
+
+                            <label>Hora</label>
+
+                            <strong>
+
+                                {{ acceso.fecha_hora|date:"H:i:s" }}
+
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-box">
+
+                            <label>Tipo Usuario</label>
+
+                            <strong>
+
+                                {% if acceso.persona %}
+
+                                    {{ acceso.persona.tipo_persona }}
+
+                                {% else %}
+
+                                    No identificado
+
+                                {% endif %}
+
+                            </strong>
+
+                        </div>
 
                     </div>
 
                 </div>
 
-                <div class="fingerprint-info">
 
-                    <h4>
-                        Escáner Dactilar
-                    </h4>
+                <!-- BIOMETRÍA -->
 
-                    <p id="fingerprint-status">
+                <div class="validation-biometric">
 
-                        Esperando lectura...
+                    <div class="bio-box">
 
-                    </p>
+                        <span class="bio-title">
+
+                            Biometría Facial
+
+                        </span>
+
+                        <div class="bio-status success">
+
+                            Detectada
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="bio-box">
+
+                        <span class="bio-title">
+
+                            Biometría Dactilar
+
+                        </span>
+
+                        <div class="bio-status warning">
+
+                            Pendiente
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ACCIONES -->
+
+                <div class="validation-actions">
+
+                    <!-- SENSOR HUELLA -->
+
+                    <div class="fingerprint-box">
+
+                        <div class="fingerprint-scanner">
+
+                            <div class="fingerprint-icon scanning">
+
+                                🖐️
+
+                            </div>
+
+                        </div>
+
+                        <div class="fingerprint-data">
+
+                            <h4>
+
+                                Escaneo Dactilar
+
+                            </h4>
+
+                            <p>
+
+                                Esperando validación biométrica...
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- BOTONES -->
+
+                    <div class="validation-buttons">
+
+                        <button class="btn btn-success">
+
+                            Aprobar
+
+                        </button>
+
+                        <button class="btn btn-danger">
+
+                            Rechazar
+
+                        </button>
+
+                    </div>
 
                 </div>
 
             </div>
 
-        </div>
-        
-    </section>
+            {% empty %}
 
+            <div class="empty-state">
 
-    <!-- HISTORY -->
-    <section class="history-panel panel">
+                <h3>
 
-        <div class="table-header">
+                    No hay validaciones pendientes
 
-            <h3>Historial de Validaciones</h3>
+                </h3>
 
-            <input
-                type="text"
-                class="search"
-                placeholder="Buscar validación..."
-            >
+            </div>
 
-        </div>
-
-        <table>
-
-            <thead>
-                <tr>
-                    <th>Usuario</th>
-                    <th>Hora</th>
-                    <th>Cámara</th>
-                    <th>Coincidencia</th>
-                    <th>Resultado</th>
-                </tr>
-            </thead>
-
-            <tbody id="historial-body">
-
-                {% for acceso in accesos %}
-
-                <tr>
-
-                    <td>
-
-                        {% if acceso.persona %}
-
-                            {{ acceso.persona.nombre }}
-                            {{ acceso.persona.apellido }}
-
-                        {% else %}
-
-                            Desconocido
-
-                        {% endif %}
-
-                    </td>
-
-                    <td>
-                        {{ acceso.fecha_hora|time:"H:i:s" }}
-                    </td>
-
-                    <td>
-                        {{ acceso.camara }}
-                    </td>
-
-                    <td>
-                        {{ acceso.coincidencia|floatformat:2 }}%
-                    </td>
-
-                    <td>
-
-                        {% if acceso.resultado == 'PERMITIDO' %}
-
-                            <span class="badge success">
-                                Permitido
-                            </span>
-
-                        {% elif acceso.resultado == 'REVISION' %}
-
-                            <span class="badge warning">
-                                Revisión
-                            </span>
-
-                        {% else %}
-
-                            <span class="badge danger">
-                                Denegado
-                            </span>
-
-                        {% endif %}
-
-                    </td>
-
-                </tr>
-
-                {% empty %}
-
-                <tr>
-
-                    <td colspan="5">
-
-                        No existen validaciones registradas
-
-                    </td>
-
-                </tr>
-
-                {% endfor %}
-
-            </tbody>
-
-        </table>
-        <div class="pagination" id="pagination-container">
-
-        {% if accesos.has_previous %}
-
-            <button
-                data-page="{{ accesos.previous_page_number }}"
-                class="pagination-btn btn-page"
-            >
-
-                ← Anterior
-
-            </button>
-
-        {% endif %}
-
-
-        <span class="pagination-info">
-
-            Página {{ accesos.number }}
-            de
-            {{ accesos.paginator.num_pages }}
-
-        </span>
-
-
-        {% if accesos.has_next %}
-
-            <button
-                data-page="{{ accesos.next_page_number }}"
-                class="pagination-btn btn-page"
-            >
-
-                Siguiente →
-
-            </button>
-
-        {% endif %}
+            {% endfor %}
 
         </div>
 
@@ -374,636 +326,4 @@ Validación Biométrica
 
 </div>
 
-<!-- SCRIPT -->
-<canvas id="canvas" style="display:none;"></canvas>
-
-<script>
-
-const video = document.getElementById('video');
-
-navigator.mediaDevices.getUserMedia({
-    video: true
-})
-.then((stream) => {
-    video.srcObject = stream;
-})
-.catch((error) => {
-    console.error('Error cámara:', error);
-});
-
-
-/* Hora en vivo */
-
-function actualizarHora() {
-
-    const ahora = new Date();
-
-    document.getElementById('hora').innerText =
-        ahora.toLocaleTimeString();
-
-}
-
-setInterval(actualizarHora, 1000);
-
-
-const canvas = document.getElementById('canvas');
-
-const btnValidar = document.getElementById(
-    'btn-validar'
-);
-
-let validacionActiva = false;
-
-
-/* =========================
-   INICIAR VALIDACIÓN
-========================= */
-
-btnValidar.addEventListener('click', () => {
-
-    validacionActiva = !validacionActiva;
-
-    if(validacionActiva){
-
-        btnValidar.innerText =
-            'Detener Validación';
-
-    }else{
-
-        btnValidar.innerText =
-            'Iniciar Validación';
-
-    }
-
-});
-
-
-/* =========================
-   CAPTURAR FRAME
-========================= */
-
-function capturarFrame(){
-
-    if(!validacionActiva){
-        return;
-    }
-
-    const context =
-        canvas.getContext('2d');
-
-    canvas.width = 320;
-
-    canvas.height = 240;
-
-    context.drawImage(
-        video,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    const imagen =
-        canvas.toDataURL('image/jpeg');
-
-    iniciarEscaneoHuella();
-
-    enviarValidacion(imagen);
-
-}
-
-
-/* =========================
-   ENVIAR A DJANGO
-========================= */
-
-function enviarValidacion(imagen){
-
-    fetch('/usuarios/validar/', {
-
-        method: 'POST',
-
-        headers: {
-
-            'Content-Type':
-                'application/x-www-form-urlencoded',
-
-            'X-CSRFToken':
-                '{{ csrf_token }}'
-        },
-
-        body:
-            'foto_base64=' +
-            encodeURIComponent(imagen)
-
-    })
-
-    .then(response => response.json())
-
-    .then(data => {
-
-        actualizarUI(data);
-
-    })
-
-    .catch(error => {
-
-        console.error(error);
-
-    });
-
-}
-
-
-/* =========================
-   ACTUALIZAR INTERFAZ
-========================= */
-
-function actualizarUI(data){
-
-    const faceBox = document.querySelector(
-        '.face-box'
-    );
-
-    faceBox.classList.remove(
-
-        'face-success',
-
-        'face-danger',
-
-        'face-warning'
-
-    );
-
-    const panel = document.getElementById(
-        'validation-panel'
-    );
-
-    panel.classList.remove(
-
-        'validation-success',
-
-        'validation-danger',
-
-        'validation-warning'
-
-    );
-
-    if(data.success){
-        
-
-        if(data.estado === 'PERMITIDO'){
-            panel.classList.add(
-                'validation-success'
-            );
-        }
-        else if(data.estado === 'REVISION'){
-            panel.classList.add(
-                'validation-warning'
-            );
-        }
-        document.getElementById(
-            'nombre'
-        ).innerText =
-            data.persona.nombre;
-
-        document.getElementById(
-            'rut'
-        ).innerText =
-            data.persona.rut;
-
-        document.getElementById(
-            'tipo'
-        ).innerText =
-            data.persona.tipo;
-
-        document.getElementById(
-            'estado-validacion'
-        ).innerText =
-            data.estado;
-
-        document.getElementById(
-            'mensaje-validacion'
-        ).innerText =
-            'Identidad validada';
-
-        document.getElementById(
-            'coincidencia'
-        ).innerText =
-            data.confianza + '%';
-        document.getElementById(
-            'estado-huella'
-        ).innerText =
-
-            data.huella
-
-            ? 'VALIDADA'
-
-            : 'NO VALIDADA';
-
-        const icon = document.getElementById(
-            'fingerprint-icon'
-        );
-
-        const status = document.getElementById(
-            'fingerprint-status'
-        );
-
-        icon.classList.remove(
-            'scanning',
-            'invalid'
-        );
-
-        icon.classList.add(
-            'valid'
-        );
-
-        status.innerText =
-            'Huella validada';
-
-        document.getElementById(
-            'tracking-status'
-        ).innerText =
-
-            'IDENTITY CONFIRMED';
-        document.getElementById(
-            'target-lock'
-        ).innerText =
-
-            'TARGET LOCKED';
-        faceBox.classList.add(
-            'face-success'
-        );
-
-        document.getElementById(
-            'target-lock'
-        ).innerText =
-
-            'TARGET LOCKED';
-        faceBox.classList.add(
-            'face-warning'
-        );
-
-        document.getElementById(
-            'target-lock'
-        ).innerText =
-
-            'REVIEW REQUIRED';
-        document.getElementById(
-            'neural-match'
-        ).innerText =
-
-            'MATCHED';
-
-
-        document.getElementById(
-            'neural-confidence'
-        ).innerText =
-
-            data.confianza + '%';
-        
-    }
-
-    else{
-
-        panel.classList.add(
-            'validation-danger'
-        );
-        document.getElementById(
-            'nombre'
-        ).innerText =
-            'Desconocido';
-
-        document.getElementById(
-            'rut'
-        ).innerText =
-            '---';
-
-        document.getElementById(
-            'tipo'
-        ).innerText =
-            '---';
-
-        document.getElementById(
-            'estado-validacion'
-        ).innerText =
-            'DENEGADO';
-
-        document.getElementById(
-            'mensaje-validacion'
-        ).innerText =
-            'Rostro no reconocido';
-
-        document.getElementById(
-            'coincidencia'
-        ).innerText =
-            '0%';
-        document.getElementById(
-            'estado-huella'
-        ).innerText =
-        'NO VALIDADA';
-        const icon = document.getElementById(
-            'fingerprint-icon'
-        );
-
-        const status = document.getElementById(
-            'fingerprint-status'
-        );
-
-        icon.classList.remove(
-            'scanning',
-            'valid'
-        );
-
-        icon.classList.add(
-            'invalid'
-        );
-
-        status.innerText =
-            'Huella no válida';
-            
-        document.getElementById(
-            'tracking-status'
-        ).innerText =
-
-            'MATCH FAILED';
-        document.getElementById(
-            'target-lock'
-        ).innerText =
-
-            'TARGET LOST';
-        faceBox.classList.add(
-            'face-danger'
-        );
-
-        document.getElementById(
-            'target-lock'
-        ).innerText =
-
-            'TARGET LOST';
-        document.getElementById(
-            'neural-match'
-        ).innerText =
-
-            'FAILED';
-
-
-        document.getElementById(
-            'neural-confidence'
-        ).innerText =
-
-            '0%';
-        }
-    }
-
-
-
-
-/* =========================
-   LOOP VALIDACIÓN
-========================= */
-
-setInterval(() => {
-
-    capturarFrame();
-
-}, 3000);
-
-function iniciarEscaneoHuella(){
-
-    const icon = document.getElementById(
-        'fingerprint-icon'
-    );
-
-    const status = document.getElementById(
-        'fingerprint-status'
-    );
-
-    icon.classList.remove(
-        'valid',
-        'invalid'
-    );
-
-    icon.classList.add(
-        'scanning'
-    );
-
-    status.innerText =
-        'Escaneando huella...';
-
-}
-
-setInterval(() => {
-
-    const x =
-        Math.floor(
-            Math.random() * 400
-        );
-
-    const y =
-        Math.floor(
-            Math.random() * 400
-        );
-
-    const fps =
-        Math.floor(
-            27 + Math.random() * 5
-        );
-
-
-    document.getElementById(
-        'coord-x'
-    ).innerText =
-        'X: ' + x;
-
-
-    document.getElementById(
-        'coord-y'
-    ).innerText =
-        'Y: ' + y;
-
-
-    document.getElementById(
-        'fps-counter'
-    ).innerText =
-        'FPS: ' + fps;
-
-}, 1000);
-
-function cargarPagina(page){
-
-    fetch(
-
-        `/usuarios/historial-ajax/?page=${page}`
-
-    )
-
-    .then(response => response.json())
-
-    .then(data => {
-
-        document.getElementById(
-            'historial-body'
-        ).innerHTML =
-            data.tabla;
-
-
-        document.getElementById(
-            'pagination-container'
-        ).innerHTML =
-            data.paginacion;
-
-    });
-
-}
-
-document.addEventListener(
-
-    'click',
-
-    function(e){
-
-        if(
-
-            e.target.classList.contains(
-                'btn-page'
-            )
-
-        ){
-
-            const page =
-                e.target.dataset.page;
-
-            cargarPagina(page);
-
-        }
-
-    }
-
-);
-
-async function actualizarLiveFeed(){
-
-    try{
-
-        const response =
-            await fetch(
-                '/usuarios/live-feed/'
-            );
-
-        const data =
-            await response.json();
-
-
-        const tbody =
-            document.getElementById(
-                'historial-body'
-            );
-
-        tbody.innerHTML = '';
-
-
-        data.accesos.forEach(acceso => {
-
-            let badge = '';
-
-
-            if(
-                acceso.resultado ===
-                'PERMITIDO'
-            ){
-
-                badge =
-
-                `
-                <span class="badge success">
-                    Permitido
-                </span>
-                `;
-
-            }
-
-            else if(
-                acceso.resultado ===
-                'REVISION'
-            ){
-
-                badge =
-
-                `
-                <span class="badge warning">
-                    Revisión
-                </span>
-                `;
-
-            }
-
-            else{
-
-                badge =
-
-                `
-                <span class="badge danger">
-                    Denegado
-                </span>
-                `;
-
-            }
-
-
-            tbody.innerHTML += `
-
-                <tr>
-
-                    <td>
-                        ${acceso.persona}
-                    </td>
-
-                    <td>
-                        ${acceso.hora}
-                    </td>
-
-                    <td>
-                        ${acceso.camara}
-                    </td>
-
-                    <td>
-                        ${acceso.coincidencia}%
-                    </td>
-
-                    <td>
-                        ${badge}
-                    </td>
-
-                </tr>
-
-            `;
-
-        });
-
-    }
-
-    catch(error){
-
-        console.error(error);
-
-    }
-
-}
-
-
-setInterval(() => {
-
-    actualizarLiveFeed();
-
-}, 5000);
-
-
-actualizarLiveFeed();
-
-</script>
-
-
 {% endblock %}
-
-

@@ -4,34 +4,40 @@ from django.core.paginator import Paginator
 
 def validacion_biometrica(request):
 
-    accesos_lista = Acceso.objects.all().order_by(
-        '-fecha_hora'
-    )
+    accesos = Acceso.objects.filter(
+        resultado='REVISION'
+    ).select_related(
+        'persona'
+    ).order_by('-fecha_hora')
 
-    paginator = Paginator(
-        accesos_lista,
-        10
-    )
+    pendientes = accesos.count()
 
-    page_number = request.GET.get('page')
+    aprobados = Acceso.objects.filter(
+        resultado='APROBADO_MANUAL'
+    ).count()
 
-    accesos = paginator.get_page(
-        page_number
-    )
+    rechazados = Acceso.objects.filter(
+        resultado='RECHAZADO'
+    ).count()
 
-    contexto = {
+    context = {
 
-        'persona_detectada': None,
+        'accesos': accesos,
 
-        'coincidencia': None,
+        'pendientes': pendientes,
 
-        'estado': 'Esperando validación',
+        'aprobados': aprobados,
 
-        'accesos': accesos
+        'rechazados': rechazados
+
     }
 
     return render(
+
         request,
+
         'validacion/validacion.html',
-        contexto
+
+        context
+
     )

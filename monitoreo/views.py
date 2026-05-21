@@ -1,9 +1,11 @@
 import cv2
 import base64
 import numpy as np
+import uuid
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.core.files.base import ContentFile
 from usuarios.models import Acceso, Persona
 
 
@@ -169,6 +171,8 @@ def detectar_rostros(request):
 
             estado = 'DENEGADO'
 
+            persona = None
+
 
             try:
 
@@ -195,18 +199,68 @@ def detectar_rostros(request):
                     estado = 'DENEGADO'
 
 
-                Acceso.objects.create(
-
-                    persona=persona,
-                    coincidencia=coincidencia
-
-                )
-
             except Persona.DoesNotExist:
 
                 nombre = 'Desconocido'
 
                 estado = 'DENEGADO'
+
+
+            # =========================
+            # GUARDAR FOTO ROSTRO
+            # =========================
+
+            rostro_color = frame[
+                y1:y2,
+                x1:x2
+            ]
+
+
+            _, buffer = cv2.imencode(
+                '.jpg',
+                rostro_color
+            )
+
+
+            nombre_archivo = (
+                f'{uuid.uuid4()}.jpg'
+            )
+
+
+            # =========================
+            # CREAR ACCESO
+            # =========================
+
+            acceso = Acceso.objects.create(
+
+                persona=persona,
+
+                nombre_detectado=nombre,
+
+                coincidencia=coincidencia,
+
+                resultado=estado,
+
+                camara='Camara Principal'
+
+            )
+
+
+            # =========================
+            # FOTO VALIDACION
+            # =========================
+
+            acceso.foto_validacion.save(
+
+                nombre_archivo,
+
+                ContentFile(
+                    buffer.tobytes()
+                ),
+
+                save=True
+
+            )
 
             resultados.append({
 

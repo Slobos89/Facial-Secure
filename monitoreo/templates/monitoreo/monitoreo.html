@@ -368,9 +368,9 @@ async function detectarFrame(){
         );
 
 
-    tempCanvas.width = 320;
+    tempCanvas.width = 640;
 
-    tempCanvas.height = 240;
+    tempCanvas.height = 480;
 
 
     tempCtx.drawImage(
@@ -380,8 +380,8 @@ async function detectarFrame(){
         0,
         0,
 
-        320,
-        240
+        640,
+        480
 
     );
 
@@ -391,7 +391,7 @@ async function detectarFrame(){
 
             'image/jpeg',
 
-            0.5
+            0.9
 
         );
 
@@ -532,26 +532,27 @@ async function detectarFrame(){
                 );
 
 
-            faceCanvas.width = 100;
+            faceCanvas.width = 300;
 
-            faceCanvas.height = 100;
+            faceCanvas.height = 300;
 
+            const margin = 80;
 
             faceCtx.drawImage(
 
                 video,
 
-                rostro.x * 2,
-                rostro.y * 2,
+                rostro.x - margin,
+                rostro.y - margin,
 
-                rostro.w * 2,
-                rostro.h * 2,
+                rostro.w + (margin*2),
+                rostro.h + (margin*2),
 
                 0,
                 0,
 
-                100,
-                100
+                300,
+                300
 
             );
 
