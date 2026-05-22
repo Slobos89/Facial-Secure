@@ -13,19 +13,19 @@ Centro de Validación
 
     <div class="kpis">
 
-        <div class="kpi-card2 kpi-yellow">
-            <h2>4</h2>
-            <span>{{ pendientes }}</span>
+        <div class="kpi-card2 kpi-yellow" >
+            <h2 id="kpi-pendientes">{{ pendientes }}</h2>
+            <span>Validaciones Pendientes Hoy</span>
         </div>
 
-        <div class="kpi-card2 kpi-green">
-            <h2>18</h2>
-            <span>Validaciones Aprobadas</span>
+        <div class="kpi-card2 kpi-green" >
+            <h2 id="kpi-aprobados">{{ aprobados }}</h2>
+            <span>Validaciones Aprobadas Hoy</span>
         </div>
 
-        <div class="kpi-card2 kpi-red">
-            <h2>2</h2>
-            <span>Validaciones Denegadas</span>
+        <div class="kpi-card2 kpi-red" >
+            <h2 id="kpi-rechazados">{{ rechazados }}</h2>
+            <span>Validaciones Denegadas Hoy</span>
         </div>
 
         
@@ -52,31 +52,17 @@ Centro de Validación
 
             </div>
 
-            <div class="actions">
-
-                <button class="filter-btn active">
-                    Todos
-                </button>
-
-                <button class="filter-btn">
-                    Revisión
-                </button>
-
-                <button class="filter-btn">
-                    Denegados
-                </button>
-
-            </div>
+            
 
         </div>
 
         <!-- GRID -->
 
-        <div class="validation-queue">
+        <div class="validation-queue" id="validation-queue">
 
             {% for acceso in accesos %}
 
-            <div class="validation-item">
+            <div class="validation-item" data-id="${card.id}"">
 
                 <!-- FOTO -->
 
@@ -236,7 +222,7 @@ Centro de Validación
 
                         </span>
 
-                        <div class="bio-status warning">
+                        <div class="bio-status warning fingerprint-status">
 
                             Pendiente
 
@@ -255,7 +241,7 @@ Centro de Validación
 
                     <div class="fingerprint-box">
 
-                        <div class="fingerprint-scanner">
+                        <div class="fingerprint-scanner" onclick="validarHuella(this)">
 
                             <div class="fingerprint-icon scanning">
 
@@ -288,13 +274,13 @@ Centro de Validación
 
                     <div class="validation-buttons">
 
-                        <button class="btn btn-success">
+                        <button class="btn btn-success" onclick="aprobarAcceso(this)">
 
                             Aprobar
 
                         </button>
 
-                        <button class="btn btn-danger">
+                        <button class="btn btn-danger" onclick="rechazarAcceso(this)">
 
                             Rechazar
 
@@ -325,5 +311,467 @@ Centro de Validación
     </section>
 
 </div>
+
+<script>
+
+async function actualizarKPIs(){
+
+    const response = await fetch(
+        "/validacion/kpis/"
+    )
+
+    const data = await response.json()
+
+    document.getElementById(
+        "kpi-pendientes"
+    ).innerText = data.pendientes
+
+    document.getElementById(
+        "kpi-aprobados"
+    ).innerText = data.aprobados
+
+    document.getElementById(
+        "kpi-rechazados"
+    ).innerText = data.rechazados
+}
+
+const validationQueue =
+
+    document.getElementById(
+        'validation-queue'
+    );
+
+
+let idsRenderizados = Array.from(
+
+    document.querySelectorAll(
+        '.validation-item'
+    )
+
+).map(card => Number(card.dataset.id))
+
+/* =========================
+   VALIDACION DACTILAR
+========================= */
+
+function validarHuella(scanner){
+
+    const icon = scanner.querySelector(
+        '.fingerprint-icon'
+    )
+
+    const card = scanner.closest(
+        '.validation-item'
+    )
+
+    const status = card.querySelector(
+        '.fingerprint-status'
+    )
+
+    const text = card.querySelector(
+        '.fingerprint-data p'
+    )
+
+
+    /* ESCANEANDO */
+
+    icon.innerHTML = '🖐️'
+
+    icon.classList.add(
+        'scanning'
+    )
+
+    status.classList.remove(
+        'success'
+    )
+
+    status.classList.add(
+        'warning'
+    )
+
+    status.innerText = 'Escaneando'
+
+    text.innerText =
+        'Comparando huella dactilar...'
+
+
+    /* SIMULACION */
+
+    setTimeout(() => {
+
+        icon.classList.remove(
+            'scanning'
+        )
+
+        icon.innerHTML = '✓'
+
+        status.classList.remove(
+            'warning'
+        )
+
+        status.classList.add(
+            'success'
+        )
+
+        status.innerText = 'Detectada'
+
+        text.innerText =
+            'Huella validada correctamente.'
+
+    }, 2000)
+
+}
+
+/* =========================
+   CARDS LIVE
+========================= */
+
+async function actualizarCards(){
+
+    const response = await fetch(
+        '/validacion/cards/'
+    )
+
+    const data = await response.json()
+
+    const idsBackend = data.cards.map(
+        card => String(card.id)
+    )
+
+
+    document.querySelectorAll(
+        '.validation-item'
+    ).forEach(card => {
+
+        const id = card.dataset.id
+
+        if(
+            !idsBackend.includes(id)
+        ){
+
+            card.remove()
+
+        }
+
+    })    
+
+    data.cards.forEach(card => {
+
+        if(
+            idsRenderizados.includes(
+                card.id
+            )
+        ){
+            return
+        }
+
+
+        idsRenderizados.push(
+            card.id
+        )
+
+
+        const html = `
+
+<div class="validation-item" data-id="${card.id}"">
+
+    <div class="validation-face">
+
+        <img
+            src="${card.foto}"
+            alt="rostro"
+        >
+
+    </div>
+
+
+    <div class="validation-info">
+
+        <div class="validation-info-top">
+
+            <h3>
+
+                ${card.nombre}
+
+            </h3>
+
+            <span class="status-badge card-warning">
+
+                ${card.resultado}
+
+            </span>
+
+        </div>
+
+
+        <div class="validation-grid-info">
+
+            <div class="detail-box">
+
+                <label>Coincidencia</label>
+
+                <strong>
+
+                    ${card.coincidencia}%
+
+                </strong>
+
+            </div>
+
+
+            <div class="detail-box">
+
+                <label>Cámara</label>
+
+                <strong>
+
+                    ${card.camara}
+
+                </strong>
+
+            </div>
+
+
+            <div class="detail-box">
+
+                <label>Hora</label>
+
+                <strong>
+
+                    ${card.hora}
+
+                </strong>
+
+            </div>
+
+
+            <div class="detail-box">
+
+                <label>Tipo Usuario</label>
+
+                <strong>
+
+                    ${card.tipo_persona}
+
+                </strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="validation-biometric">
+
+        <div class="bio-box">
+
+            <span class="bio-title">
+
+                Biometría Facial
+
+            </span>
+
+            <div class="bio-status success">
+
+                Detectada
+
+            </div>
+
+        </div>
+
+
+        <div class="bio-box">
+
+            <span class="bio-title">
+
+                Biometría Dactilar
+
+            </span>
+
+            <div class="bio-status warning fingerprint-status">
+
+                Pendiente
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="validation-actions">
+
+        <div class="fingerprint-box">
+
+            <div class="fingerprint-scanner" onclick="validarHuella(this)">
+
+                <div class="fingerprint-icon scanning">
+
+                    🖐️
+
+                </div>
+
+            </div>
+
+            <div class="fingerprint-data">
+
+                <h4>
+
+                    Escaneo Dactilar
+
+                </h4>
+
+                <p>
+
+                    Esperando validación biométrica...
+
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="validation-buttons">
+
+            <button class="btn btn-success" onclick="aprobarAcceso(this)">
+
+                Aprobar
+
+            </button>
+
+            <button class="btn btn-danger" onclick="rechazarAcceso(this)">
+
+                Rechazar
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+`
+
+
+        validationQueue.insertAdjacentHTML(
+
+            'afterbegin',
+
+            html
+
+        )
+
+    })
+
+}
+
+/* REFRESH */
+
+setInterval(
+    actualizarKPIs,
+    3000
+)
+
+setInterval(
+    actualizarCards,
+    3000
+)
+
+/* INIT */
+
+actualizarKPIs()
+actualizarCards()
+
+/* =========================
+   APROBAR
+========================= */
+
+async function aprobarAcceso(button){
+
+    const card = button.closest(
+        '.validation-item'
+    )
+
+    const id = card.dataset.id
+
+
+    await fetch(
+
+        '/validacion/actualizar-estado/',
+
+        {
+
+            method:'POST',
+
+            headers:{
+                'Content-Type':
+                    'application/json'
+            },
+
+            body:JSON.stringify({
+
+                id:id,
+
+                estado:'APROBADO_MANUAL'
+
+            })
+
+        }
+
+    )
+
+
+    card.remove()
+
+}
+
+
+/* =========================
+   RECHAZAR
+========================= */
+
+async function rechazarAcceso(button){
+
+    const card = button.closest(
+        '.validation-item'
+    )
+
+    const id = card.dataset.id
+
+
+    await fetch(
+
+        '/validacion/actualizar-estado/',
+
+        {
+
+            method:'POST',
+
+            headers:{
+                'Content-Type':
+                    'application/json'
+            },
+
+            body:JSON.stringify({
+
+                id:id,
+
+                estado:'RECHAZADO'
+
+            })
+
+        }
+
+    )
+
+
+    card.remove()
+
+}
+
+</script>
 
 {% endblock %}

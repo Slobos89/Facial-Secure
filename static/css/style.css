@@ -3387,6 +3387,7 @@ a.btn{
     margin-top:18px;
 }
 
+
 /* RESPONSIVE */
 
 @media(max-width:1400px){
@@ -3406,3 +3407,16 @@ a.btn{
 
 }
 
+.fingerprint-scanner{
+
+    cursor:pointer;
+
+}
+
+.fingerprint-scanner:hover{
+
+    transform:scale(1.05);
+
+    transition:.3s;
+
+}
