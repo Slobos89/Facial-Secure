@@ -82,7 +82,7 @@ for rostro_db in dataset:
 
             imagen,
 
-            (300,300)
+            (160,160)
 
         )
 

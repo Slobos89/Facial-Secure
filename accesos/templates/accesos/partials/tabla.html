@@ -42,7 +42,7 @@
 
                                 <small style="color:#94a3b8;">
 
-                                    {% if acceso.resultado == 'PERMITIDO' %}
+                                    {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}
 
                                         Acceso autorizado
 
@@ -96,7 +96,7 @@
 
                     <td>
 
-                        {% if acceso.resultado == 'PERMITIDO' %}
+                        {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}
 
                             <span class="badge success">
                                 Permitido

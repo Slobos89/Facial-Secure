@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.db.models import Avg
 from django.utils.timezone import now
 from datetime import timedelta
+from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 from django.db.models.functions import ExtractHour
 from django.db.models import Count
@@ -25,7 +26,7 @@ from usuarios.models import Persona, Acceso
 def dashboard(request):
     hoy = now()
     fecha_inicio = hoy.date()
-    ayer = hoy - timedelta(days=1)
+    ayer = (hoy - timedelta(days=1)).date()
     horas = []
     totales = []
 
@@ -66,12 +67,16 @@ def dashboard(request):
     ).count()
 
     permitidos = Acceso.objects.filter(
-        resultado='PERMITIDO',
+        resultado__in=[ 'PERMITIDO',
+                        'APROBADO_MANUAL'
+        ],
         fecha_hora__date__gte=fecha_inicio
     ).count()
 
     permitidos_ayer = Acceso.objects.filter(
-        resultado='PERMITIDO',
+        resultado__in=[ 'PERMITIDO',
+                        'APROBADO_MANUAL'
+        ],
         fecha_hora__date=ayer
     ).count()
 
@@ -87,7 +92,10 @@ def dashboard(request):
         porcentaje_cambio = 0
 
     denegados = Acceso.objects.filter(
-        resultado='DENEGADO',
+        resultado__in=[
+            'DENEGADO',
+            'RECHAZADO'
+        ],
         fecha_hora__date__gte=fecha_inicio
     ).count()
 
@@ -116,6 +124,10 @@ def dashboard(request):
     revision = Acceso.objects.filter(
         resultado='REVISION',
         fecha_hora__date__gte=fecha_inicio
+    ).count()
+
+    detecciones_live = Acceso.objects.filter(
+        fecha_hora__gte=timezone.now() - timedelta(minutes=1)
     ).count()
 
     promedio = Acceso.objects.filter(
@@ -173,6 +185,7 @@ def dashboard(request):
             'permitidos': permitidos,
             'denegados': denegados,
             'revision': revision,
+            'detecciones_live': detecciones_live,
             'promedio': round(promedio or 0, 2),
             'recientes': recientes,
             'porcentaje_cambio': porcentaje_cambio,
@@ -185,6 +198,8 @@ def dashboard(request):
                 revision
             ]),
             'periodo': periodo,
+            'alerta_texto': alerta_texto,
+            'alerta_tipo': alerta_tipo,
     }
 
     return render(
@@ -198,13 +213,26 @@ def dashboard_data(request):
     hoy = now().date()
 
     permitidos = Acceso.objects.filter(
-        resultado='PERMITIDO',
+        resultado__in=[ 'PERMITIDO',
+                        'APROBADO_MANUAL'
+        ],
         fecha_hora__date=hoy
     ).count()
 
     denegados = Acceso.objects.filter(
-        resultado='DENEGADO',
+        resultado__in=[
+            'DENEGADO',
+            'RECHAZADO'
+        ],
         fecha_hora__date=hoy
+    ).count()
+
+    revision = Acceso.objects.filter(
+        resultado='REVISION'
+    ).count()
+
+    detecciones_live = Acceso.objects.filter(
+        fecha_hora__gte=timezone.now() - timedelta(minutes=1)
     ).count()
 
     promedio = Acceso.objects.filter(
@@ -243,15 +271,11 @@ def dashboard_data(request):
     return JsonResponse({
 
         'permitidos': permitidos,
-
         'denegados': denegados,
-
-        'promedio': round(
-            promedio or 0,
-            2
-        ),
-
-        'eventos': eventos
+        'promedio': round(promedio or 0,2),
+        'eventos': eventos,
+        'revision': revision,
+        'detecciones_live': detecciones_live,
 
     })
 

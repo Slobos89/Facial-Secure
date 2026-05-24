@@ -96,6 +96,10 @@ class Acceso(models.Model):
         null=True
     )
 
+    resuelto = models.BooleanField(
+        default=False
+    )
+
     def __str__(self):
 
         if self.persona:

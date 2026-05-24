@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.template.loader import render_to_string
+from django.views.decorators.http import require_POST
 
 def alertas(request):
 
@@ -20,6 +21,7 @@ def alertas(request):
     # =====================
 
     queryset = Acceso.objects.all()
+
 
     # =====================
     # FILTROS POR PERIODO
@@ -84,8 +86,12 @@ def alertas(request):
             'DENEGADO',
             'REVISION'
         ],
+        resuelto=False
 
     ).order_by('-fecha_hora')
+
+    
+
 
     total_alertas = alertas_activas.count()
 
@@ -101,6 +107,22 @@ def alertas(request):
     alertas_activas = paginator.get_page(
         page
     )
+
+    for acceso in alertas_activas:
+
+        acceso.preview_registrado = ''
+
+        if acceso.persona:
+
+            primer_rostro = (
+                acceso.persona.rostros.first()
+            )
+
+            if primer_rostro:
+
+                acceso.preview_registrado = (
+                    primer_rostro.imagen.url
+                )
 
     # =====================
     # RESUELTOS
@@ -129,7 +151,9 @@ def alertas(request):
 
     total_criticas = alertas_criticas.count()
 
-    total_revision = alertas_revision.count()
+    total_revision = queryset.filter(
+        resuelto=True
+    ).count()
 
 
     return render(
@@ -166,6 +190,8 @@ def alertas_ajax(request):
     queryset = Acceso.objects.all()
 
 
+
+
     if periodo == 'hoy':
 
         queryset = queryset.filter(
@@ -199,9 +225,12 @@ def alertas_ajax(request):
         resultado__in=[
             'DENEGADO',
             'REVISION'
-        ]
+        ],
+        resuelto=False
 
     ).order_by('-fecha_hora')
+
+    
 
 
     paginator = Paginator(
@@ -216,6 +245,22 @@ def alertas_ajax(request):
     alertas_activas = paginator.get_page(
         page
     )
+
+    for acceso in alertas_activas:
+
+        acceso.preview_registrado = ''
+
+        if acceso.persona:
+
+            primer_rostro = (
+                acceso.persona.rostros.first()
+            )
+
+            if primer_rostro:
+
+                acceso.preview_registrado = (
+                    primer_rostro.imagen.url
+                )
 
 
     alerts_html = render_to_string(
@@ -258,3 +303,30 @@ def alertas_ajax(request):
             pagination_html
 
     })
+
+@require_POST
+def resolver_alerta(request, acceso_id):
+
+    try:
+
+        acceso = Acceso.objects.get(
+            id=acceso_id
+        )
+
+        acceso.resuelto = True
+
+        acceso.save()
+
+        return JsonResponse({
+
+            'success': True
+
+        })
+
+    except Acceso.DoesNotExist:
+
+        return JsonResponse({
+
+            'success': False
+
+        })

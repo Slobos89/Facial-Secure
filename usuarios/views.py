@@ -3,10 +3,14 @@ import os
 import base64
 import json
 import uuid
+import subprocess
+import sys
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect
 from django.core.files.base import ContentFile
-from .models import Persona, RostroCapturado, HuellaDactilar
+from django.db.models import OuterRef, Subquery
+from django.contrib import messages
+from .models import Persona, RostroCapturado, HuellaDactilar, Acceso
 from .forms import PersonaForm
 from io import BytesIO
 from PIL import Image
@@ -18,19 +22,91 @@ from django.http import JsonResponse
 
 from .utils.face_detection import detectar_y_recortar_rostro
 from .utils.verificar_rostro import reconocer_rostro
-from .models import Acceso
+
 
 
 
 def usuarios(request):
 
-    personas = Persona.objects.all()
+    ultimo_acceso = Acceso.objects.filter(
+        persona=OuterRef('pk')
+    ).order_by('-fecha_hora')
+
+
+    internos_gendarmes = Persona.objects.filter(
+        tipo_persona__in=[
+            'interno',
+            'gendarme'
+        ]
+    ).annotate(
+        ultimo_acceso=Subquery(
+            ultimo_acceso.values('fecha_hora')[:1]
+        )
+    )
+
+    externos = Persona.objects.filter(
+        tipo_persona='externo'
+    ).annotate(
+        ultimo_acceso=Subquery(
+            ultimo_acceso.values('fecha_hora')[:1]
+        )
+    )
+
+    for persona in internos_gendarmes:
+
+        primer_rostro = persona.rostros.first()
+
+        if primer_rostro:
+
+            persona.preview_facial = (
+                primer_rostro.imagen.url
+            )
+
+        else:
+
+            persona.preview_facial = ''
+
+
+    for persona in externos:
+
+        primer_rostro = persona.rostros.first()
+
+        if primer_rostro:
+
+            persona.preview_facial = (
+                primer_rostro.imagen.url
+            )
+
+        else:
+
+            persona.preview_facial = ''
+
+    total_usuarios = Persona.objects.count()
+
+    usuarios_activos = Persona.objects.filter(
+        estado='activo'
+    ).count()
+
+    usuarios_bloqueados = Persona.objects.filter(
+        estado='bloqueado'
+    ).count()
+
+    biometrias = Persona.objects.filter(
+        rostros__isnull=False
+    ).distinct().count()
+
+    
 
     return render(
         request,
         'usuarios/usuarios.html',
         {
-            'personas': personas
+            'internos_gendarmes': internos_gendarmes,
+            'externos': externos,
+            'total_usuarios': total_usuarios,
+            'usuarios_activos': usuarios_activos,
+            'usuarios_bloqueados': usuarios_bloqueados,
+            'biometrias': biometrias,
         }
     )
 
@@ -132,9 +208,13 @@ def crear_persona(request):
                             e
                         )
 
-            entrenar_modelo()
+            #entrenar_modelo()
 
-            return redirect('usuarios')
+            return JsonResponse({
+
+                'success': True
+
+            })
 
     else:
 
@@ -331,3 +411,34 @@ def live_feed(request):
 
     })
 
+def entrenar_ia(request):
+
+    try:
+
+        subprocess.run(
+
+            [sys.executable, 'train_model.py'],
+
+            check=True
+
+        )
+
+        messages.success(
+
+            request,
+
+            'Modelo entrenado correctamente'
+
+        )
+
+    except Exception as e:
+
+        messages.error(
+
+            request,
+
+            f'Error entrenando modelo: {e}'
+
+        )
+
+    return redirect('usuarios')

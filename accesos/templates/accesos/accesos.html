@@ -11,7 +11,11 @@ Validación Biométrica
         <!-- FILTERS -->
         <section class="filters-panel">
 
-            <form method="GET">
+            <form method="GET" class="filters-form">
+
+            <!-- IZQUIERDA -->
+
+            <div class="filters-left">
 
                 <input 
                     type="text"
@@ -21,19 +25,27 @@ Validación Biométrica
                     value="{{ request.GET.buscar }}"
                 >
 
-                <button class="btn btn-pdf">
+                <button class="btn-search">
 
                     Buscar
 
                 </button>
+
+            </div>
+
+
+            <!-- DERECHA -->
+
+            <div class="filters-right">
+
                 <select
                     class="select"
-                    onchange="window.location.href=this.value"
+                    name="periodo"
+                    onchange="this.form.submit()"
                 >
-                    
 
                     <option
-                        value="?periodo=hoy"
+                        value="hoy"
                         {% if request.GET.periodo == 'hoy' %}
                             selected
                         {% endif %}
@@ -42,7 +54,7 @@ Validación Biométrica
                     </option>
 
                     <option
-                        value="?periodo=semana"
+                        value="semana"
                         {% if request.GET.periodo == 'semana' %}
                             selected
                         {% endif %}
@@ -51,7 +63,7 @@ Validación Biométrica
                     </option>
 
                     <option
-                        value="?periodo=mes"
+                        value="mes"
                         {% if request.GET.periodo == 'mes' %}
                             selected
                         {% endif %}
@@ -61,7 +73,9 @@ Validación Biométrica
 
                 </select>
 
-            </form>
+            </div>
+
+        </form>
 
         </section>
 
@@ -162,7 +176,7 @@ Validación Biométrica
 
                     <div class="timeline-dot
 
-                        {% if acceso.resultado == 'PERMITIDO' %}
+                        {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}
                             green
                         {% elif acceso.resultado == 'REVISION' %}
                             yellow
@@ -176,7 +190,7 @@ Validación Biométrica
 
                         <h4>
 
-                            {% if acceso.resultado == 'PERMITIDO' %}
+                            {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}
 
                                 Acceso autorizado
 

@@ -55,18 +55,26 @@ Dashboard
 
     <div class="kpi-card1 kpi-green">
         <small>🟢 Accesos Permitidos Hoy</small>
-        <h2 id="kpi-aprobados">{{ permitidos }}</h2>
-        <p>{% if porcentaje_cambio > 0 %}
+        <h2 >{{ accesos_hoy }}</h2>
+        {% if periodo == 'hoy' %}
 
-                +{{ porcentaje_cambio }}%
+            <p>
 
-            {% else %}
+                {% if porcentaje_cambio > 0 %}
 
-                {{ porcentaje_cambio }}%
+                    +{{ porcentaje_cambio }}%
 
-            {% endif %}
+                {% else %}
 
-            respecto ayer</p>
+                    {{ porcentaje_cambio }}%
+
+                {% endif %}
+
+                respecto ayer
+
+            </p>
+
+        {% endif %}
     </div>
 
     <div class="kpi-card1 kpi-red">
@@ -84,7 +92,7 @@ Dashboard
     <div class="kpi-card1 kpi-yellow">
         <small>🧠 Precisión IA</small>
         <h2>{{ promedio }}%</h2>
-        <p>Tiempo promedio 0.8s</p>
+        
     </div>
 
 </section>
@@ -166,21 +174,21 @@ Dashboard
             <div class="panel-title">Estado Live</div>
         </div>
 
-        <div class="stats">
+        <div class="live-stats">
 
-            <div class="stat-box">
-                <h3>{{ accesos_hoy }}</h3>
-                <span>Accesos Hoy</span>
+            <div class="live-stat">
+                <h3 id="live-revision">{{ revision }}</h3>
+                <span>Validaciones Pendientes</span>
             </div>
 
-            <div class="stat-box">
+            <div class="live-stat">
+                <h3 id="live-detecciones">{{ detecciones_live }}</h3>
+                <span>Rostros Detectados</span>
+            </div>
+
+            <div class="live-stat">
                 <h3>0.8s</h3>
                 <span>Tiempo IA</span>
-            </div>
-
-            <div class="stat-box">
-                <h3>{{ promedio }}%</h3>
-                <span>Precisión actual</span>
             </div>
 
         </div>
@@ -446,35 +454,77 @@ Dashboard
 
         <tbody>
 
-            <tr>
-                <td>Juan Pérez</td>
-                <td>Acceso Norte</td>
-                <td>09:45</td>
-                <td>98.7%</td>
-                <td>
-                    <span class="badge success">Permitido</span>
-                </td>
-            </tr>
+            {% for acceso in recientes %}
 
             <tr>
-                <td>Desconocido</td>
-                <td>Torre 2</td>
-                <td>09:47</td>
-                <td>43%</td>
+
                 <td>
-                    <span class="badge danger">Denegado</span>
+
+                    {% if acceso.persona %}
+
+                        {{ acceso.persona.nombre }}
+
+                        {{ acceso.persona.apellido }}
+
+                    {% else %}
+
+                        Desconocido
+
+                    {% endif %}
+
                 </td>
+
+                <td>
+
+                    {{ acceso.camara }}
+
+                </td>
+
+                <td>
+
+                    {{ acceso.fecha_hora|time:"H:i" }}
+
+                </td>
+
+                <td>
+
+                    {{ acceso.coincidencia }}%
+
+                </td>
+
+                <td>
+
+                    {% if acceso.resultado == 'PERMITIDO' or acceso.resultado == 'APROBADO_MANUAL' %}
+
+                        <span class="badge success">
+
+                            Permitido
+
+                        </span>
+
+                    {% elif acceso.resultado == 'REVISION' %}
+
+                        <span class="badge warning">
+
+                            Revisión
+
+                        </span>
+
+                    {% else %}
+
+                        <span class="badge danger">
+
+                            Denegado
+
+                        </span>
+
+                    {% endif %}
+
+                </td>
+
             </tr>
 
-            <tr>
-                <td>Carlos Muñoz</td>
-                <td>Patio Central</td>
-                <td>09:52</td>
-                <td>71%</td>
-                <td>
-                    <span class="badge warning">Advertencia</span>
-                </td>
-            </tr>
+            {% endfor %}
 
         </tbody>
 
@@ -519,7 +569,13 @@ async function actualizarDashboard(){
         ).innerText =
             data.promedio + '%';
 
+        document.getElementById(
+            'live-revision'
+        ).textContent = data.revision
 
+        document.getElementById(
+            'live-detecciones'
+        ).textContent = data.detecciones_live
         /* =====================
            EVENTOS
         ===================== */
@@ -536,7 +592,15 @@ async function actualizarDashboard(){
 
             let clase = '';
 
-            if(evento.resultado === 'DENEGADO'){
+            if(
+
+                evento.resultado === 'DENEGADO'
+
+                ||
+
+                evento.resultado === 'RECHAZADO'
+
+            ){
 
                 clase = 'red';
 

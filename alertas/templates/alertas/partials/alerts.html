@@ -8,19 +8,7 @@
 
                 onclick="mostrarDetalle(this)"
 
-                data-tipo="
-
-                    {% if alerta.resultado == 'DENEGADO' %}
-
-                        Acceso no autorizado
-
-                    {% else %}
-
-                        Coincidencia facial baja
-
-                    {% endif %}
-
-                "
+                data-tipo="{% if alerta.resultado == 'DENEGADO' %}Acceso no autorizado{% else %}Coincidencia facial baja{% endif %}"
 
                 data-estado="Activo"
 
@@ -32,7 +20,16 @@
 
                 data-operador="Administrador"
 
-                data-hora="{{ alerta.fecha_hora|time:'H:i' }}">
+                data-hora="{{ alerta.fecha_hora|date:'d/m/Y H:i:s' }}"
+                
+                data-foto="{{ alerta.foto_validacion.url }}"
+
+                data-registrado="{{ alerta.preview_registrado }}"
+
+                data-persona="{% if alerta.persona %}{{ alerta.persona.nombre }} {{ alerta.persona.apellido }}{% else %}Desconocido{% endif %}"
+                >
+
+                
 
                 <div class="alert-left">
 
@@ -86,13 +83,15 @@
 
                 <div class="alert-actions">
 
-                    <button class="btn btn-view">
+                    <button class="btn btn-resolve"
+                    
+                            onclick="resolverAlerta(
 
-                        Ver evidencia
+                            {{ alerta.id }},
 
-                    </button>
+                            this
 
-                    <button class="btn btn-resolve">
+                        )">
 
                         Resolver
 

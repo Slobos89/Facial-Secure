@@ -10,22 +10,22 @@ Usuarios
         <section class="kpi-grid">
 
             <div class="kpi-card2">
-                <h2 class="kpi-blue">324</h2>
+                <h2 class="kpi-blue">{{ total_usuarios }}</h2>
                 <span>Usuarios Registrados</span>
             </div>
 
             <div class="kpi-card2">
-                <h2 class="kpi-green">298</h2>
+                <h2 class="kpi-green">{{ usuarios_activos }}</h2>
                 <span>Usuarios Activos</span>
             </div>
 
             <div class="kpi-card2">
-                <h2 class="kpi-red">12</h2>
+                <h2 class="kpi-red">{{ usuarios_bloqueados }}</h2>
                 <span>Usuarios Bloqueados</span>
             </div>
 
             <div class="kpi-card2">
-                <h2 class="kpi-yellow">310</h2>
+                <h2 class="kpi-yellow">{{ biometrias }}</h2>
                 <span>Biometrías Registradas</span>
             </div>
 
@@ -36,20 +36,30 @@ Usuarios
 
             <div class="panel-header">
 
+                
+
                 <div class="panel-title">
-                    Usuarios del Sistema
+                    Internos y Gendarmes
                 </div>
 
                 <div class="actions">
+                    <div>
+                        <a
+                            id="train-button"
+                            class="btn btn-primary"
+                        >
 
+                            Reentrenar IA
+
+                        </a>
+                    </div>
+                    <a href="{% url 'crear_persona' %}" class="btn btn-add">+ Nuevo Enrolamiento</a> 
                     <input
                         type="text"
+                        id="search-internos"
                         class="input"
                         placeholder="Buscar usuario..."
                     >
-                    <a href="{% url 'crear_persona' %}" class="btn btn-add">+ Nuevo Enrolamiento</a> 
-                            
-
                 </div>
 
             </div>
@@ -66,11 +76,122 @@ Usuarios
                 </tr>
                 </thead>
 
-                <tbody>
+                <tbody id="tbody-internos">
 
-                {% for persona in personas %}
+                {% for persona in internos_gendarmes %}
 
+                <tr
+                
+                    class="user-row"
+
+                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
+
+                    data-rut="{{ persona.rut }}"
+
+                    data-tipo="{{ persona.get_tipo_persona_display }}"
+
+                    data-estado="{{ persona.get_estado_display }}"
+
+                    data-foto="{{ persona.preview_facial }}"
+
+                    data-acceso="
+                    {% if persona.ultimo_acceso %}
+                    {{ persona.ultimo_acceso|date:'d/m/Y H:i:s' }}
+                    {% else %}
+                    Sin registros
+                    {% endif %}
+                    "
+
+                >
+
+                    <td>
+                        {{ persona.nombre }} {{ persona.apellido }}
+                    </td>
+
+                    <td>
+                        {{ persona.rut }}
+                    </td>
+
+                    <td>
+                        {{ persona.get_tipo_persona_display }}
+                    </td>
+
+                    <td>
+                        {{ persona.get_estado_display }}
+                    </td>
+
+                    <td>
+                        {{ persona.fecha_registro }}
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </section>
+
+        <section class="users-panel">
+
+            <div class="panel-header">
+
+                <div class="panel-title">
+                    Usuarios Externos
+                </div>
+                
+                <div class="actions">
+                    <input
+                        type="text"
+                        id="search-externos"
+                        class="input"
+                        placeholder="Buscar usuario..."
+                    >        
+                </div>
+
+            </div>
+
+            <table>
+
+                <thead>
                 <tr>
+                    <th>Nombre</th>
+                    <th>RUT</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Registro</th>
+                </tr>
+                </thead>
+
+                <tbody id="tbody-externos">
+
+                {% for persona in externos %}
+
+                <tr
+                
+                    class="user-row"
+
+                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
+
+                    data-rut="{{ persona.rut }}"
+
+                    data-tipo="{{ persona.get_tipo_persona_display }}"
+
+                    data-estado="{{ persona.get_estado_display }}"
+
+                    data-foto="{{ persona.preview_facial }}"
+
+                    data-acceso="
+                    {% if persona.ultimo_acceso %}
+                    {{ persona.ultimo_acceso|date:'d/m/Y H:i:s' }}
+                    {% else %}
+                    Sin registros
+                    {% endif %}
+                    "
+
+                >
 
                     <td>
                         {{ persona.nombre }} {{ persona.apellido }}
@@ -114,15 +235,15 @@ Usuarios
 
                 <div class="profile-header">
 
-                    <div class="profile-avatar">
+                    <div class="profile-avatar" id="profile-avatar">
                         JP
                     </div>
 
                     <div class="profile-info">
 
-                        <h2>Juan Pérez</h2>
+                        <h2 id="profile-name">Juan Pérez</h2>
 
-                        <p>
+                        <p id="profile-info">
                             Guardia de Seguridad • Activo
                         </p>
 
@@ -134,17 +255,17 @@ Usuarios
 
                     <div class="profile-item">
                         <label>ID</label>
-                        <strong>12.345.678-9</strong>
+                        <strong id="profile-rut">12.345.678-9</strong>
                     </div>
 
                     <div class="profile-item">
                         <label>Rol</label>
-                        <strong>Guardia</strong>
+                        <strong id="profile-role">Guardia</strong>
                     </div>
 
                     <div class="profile-item">
                         <label>Último acceso</label>
-                        <strong>09:45</strong>
+                        <strong id="profile-access">09:45</strong>
                     </div>
 
                     <div class="profile-item">
@@ -164,14 +285,22 @@ Usuarios
                 </div>
 
                 <div class="face-preview">
-                    Preview biométrico facial
+                    <img
+
+                        id="profile-face"
+
+                        src=""
+
+                        alt="Biometría Facial"
+
+                    >
                 </div>
 
                 <div class="bio-grid">
 
                     <div class="bio-item">
                         <label>Estado</label>
-                        <strong>Registrada</strong>
+                        <strong id="profile-status">Registrada</strong>
                     </div>
 
                     <div class="bio-item">
@@ -191,21 +320,303 @@ Usuarios
 
                 </div>
 
-                <div class="bio-buttons">
-
-                    <button class="btn btn-primary">
-                        Actualizar biometría
-                    </button>
-
-                    <button class="btn btn-secondary">
-                        Reentrenar IA
-                    </button>
-
-                </div>
 
             </div>
 
         </section>
+
+        <!-- OVERLAY IA -->
+
+        <div
+            id="training-overlay"
+            class="training-overlay"
+        >
+
+            <div class="training-box">
+
+                <div
+                    id="training-spinner"
+                    class="training-spinner"
+                ></div>
+
+                <div
+                    id="training-success"
+                    class="training-success"
+                >
+
+                    ✔
+
+                </div>
+
+                <h2 id="training-text">
+                    Entrenando IA Biométrica...
+                </h2>
+
+                <p>
+                    Procesando dataset facial
+                </p>
+
+            </div>
+
+        </div>
+
+<script>
+
+/* =========================
+   BUSQUEDA INTERNOS
+========================= */
+
+const searchInternos = document.getElementById(
+    'search-internos'
+);
+
+searchInternos.addEventListener('keyup', () => {
+
+    const value = searchInternos.value.toLowerCase();
+
+    const rows = document.querySelectorAll(
+        '#tbody-internos tr'
+    );
+
+    rows.forEach(row => {
+
+        const texto = row.innerText.toLowerCase();
+
+        row.style.display = texto.includes(value)
+
+            ? ''
+
+            : 'none';
+
+    });
+
+});
+
+
+/* =========================
+   BUSQUEDA EXTERNOS
+========================= */
+
+const searchExternos = document.getElementById(
+    'search-externos'
+);
+
+searchExternos.addEventListener('keyup', () => {
+
+    const value = searchExternos.value.toLowerCase();
+
+    const rows = document.querySelectorAll(
+        '#tbody-externos tr'
+    );
+
+    rows.forEach(row => {
+
+        const texto = row.innerText.toLowerCase();
+
+        row.style.display = texto.includes(value)
+
+            ? ''
+
+            : 'none';
+
+    });
+
+});
+
+/* =========================
+   PERFIL DINAMICO
+========================= */
+
+const rows = document.querySelectorAll(
+    '.user-row'
+);
+
+
+const profileName = document.getElementById(
+    'profile-name'
+);
+
+const profileAvatar = document.getElementById(
+    'profile-avatar'
+);
+
+const profileInfo = document.getElementById(
+    'profile-info'
+);
+
+const profileRut = document.getElementById(
+    'profile-rut'
+);
+
+const profileRole = document.getElementById(
+    'profile-role'
+);
+
+const profileFace = document.getElementById(
+    'profile-face'
+);
+
+const profileAccess = document.getElementById(
+    'profile-access'
+);
+
+const profileStatus = document.getElementById(
+    'profile-status'
+);
+
+/* =========================
+   CLICK FILA
+========================= */
+
+rows.forEach(row => {
+
+    row.addEventListener('click', () => {
+
+        const nombre = row.dataset.nombre;
+
+        const partes = nombre.split(' ');
+
+        let iniciales = '';
+
+        if(partes.length >= 2){
+
+            iniciales =
+
+                partes[0][0] +
+
+                partes[1][0];
+
+        }else{
+
+            iniciales = partes[0][0];
+
+        }
+
+        profileAvatar.textContent =
+            iniciales.toUpperCase();
+
+        const rut = row.dataset.rut;
+
+        const tipo = row.dataset.tipo;
+
+        const estado = row.dataset.estado;
+
+        const foto = row.dataset.foto.trim();
+
+        console.log(foto);
+
+        const acceso = row.dataset.acceso;
+
+
+        profileName.textContent = nombre;
+
+        profileInfo.textContent =
+            `${tipo} • ${estado}`;
+
+        profileRut.textContent = rut;
+
+        profileRole.textContent = tipo;
+
+        profileAccess.textContent = acceso;
+
+
+        if(foto){
+
+            profileFace.src = foto;
+
+            profileFace.style.display = 'block';
+
+            profileStatus.textContent =
+                'Registrada';
+
+        }else{
+
+            profileFace.style.display = 'none';
+
+            profileStatus.textContent =
+                'No registrada';
+
+        }
+
+    });
+
+});
+
+/* =========================
+   ENTRENAMIENTO IA
+========================= */
+
+const trainButton = document.getElementById(
+    'train-button'
+);
+
+const overlay = document.getElementById(
+    'training-overlay'
+);
+
+const spinner = document.getElementById(
+    'training-spinner'
+);
+
+const success = document.getElementById(
+    'training-success'
+);
+
+const text = document.getElementById(
+    'training-text'
+);
+
+
+trainButton.addEventListener('click', async () => {
+
+    overlay.classList.add('active');
+
+
+    try{
+
+        const response = await fetch(
+
+            "{% url 'entrenar_ia' %}"
+
+        );
+
+
+        if(response.ok){
+
+            spinner.style.display = 'none';
+
+            success.style.display = 'block';
+
+            text.textContent =
+                'IA Entrenada Correctamente';
+
+
+            setTimeout(() => {
+
+                overlay.classList.remove(
+                    'active'
+                );
+
+                spinner.style.display = 'block';
+
+                success.style.display = 'none';
+
+                text.textContent =
+                    'Entrenando IA Biométrica...';
+
+            },2000);
+
+        }
+
+    }catch(error){
+
+        text.textContent =
+            'Error entrenando IA';
+
+    }
+
+});
+</script>
 {% endblock %}
 
        

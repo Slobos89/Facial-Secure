@@ -5,6 +5,7 @@ from django.template.loader import render_to_string
 from django.http import JsonResponse
 from django.utils.timezone import now
 from datetime import timedelta
+from django.db.models import Q
 
 # =========================
 # MÓDULO ACCESOS
@@ -71,8 +72,39 @@ def accesos(request):
 
         queryset = queryset.filter(
 
-            persona__nombre__icontains=
-            busqueda
+            Q(
+                persona__nombre__icontains=
+                busqueda
+            )
+
+            |
+
+            Q(
+                persona__apellido__icontains=
+                busqueda
+            )
+
+            |
+
+            Q(
+                persona__rut__icontains=
+                busqueda
+            )
+
+            |
+
+            Q(
+                camara__icontains=
+                busqueda
+            )
+
+            |
+
+            Q(
+                resultado__icontains=
+                busqueda
+            )
+
 
         )
 
@@ -93,11 +125,17 @@ def accesos(request):
     total = queryset.count()
 
     permitidos = queryset.filter(
-        resultado='PERMITIDO'
+        resultado__in=[
+            'PERMITIDO',
+            'APROBADO_MANUAL'
+        ]
     ).count()
 
     denegados = queryset.filter(
-        resultado='DENEGADO'
+        resultado__in=[
+            'DENEGADO',
+            'RECHAZADO'
+        ]
     ).count()
 
     revision = queryset.filter(
@@ -163,8 +201,39 @@ def accesos_ajax(request):
 
         accesos = accesos.filter(
 
-            persona__nombre__icontains=
-            busqueda
+            Q(
+                persona__nombre__icontains=
+                busqueda
+            )
+
+            |
+
+            Q(
+                persona__apellido__icontains=
+                busqueda
+            )
+
+            |
+
+            Q(
+                persona__rut__icontains=
+                busqueda
+            )
+
+            |
+
+            Q(
+                camara__icontains=
+                busqueda
+            )
+
+            |
+
+            Q(
+                resultado__icontains=
+                busqueda
+            )
+
 
         )
 
