@@ -20,9 +20,10 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import letter
 from usuarios.models import Persona, Acceso
+from django.contrib.auth.decorators import login_required
 
 
-
+@login_required
 def dashboard(request):
     hoy = now()
     fecha_inicio = hoy.date()

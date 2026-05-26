@@ -5,7 +5,9 @@ from usuarios.models import Acceso
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
 
+@login_required
 def validacion_biometrica(request):
 
     accesos = Acceso.objects.filter(
@@ -169,3 +171,4 @@ def actualizar_estado(request):
         'success': False
 
     })
+

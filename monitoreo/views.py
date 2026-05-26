@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.files.base import ContentFile
 from usuarios.models import Acceso, Persona
+from django.contrib.auth.decorators import login_required
 
 
 modelo = cv2.face.LBPHFaceRecognizer_create()
@@ -15,6 +16,7 @@ modelo.read(
     'modelo/modelo_lbph.yml'
 )
 
+@login_required
 def monitoreo(request):
 
     accesos = Acceso.objects.order_by(

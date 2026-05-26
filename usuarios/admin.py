@@ -1,9 +1,10 @@
 from django.contrib import admin
-from .models import Persona, Acceso
+from .models import Persona, Acceso, PerfilUsuario
 from django.utils.html import format_html
 
 
 admin.site.register(Persona)
+admin.site.register(PerfilUsuario)
 
 @admin.register(Acceso)
 class AccesoAdmin(admin.ModelAdmin):

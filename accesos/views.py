@@ -6,11 +6,12 @@ from django.http import JsonResponse
 from django.utils.timezone import now
 from datetime import timedelta
 from django.db.models import Q
+from django.contrib.auth.decorators import login_required
 
 # =========================
 # MÓDULO ACCESOS
 # =========================
-
+@login_required
 def accesos(request):
 
     periodo = request.GET.get(
@@ -187,6 +188,7 @@ def accesos(request):
 
     )
 
+@login_required
 def accesos_ajax(request):
 
     accesos = Acceso.objects.order_by(

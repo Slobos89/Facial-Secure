@@ -28,29 +28,54 @@
         <aside class="sidebar">
 
             <div class="logo">
-                <h1>facIAL Secure</h1>
-                <span>Centro Biométrico</span>
+                <img
+                    src="{% static 'img/facial2.png' %}"
+                    alt="facIAL Secure"
+                    class="sidebar-logo"
+                >
+                <div>
+                    <h1>facIAL Secure</h1>
+                    <span>Centro Biométrico</span>
+                </div>
+                
             </div>
 
             <nav class="nav">
 
                 <a href="{% url 'dashboard' %}" class="nav-link">
-                    <div class="nav-item">🏠 Dashboard</div>
+                    <div class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        🏠 Dashboard
+                    </div>
                 </a>
+
                 <a href="{% url 'usuarios' %}" class="nav-link">
-                    <div class="nav-item">👤 Usuarios</div>
+                    <div class="nav-item {% if request.resolver_match.url_name == 'usuarios' %}active{% endif %}">
+                        👤 Usuarios
+                    </div>
                 </a>
+
                 <a href="{% url 'monitoreo' %}" class="nav-link">
-                    <div class="nav-item">📷 Monitoreo</div>
+                    <div class="nav-item {% if request.resolver_match.url_name == 'monitoreo' %}active{% endif %}">
+                        📷 Monitoreo
+                    </div>
                 </a>
+
                 <a href="{% url 'validacion_biometrica' %}" class="nav-link">
-                    <div class="nav-item">📷 Validacion</div>
+                    <div class="nav-item {% if request.resolver_match.url_name == 'validacion_biometrica' %}active{% endif %}">
+                        📷 Validacion
+                    </div>
                 </a>
+
                 <a href="{% url 'accesos' %}" class="nav-link">
-                    <div class="nav-item">📋 Accesos</div>
+                    <div class="nav-item {% if request.resolver_match.url_name == 'accesos' %}active{% endif %}">
+                        📋 Accesos
+                    </div>
                 </a>
+
                 <a href="{% url 'alertas' %}" class="nav-link">
-                    <div class="nav-item">🚨 Alertas</div>
+                    <div class="nav-item {% if request.resolver_match.url_name == 'alertas' %}active{% endif %}">
+                        🚨 Alertas
+                    </div>
                 </a>
 
             </nav>
@@ -84,15 +109,26 @@
 
                 <div class="user">
 
-                    <div>
-                        <strong>Administrador</strong><br>
-                        <small style="color:#94a3b8;">
-                            Supervisor General
+                    <div class="user-info">
+
+                        <strong>
+
+                            {{ request.user.first_name|default:request.user.username }}
+
+                        </strong>
+
+                        <small>
+
+                            {{ request.user.perfilusuario.get_rol_display }}
+
                         </small>
+
                     </div>
 
                     <div class="user-avatar">
-                        A
+
+                        {{ request.user.username|first|upper }}
+
                     </div>
 
                 </div>

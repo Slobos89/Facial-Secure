@@ -1,0 +1,303 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        facIAL Secure
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'css/login.css' %}"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <!-- ICONOS -->
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="background-overlay"></div>
+
+    <main class="login-wrapper">
+
+        <!-- LEFT -->
+        <section class="login-left">
+
+            <div class="brand-container">
+
+                <img
+
+                    src="{% static 'img/facial.png' %}"
+
+                    alt="facIAL Secure"
+
+                    class="brand-logo"
+
+                >
+
+            </div>
+
+            <div class="brand-info">
+
+                <!-- CARD -->
+                <div class="info-card">
+
+                    <div class="info-icon">
+
+                        <i class="fa-solid fa-microchip"></i>
+
+                    </div>
+
+                    <div class="info-text">
+
+                        <strong>
+                            Reconocimiento Facial IA
+                        </strong>
+
+                        <span>
+                            Validación biométrica avanzada
+                        </span>
+
+                    </div>
+
+                </div>
+
+                <!-- CARD -->
+                <div class="info-card">
+
+                    <div class="info-icon">
+
+                        <i class="fa-solid fa-chart-column"></i>
+
+                    </div>
+
+                    <div class="info-text">
+
+                        <strong>
+                            Monitoreo en Tiempo Real
+                        </strong>
+
+                        <span>
+                            Supervisión continua de accesos
+                        </span>
+
+                    </div>
+
+                </div>
+
+                <!-- CARD -->
+                <div class="info-card">
+
+                    <div class="info-icon">
+
+                        <i class="fa-regular fa-bell"></i>
+
+                    </div>
+
+                    <div class="info-text">
+
+                        <strong>
+                            Gestión de Incidentes
+                        </strong>
+
+                        <span>
+                            Alertas biométricas inteligentes
+                        </span>
+
+                    </div>
+
+                </div>
+
+                <!-- CARD -->
+                <div class="info-card">
+
+                    <div class="info-icon">
+
+                        <i class="fa-solid fa-shield-halved"></i>
+
+                    </div>
+
+                    <div class="info-text">
+
+                        <strong>
+                            Seguridad Institucional
+                        </strong>
+
+                        <span>
+                            Acceso restringido y protegido
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- RIGHT -->
+        <section class="login-right">
+
+            <div class="login-card">
+
+                <div class="login-header">
+
+                    <h2>
+                        Iniciar Sesión
+                    </h2>
+
+                    <p>
+                        Acceso exclusivo para personal autorizado
+                    </p>
+
+                </div>
+
+                <form
+                    method="POST"
+                    class="login-form"
+                >
+
+                    {% csrf_token %}
+
+                    <!-- USER -->
+                    <div class="input-group">
+
+                        <label>
+                            Usuario
+                        </label>
+
+                        <div class="input-wrapper">
+
+                            <i class="fa-regular fa-user"></i>
+
+                            <input
+
+                                type="text"
+
+                                name="username"
+
+                                placeholder="Ingrese usuario"
+
+                                required
+
+                            >
+
+                        </div>
+
+                    </div>
+
+                    <!-- PASSWORD -->
+                    <div class="input-group">
+
+                        <label>
+                            Contraseña
+                        </label>
+
+                        <div class="input-wrapper">
+
+                            <i class="fa-solid fa-lock"></i>
+
+                            <input
+
+                                type="password"
+
+                                name="password"
+
+                                placeholder="Ingrese contraseña"
+
+                                required
+
+                            >
+
+                        </div>
+
+                    </div>
+
+                    <!-- ERRORS -->
+                    {% if messages %}
+
+                        {% for message in messages %}
+
+                            <div class="login-error">
+
+                                {{ message }}
+
+                            </div>
+
+                        {% endfor %}
+
+                    {% endif %}
+
+                    <!-- BUTTON -->
+                    <button
+                        type="submit"
+                        class="login-btn"
+                    >
+
+                        <i class="fa-solid fa-right-to-bracket"></i>
+
+                        Ingresar al Sistema
+
+                    </button>
+
+                </form>
+
+                <!-- FOOTER -->
+                <div class="login-footer">
+
+                    <div class="security-status">
+
+                        <span class="status-dot"></span>
+
+                        Sistema protegido · Zero Trust Security
+
+                    </div>
+
+                    <div class="footer-text">
+
+                        facIAL Secure © 2026
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</body>
+
+</html>

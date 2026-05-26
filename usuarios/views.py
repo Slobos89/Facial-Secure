@@ -22,10 +22,11 @@ from django.http import JsonResponse
 
 from .utils.face_detection import detectar_y_recortar_rostro
 from .utils.verificar_rostro import reconocer_rostro
+from django.contrib.auth.decorators import login_required
 
 
 
-
+@login_required
 def usuarios(request):
 
     ultimo_acceso = Acceso.objects.filter(

@@ -186,7 +186,17 @@ Validación Biométrica
 
                     "></div>
 
-                    <div class="timeline-content">
+                    <div class="timeline-content
+
+                        {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}
+                            success
+                        {% elif acceso.resultado == 'REVISION' %}
+                            warning
+                        {% else %}
+                            danger
+                        {% endif %}
+
+                    ">
 
                         <h4>
 
