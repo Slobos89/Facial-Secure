@@ -1,8 +1,9 @@
 from django.contrib import admin
 from django.conf import settings
+from django.contrib.auth.views import LogoutView
 from django.conf.urls.static import static
 from django.urls import path, include
-from .views import login_view
+from .views import login_view, logout_view
 
 urlpatterns = [
     path('login/',login_view,name='login'),
@@ -13,6 +14,7 @@ urlpatterns = [
     path('accesos/',include('accesos.urls')),
     path('alertas/',include('alertas.urls')),
     path('monitoreo/',include('monitoreo.urls')),
+    path("logout/", logout_view, name="logout")
 ]
 
 if settings.DEBUG:

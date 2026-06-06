@@ -107,31 +107,59 @@
 
                 </div>
 
-                <div class="user">
+                <div class="user-menu">
 
-                    <div class="user-info">
+                    <button
+                        class="user-trigger"
+                        onclick="toggleUserMenu()">
 
-                        <strong>
+                        <div class="user-info">
 
-                            {{ request.user.first_name|default:request.user.username }}
+                            <strong>
+                                {{ request.user.first_name|default:request.user.username }}
+                            </strong>
 
-                        </strong>
+                            <small>
+                                {{ request.user.perfilusuario.get_rol_display }}
+                            </small>
 
-                        <small>
+                        </div>
 
-                            {{ request.user.perfilusuario.get_rol_display }}
+                        <div class="user-avatar">
+                            {{ request.user.username|first|upper }}
+                        </div>
 
-                        </small>
+                    </button>
 
-                    </div>
+                    <div
+                        id="userDropdown"
+                        class="user-dropdown">
 
-                    <div class="user-avatar">
+                        <div class="dropdown-header">
 
-                        {{ request.user.username|first|upper }}
+                            <strong>
+                                {{ request.user.first_name|default:request.user.username }}
+                            </strong>
+
+                            <span>
+                                {{ request.user.perfilusuario.get_rol_display }}
+                            </span>
+
+                        </div>
+
+                        <a
+                            href="{% url 'logout' %}"
+                            class="dropdown-item">
+
+                            🚪 Cerrar sesión
+
+                        </a>
 
                     </div>
 
                 </div>
+
+               
 
             </div>
 
@@ -150,4 +178,31 @@
 </div>
 
 </body>
+
+<script>
+
+function toggleUserMenu(){
+
+    document
+        .getElementById('userDropdown')
+        .classList.toggle('show');
+
+}
+
+document.addEventListener('click', function(event){
+
+    const menu =
+        document.querySelector('.user-menu');
+
+    if(menu && !menu.contains(event.target)){
+
+        document
+            .getElementById('userDropdown')
+            ?.classList.remove('show');
+
+    }
+
+});
+
+</script>
 </html>

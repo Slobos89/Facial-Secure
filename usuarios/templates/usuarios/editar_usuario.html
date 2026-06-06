@@ -53,37 +53,37 @@
                                 value="{{ persona.rut }}"
                             >
                         </div>
+                        {% if request.user.perfilusuario.rol == 'ADMIN' %}
+                            <div class="form-group">
+                                <label>Estado</label>
 
-                        <div class="form-group">
-                            <label>Estado</label>
+                                <select name="estado">
 
-                            <select name="estado">
+                                    <option value="activo"
+                                    {% if persona.estado == 'activo' %}
+                                    selected
+                                    {% endif %}>
+                                        Activo
+                                    </option>
 
-                                <option value="activo"
-                                {% if persona.estado == 'activo' %}
-                                selected
-                                {% endif %}>
-                                    Activo
-                                </option>
+                                    <option value="bloqueado"
+                                    {% if persona.estado == 'bloqueado' %}
+                                    selected
+                                    {% endif %}>
+                                        Bloqueado
+                                    </option>
 
-                                <option value="bloqueado"
-                                {% if persona.estado == 'bloqueado' %}
-                                selected
-                                {% endif %}>
-                                    Bloqueado
-                                </option>
+                                    <option value="suspendido"
+                                    {% if persona.estado == 'suspendido' %}
+                                    selected
+                                    {% endif %}>
+                                        Suspendido
+                                    </option>
 
-                                <option value="suspendido"
-                                {% if persona.estado == 'suspendido' %}
-                                selected
-                                {% endif %}>
-                                    Suspendido
-                                </option>
+                                </select>
 
-                            </select>
-
-                        </div>
-
+                            </div>
+                        {% endif %}
                     </div>
 
                 </section>

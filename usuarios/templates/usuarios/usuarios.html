@@ -53,11 +53,11 @@ Usuarios
 
                         </a>
                     </div>
-
-                    <a href="{% url 'registrar_gendarme' %}" class="btn btn-primary">
-                        + Registrar Gendarme
-                    </a>
-
+                    {% if request.user.perfilusuario.rol == 'ADMIN' %}
+                        <a href="{% url 'registrar_gendarme' %}" class="btn btn-primary">
+                            + Registrar Gendarme
+                        </a>
+                    {% endif %}
                     <a href="{% url 'crear_persona' %}" class="btn btn-add">
                         + Enrolar Usuario
                     </a>
@@ -135,11 +135,11 @@ Usuarios
                     </td>
 
                     <td>
-                        {% if request.user.perfilusuario.rol == 'ADMIN' %}
-                            <a href="{% url 'editar_usuario' persona.id %}" class="btn-edit">
-                                ✏️ Editar
-                            </a>
-                        {% endif %}
+                        
+                        <a href="{% url 'editar_usuario' persona.id %}" class="btn-edit">
+                            ✏️ Editar
+                        </a>
+                        
                     </td>
 
                 </tr>
