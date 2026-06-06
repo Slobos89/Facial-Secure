@@ -14,4 +14,5 @@ urlpatterns = [
     path('editar-usuario/<int:persona_id>/',views.editar_usuario,name='editar_usuario'),
     path('reenrolar-rostro/<int:persona_id>/',views.reenrolar_rostro,name='reenrolar_rostro'),
     path('registrar-huella/<int:persona_id>/',views.registrar_huella,name='registrar_huella'),
+    path('registrar-gendarme/',views.registrar_gendarme,name='registrar_gendarme'),
 ]

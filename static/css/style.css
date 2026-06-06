@@ -1579,14 +1579,27 @@ tbody tr{
 
 .actions{
     display:flex;
+    gap:12px;
+    align-items:center;
+}
 
+.actions .btn{
+    width:190px;
+    height:48px;
+
+    display:flex;
+    align-items:center;
     justify-content:center;
 
-    align-items:center;
+    font-weight:600;
+}
 
-    gap:18px;
+.btn-admin{
+    width:170px;
+}
 
-    margin-top:40px;
+.btn-user{
+    width:190px;
 }
 
 .input{
@@ -3706,6 +3719,19 @@ a.btn{
         height:320px;
     }
 
+    .gendarme-info{
+        grid-template-columns:1fr;
+    }
+
+    .gendarme-status{
+        grid-template-columns:1fr;
+    }
+
+    .gendarme-actions{
+        flex-direction:column;
+        align-items:center;
+    }
+
 }
 
 
@@ -4621,5 +4647,133 @@ section.panel:last-child{
 .edit-container .panel:last-of-type{
 
     margin-bottom:36px;
+
+}
+
+/* ==========================================
+   REGISTRAR GENDARME
+========================================== */
+
+.gendarme-layout{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+}
+
+.gendarme-info{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:24px;
+}
+
+.gendarme-status{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:16px;
+}
+
+.gendarme-status .bio-item{
+    text-align:center;
+    padding:20px;
+}
+
+.gendarme-status .bio-item span{
+    display:block;
+    color:var(--text-secondary);
+    margin-bottom:10px;
+}
+
+.gendarme-help{
+    margin-top:20px;
+    padding:18px;
+    border-radius:14px;
+
+    background:
+        rgba(59,130,246,.08);
+
+    border:
+        1px solid rgba(59,130,246,.15);
+
+    color:var(--text-secondary);
+
+    font-size:14px;
+}
+
+.gendarme-actions{
+    display:flex;
+    justify-content:center;
+    gap:15px;
+    margin-top:10px;
+}
+
+.gendarme-actions .btn{
+    width:220px;
+}
+
+.gendarme-wrapper{
+
+    background:var(--bg-card);
+
+    border:1px solid var(--border-color);
+
+    border-radius:24px;
+
+    padding:35px;
+
+    box-shadow:var(--shadow);
+
+}
+
+.gendarme-header{
+
+    text-align:center;
+
+    padding:20px 0 35px 0;
+
+    margin-bottom:35px;
+
+    border-bottom:1px solid var(--border-color);
+
+}
+
+.gendarme-header::after{
+
+    content:"";
+
+    display:block;
+
+    width:120px;
+
+    height:4px;
+
+    margin:20px auto 0;
+
+    border-radius:999px;
+
+    background:linear-gradient(
+        90deg,
+        #22c55e,
+        #2563eb
+    );
+
+}
+
+.gendarme-header h1{
+
+    font-size:48px;
+
+    font-weight:700;
+
+    color:var(--text-primary);
+
+    margin-bottom:10px;
+
+}
+
+.gendarme-header p{
+
+    font-size:16px;
+
+    color:var(--text-secondary);
 
 }

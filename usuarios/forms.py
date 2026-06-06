@@ -8,6 +8,16 @@ class PersonaForm(forms.ModelForm):
 
         model = Persona
 
+        widgets = {
+            'rut': forms.TextInput(
+                attrs={
+                    'id': 'rut',
+                    'maxlength': '12',
+                    'placeholder': '12.345.678-9'
+                }
+            )
+        }
+
         fields = [
             'nombre',
             'apellido',

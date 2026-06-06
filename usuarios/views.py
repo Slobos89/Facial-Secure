@@ -236,25 +236,37 @@ def registrar_gendarme(request):
 
     if request.method == 'POST':
 
-        username = request.POST.get(
-            'username'
-        )
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        nombre = request.POST.get('nombre')
+        apellido = request.POST.get('apellido')
+        rut = request.POST.get('rut')
 
-        password = request.POST.get(
-            'password'
-        )
+        # =====================
+        # VALIDACIONES
+        # =====================
 
-        nombre = request.POST.get(
-            'nombre'
-        )
+        if User.objects.filter(username=username).exists():
 
-        apellido = request.POST.get(
-            'apellido'
-        )
+            messages.error(
+                request,
+                'El usuario ya existe'
+            )
 
-        rut = request.POST.get(
-            'rut'
-        )
+            return redirect(
+                'registrar_gendarme'
+            )
+
+        if Persona.objects.filter(rut=rut).exists():
+
+            messages.error(
+                request,
+                'El RUT ya está registrado'
+            )
+
+            return redirect(
+                'registrar_gendarme'
+            )
 
         # =====================
         # CREAR PERSONA
@@ -263,13 +275,9 @@ def registrar_gendarme(request):
         persona = Persona.objects.create(
 
             nombre=nombre,
-
             apellido=apellido,
-
             rut=rut,
-
             tipo_persona='gendarme',
-
             estado='activo'
         )
 
@@ -280,43 +288,35 @@ def registrar_gendarme(request):
         user = User.objects.create_user(
 
             username=username,
-
             password=password,
-
             first_name=nombre,
-
             last_name=apellido
         )
 
         # =====================
-        # ACTUALIZAR PERFIL
+        # PERFIL
         # =====================
 
         perfil = user.perfilusuario
 
         perfil.persona = persona
-
         perfil.rol = 'GENDARME'
 
         perfil.save()
 
         messages.success(
-
             request,
-
             'Gendarme registrado correctamente'
         )
 
-        return redirect(
-            'usuarios'
-        )
+        return redirect('usuarios')
 
     return render(
-
         request,
-
         'usuarios/registrar_gendarme.html'
     )
+
+    
 
 def validar_rostro(request):
 

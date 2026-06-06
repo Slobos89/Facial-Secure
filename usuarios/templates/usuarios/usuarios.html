@@ -53,7 +53,16 @@ Usuarios
 
                         </a>
                     </div>
-                    <a href="{% url 'crear_persona' %}" class="btn btn-add">+ Nuevo Enrolamiento</a> 
+
+                    <a href="{% url 'registrar_gendarme' %}" class="btn btn-primary">
+                        + Registrar Gendarme
+                    </a>
+
+                    <a href="{% url 'crear_persona' %}" class="btn btn-add">
+                        + Enrolar Usuario
+                    </a>
+
+                    
                     <input
                         type="text"
                         id="search-internos"

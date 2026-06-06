@@ -435,7 +435,37 @@ function completarHuella(){
     ).innerText =
         'Enrolada';
 
+const rutInput = document.getElementById('rut');
+
+if(rutInput){
+
+    rutInput.addEventListener('input', function(e){
+
+        let valor = e.target.value
+            .replace(/\./g,'')
+            .replace(/-/g,'');
+
+        if(valor.length > 1){
+
+            let cuerpo = valor.slice(0,-1);
+            let dv = valor.slice(-1);
+
+            cuerpo = cuerpo.replace(
+                /\B(?=(\d{3})+(?!\d))/g,
+                '.'
+            );
+
+            e.target.value =
+                cuerpo + '-' + dv.toUpperCase();
+        }
+
+    });
+
+}
+
 }
 </script>
+
+
 
 {% endblock %}

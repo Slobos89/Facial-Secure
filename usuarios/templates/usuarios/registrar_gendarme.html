@@ -1,174 +1,176 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
-<div class="page-header">
-
-    <div>
-
+<div class="gendarme-wrapper">
+    <div class="gendarme-header">
+        
         <h1>Registrar Gendarme</h1>
-
-        <p>
-            Crear nueva cuenta institucional
-        </p>
-
+        <p>Crear nueva cuenta institucional</p>
+        
     </div>
 
-</div>
+    <form method="POST">
+        {% csrf_token %}
 
-<form method="POST">
+        <div class="gendarme-layout">
 
-    {% csrf_token %}
+            <!-- DATOS PERSONALES -->
 
-    <div class="register-layout">
+            <section class="panel">
 
-        <!-- PANEL IZQUIERDO -->
+                <div class="panel-header">
+                    <h2>👤 Información Personal</h2>
+                </div>
 
-        <section class="panel">
+                <div class="form-grid">
 
-            <div class="panel-header">
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" name="nombre" required>
+                    </div>
 
-                <h2>
-                    Datos de Acceso
-                </h2>
+                    <div class="form-group">
+                        <label>Apellido</label>
+                        <input type="text" name="apellido" required>
+                    </div>
 
-            </div>
-
-            <div class="form-grid">
-
-                <div class="form-group">
-
-                    <label>Usuario</label>
-
-                    <input
-                        type="text"
-                        name="username"
-                        required
-                    >
+                    <div class="form-group">
+                        <label>RUT</label>
+                        <input
+                            type="text"
+                            id="rut"
+                            name="rut"
+                            maxlength="12"
+                            placeholder = "12.345.678-9"
+                            required>
+                    </div>
 
                 </div>
 
-                <div class="form-group">
+            </section>
 
-                    <label>Contraseña</label>
+            <!-- ACCESO -->
 
-                    <input
-                        type="password"
-                        name="password"
-                        required
-                    >
+            <section class="panel">
+
+                <div class="panel-header">
+                    <h2>🔐 Credenciales de Acceso</h2>
+                </div>
+
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label>Usuario</label>
+                        <input type="text" name="username" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input type="password" name="password" required>
+                    </div>
 
                 </div>
 
-                <div class="form-group">
+            </section>
 
-                    <label>Nombre</label>
+            <!-- BIOMETRIA -->
 
-                    <input
-                        type="text"
-                        name="nombre"
-                        required
-                    >
+            <section class="panel">
+
+                <div class="panel-header">
+                    <h2>🛡 Estado Biométrico</h2>
+                </div>
+
+                <div class="gendarme-status">
+
+                    <div class="bio-item">
+                        <span>Facial</span>
+                        <strong class="warning">
+                            Pendiente
+                        </strong>
+                    </div>
+
+                    <div class="bio-item">
+                        <span>Huella</span>
+                        <strong class="warning">
+                            Pendiente
+                        </strong>
+                    </div>
+
+                    <div class="bio-item">
+                        <span>Estado</span>
+                        <strong class="warning">
+                            Sin enrolar
+                        </strong>
+                    </div>
 
                 </div>
 
-                <div class="form-group">
+                <div class="gendarme-help">
+                    El enrolamiento facial y dactilar se realizará posteriormente
+                    desde la opción <strong>Editar Usuario</strong>.
+                </div>
 
-                    <label>Apellido</label>
+            </section>
 
-                    <input
-                        type="text"
-                        name="apellido"
-                        required
-                    >
+            <!-- BOTONES -->
+
+            <section class="panel">
+
+                <div class="gendarme-actions">
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary">
+
+                        Registrar Gendarme
+
+                    </button>
+
+                    <a
+                        href="{% url 'usuarios' %}"
+                        class="btn btn-secondary">
+
+                        Cancelar
+
+                    </a>
 
                 </div>
 
-                <div class="form-group">
-
-                    <label>RUT</label>
-
-                    <input
-                        type="text"
-                        name="rut"
-                        required
-                    >
-
-                </div>
-
-            </div>
-
-        </section>
-
-        <!-- PANEL DERECHO -->
-
-        <section class="panel">
-
-            <div class="panel-header">
-
-                <h2>
-                    Estado Biométrico
-                </h2>
-
-            </div>
-
-            <div class="bio-status">
-
-                <div class="bio-item">
-
-                    <span>Facial</span>
-
-                    <strong class="warning">
-                        Pendiente
-                    </strong>
-
-                </div>
-
-                <div class="bio-item">
-
-                    <span>Huella</span>
-
-                    <strong class="warning">
-                        Pendiente
-                    </strong>
-
-                </div>
-
-                <div class="bio-item">
-
-                    <span>Estado</span>
-
-                    <strong class="warning">
-                        Sin enrolar
-                    </strong>
-
-                </div>
-
-            </div>
-
-        </section>
-
-    </div>
-
-    <!-- FOOTER -->
-
-    <section class="panel">
-
-        <div class="buttons">
-
-            <button
-                type="submit"
-                class="btn btn-primary"
-            >
-
-                Registrar Gendarme
-
-            </button>
+            </section>
 
         </div>
 
-    </section>
+    </form>
+</div>
 
-</form>
+<script>
 
+document.getElementById('rut').addEventListener(
+    'input',
+    function(e){
+
+        let valor = e.target.value
+            .replace(/\./g,'')
+            .replace(/-/g,'');
+
+        if(valor.length > 1){
+
+            let cuerpo = valor.slice(0,-1);
+            let dv = valor.slice(-1);
+
+            cuerpo = cuerpo.replace(
+                /\B(?=(\d{3})+(?!\d))/g,
+                '.'
+            );
+
+            e.target.value =
+                cuerpo + '-' + dv.toUpperCase();
+
+        }
+
+    }
+);
+
+</script>
 {% endblock %}
