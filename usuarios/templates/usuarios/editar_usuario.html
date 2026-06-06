@@ -1,0 +1,598 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="edit-container">
+
+    <div class="card-section">
+
+        <h2>Editar Usuario</h2>
+
+        <form method="POST">
+
+            {% csrf_token %}
+
+            <div class="edit-layout">
+
+                <!-- DATOS -->
+
+                <section class="panel">
+
+                    <div class="panel-header">
+                        <h3 class="panel-title">
+                            Información Personal
+                        </h3>
+                    </div>
+
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input
+                                type="text"
+                                name="nombre"
+                                value="{{ persona.nombre }}"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label>Apellido</label>
+                            <input
+                                type="text"
+                                name="apellido"
+                                value="{{ persona.apellido }}"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label>RUT</label>
+                            <input
+                                type="text"
+                                name="rut"
+                                value="{{ persona.rut }}"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label>Estado</label>
+
+                            <select name="estado">
+
+                                <option value="activo"
+                                {% if persona.estado == 'activo' %}
+                                selected
+                                {% endif %}>
+                                    Activo
+                                </option>
+
+                                <option value="bloqueado"
+                                {% if persona.estado == 'bloqueado' %}
+                                selected
+                                {% endif %}>
+                                    Bloqueado
+                                </option>
+
+                                <option value="suspendido"
+                                {% if persona.estado == 'suspendido' %}
+                                selected
+                                {% endif %}>
+                                    Suspendido
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+                <!-- BIOMETRIA -->
+
+                <section class="panel">
+
+                    <div class="panel-header">
+
+                        <h3 class="panel-title">
+                            Estado Biométrico
+                        </h3>
+
+                    </div>
+
+                    <div class="bio-grid">
+
+                        <div class="bio-item">
+
+                            <label>Facial</label>
+
+                            <strong>
+
+                                {% if primer_rostro %}
+                                    Registrado
+                                {% else %}
+                                    Pendiente
+                                {% endif %}
+
+                            </strong>
+
+                        </div>
+
+                        <div class="bio-item">
+
+                            <label>Huella</label>
+
+                            <strong>
+
+                                {% if huella %}
+                                    Registrada
+                                {% else %}
+                                    Pendiente
+                                {% endif %}
+
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    {% if primer_rostro %}
+
+                        <div class="edit-face-preview">
+
+                            <img
+                                src="{{ primer_rostro.imagen.url }}"
+                                alt="Rostro"
+                            >
+
+                        </div>
+
+                    {% endif %}
+
+                </section>
+
+            </div>
+
+            <section class="panel">
+
+                <div class="panel-header">
+
+                    <h3 class="panel-title">
+                        Enrolamiento Biométrico
+                    </h3>
+
+                </div>
+
+                <div class="camera-container">
+
+                    <video
+                        id="video"
+                        autoplay
+                        playsinline
+                    ></video>
+
+                    <canvas
+                        id="canvas"
+                    ></canvas>
+
+                </div>
+
+                <div class="edit-bio-actions">
+
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        onclick="iniciarCamara()"
+                    >
+                        Iniciar Cámara
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn btn-success"
+                        id="capturar-btn"
+                    >
+                        Reenrolar Rostro
+                    </button>
+
+                </div>
+
+                <input
+                    type="hidden"
+                    id="capturas"
+                    name="capturas"
+                >
+
+                <div class="edit-bio-progress">
+
+                    <div class="progress-bar">
+
+                        <div
+                            id="progress-fill"
+                            class="progress-fill"
+                        ></div>
+
+                    </div>
+
+                    <p id="capture-status">
+
+                        Esperando reenrolamiento...
+
+                    </p>
+
+                </div>
+
+                <hr class="edit-bio-divider">
+
+                <div class="edit-fingerprint-card">
+
+                    <div class="edit-fingerprint-icon">
+
+                        🖐️
+
+                    </div>
+
+                    <div class="edit-fingerprint-info">
+
+                        <h4>
+                            Huella Dactilar
+                        </h4>
+
+                        <p id="fingerprint-status">
+
+                            {% if huella %}
+                                Huella registrada
+                            {% else %}
+                                Pendiente de registro
+                            {% endif %}
+
+                        </p>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        id="registrar-huella"
+                    >
+
+                        Registrar Huella
+
+                    </button>
+
+                </div>
+
+            </section>
+
+            <div class="actions">
+
+                <button
+                    type="submit"
+                    class="btn-save"
+                >
+                    Guardar Cambios
+                </button>
+
+                <a
+                    href="{% url 'usuarios' %}"
+                    class="btn-cancel"
+                >
+                    Cancelar
+                </a>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script>
+
+const video = document.getElementById('video');
+
+const canvas = document.getElementById('canvas');
+
+const progressFill =
+    document.getElementById(
+        'progress-fill'
+    );
+
+const captureStatus =
+    document.getElementById(
+        'capture-status'
+    );
+
+const capturarBtn =
+    document.getElementById(
+        'capturar-btn'
+    );
+
+const capturasInput =
+    document.getElementById(
+        'capturas'
+    );
+
+let capturas = [];
+
+let capturando = false;
+
+const reenrolarUrl =
+    "/usuarios/reenrolar-rostro/{{ persona.id }}/";
+
+
+/* =========================
+   INICIAR CÁMARA
+========================= */
+
+async function iniciarCamara(){
+
+    try{
+
+        const stream =
+            await navigator
+                .mediaDevices
+                .getUserMedia({
+
+                    video:true,
+
+                    audio:false
+
+                });
+
+        video.srcObject = stream;
+
+    }catch(error){
+
+        alert(
+            'No se pudo acceder a la cámara'
+        );
+
+        console.error(error);
+
+    }
+
+}
+
+
+/* =========================
+   BOTON REENROLAR
+========================= */
+
+capturarBtn.addEventListener(
+
+    'click',
+
+    () => {
+
+        if(capturando){
+            return;
+        }
+
+        capturas = [];
+
+        capturando = true;
+
+        iniciarCapturaAutomatica();
+
+    }
+
+);
+
+
+/* =========================
+   CAPTURA AUTOMÁTICA
+========================= */
+
+function iniciarCapturaAutomatica(){
+
+    let contador = 0;
+
+    const intervalo = setInterval(() => {
+
+        const context =
+            canvas.getContext('2d');
+
+        canvas.width = 640;
+
+        canvas.height = 480;
+
+        context.drawImage(
+
+            video,
+
+            0,
+
+            0,
+
+            canvas.width,
+
+            canvas.height
+
+        );
+
+        const imagen =
+            canvas.toDataURL(
+                'image/jpeg'
+            );
+
+        capturas.push(
+            imagen
+        );
+
+        contador++;
+
+        const porcentaje =
+            (contador / 10) * 100;
+
+        progressFill.style.width =
+            porcentaje + '%';
+
+        captureStatus.innerText =
+            `Captura ${contador}/10`;
+
+        if(contador >= 10){
+
+            clearInterval(
+                intervalo
+            );
+
+            capturando = false;
+
+            capturasInput.value =
+
+                JSON.stringify(
+                    capturas
+                );
+
+            enviarReenrolamiento();
+
+        }
+
+    }, 2000);
+
+}
+
+
+/* =========================
+   REENROLAR
+========================= */
+
+function enviarReenrolamiento(){
+
+    fetch(
+
+        reenrolarUrl,
+
+        {
+
+            method:'POST',
+
+            headers:{
+
+                'X-CSRFToken':
+
+                    document
+                        .querySelector(
+                            '[name=csrfmiddlewaretoken]'
+                        )
+                        .value,
+
+                'Content-Type':
+
+                    'application/x-www-form-urlencoded'
+
+            },
+
+            body:
+
+                'capturas=' +
+
+                encodeURIComponent(
+
+                    JSON.stringify(
+                        capturas
+                    )
+
+                )
+
+        }
+
+    )
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        if(data.success){
+
+            alert(
+                'Rostro reenrolado correctamente'
+            );
+
+            location.reload();
+
+        }else{
+
+            alert(
+                'Error reenrolando rostro'
+            );
+
+        }
+
+    })
+
+    .catch(error => {
+
+        console.error(error);
+
+        alert(
+            'Error procesando solicitud'
+        );
+
+    });
+
+}
+
+const btnHuella =
+    document.getElementById(
+        'registrar-huella'
+    );
+
+btnHuella.addEventListener(
+
+    'click',
+
+    () => {
+
+        fetch(
+
+            "/usuarios/registrar-huella/{{ persona.id }}/",
+
+            {
+
+                method:'POST',
+
+                headers:{
+
+                    'X-CSRFToken':
+
+                        document
+                            .querySelector(
+                                '[name=csrfmiddlewaretoken]'
+                            )
+                            .value
+
+                }
+
+            }
+
+        )
+
+        .then(
+            response => response.json()
+        )
+
+        .then(data => {
+
+            if(data.success){
+
+                alert(
+                    'Huella registrada correctamente'
+                );
+
+                location.reload();
+
+            }
+
+        });
+
+    }
+
+);
+
+</script>
+
+
+{% endblock %}

@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="page-header">
+
+    <div>
+
+        <h1>Registrar Gendarme</h1>
+
+        <p>
+            Crear nueva cuenta institucional
+        </p>
+
+    </div>
+
+</div>
+
+<form method="POST">
+
+    {% csrf_token %}
+
+    <div class="register-layout">
+
+        <!-- PANEL IZQUIERDO -->
+
+        <section class="panel">
+
+            <div class="panel-header">
+
+                <h2>
+                    Datos de Acceso
+                </h2>
+
+            </div>
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>Usuario</label>
+
+                    <input
+                        type="text"
+                        name="username"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>Contraseña</label>
+
+                    <input
+                        type="password"
+                        name="password"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>Nombre</label>
+
+                    <input
+                        type="text"
+                        name="nombre"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>Apellido</label>
+
+                    <input
+                        type="text"
+                        name="apellido"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>RUT</label>
+
+                    <input
+                        type="text"
+                        name="rut"
+                        required
+                    >
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- PANEL DERECHO -->
+
+        <section class="panel">
+
+            <div class="panel-header">
+
+                <h2>
+                    Estado Biométrico
+                </h2>
+
+            </div>
+
+            <div class="bio-status">
+
+                <div class="bio-item">
+
+                    <span>Facial</span>
+
+                    <strong class="warning">
+                        Pendiente
+                    </strong>
+
+                </div>
+
+                <div class="bio-item">
+
+                    <span>Huella</span>
+
+                    <strong class="warning">
+                        Pendiente
+                    </strong>
+
+                </div>
+
+                <div class="bio-item">
+
+                    <span>Estado</span>
+
+                    <strong class="warning">
+                        Sin enrolar
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+    <!-- FOOTER -->
+
+    <section class="panel">
+
+        <div class="buttons">
+
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+
+                Registrar Gendarme
+
+            </button>
+
+        </div>
+
+    </section>
+
+</form>
+
+{% endblock %}

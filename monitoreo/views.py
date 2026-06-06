@@ -10,11 +10,29 @@ from usuarios.models import Acceso, Persona
 from django.contrib.auth.decorators import login_required
 
 
-modelo = cv2.face.LBPHFaceRecognizer_create()
-
-modelo.read(
-    'modelo/modelo_lbph.yml'
+modelo = cv2.face.LBPHFaceRecognizer_create(
+    radius=2,
+    neighbors=16,
+    grid_x=8,
+    grid_y=8
 )
+
+try:
+
+    modelo.read(
+        'modelo/modelo_lbph.yml'
+    )
+
+    print(
+        'MODELO MONITOREO CARGADO'
+    )
+
+except Exception as e:
+
+    print(
+        'ERROR MODELO MONITOREO:',
+        e
+    )
 
 @login_required
 def monitoreo(request):
@@ -135,13 +153,29 @@ def detectar_rostros(request):
 
             rostro = cv2.resize(
                 rostro,
-                (300,300)
+                (160,160)
             )
 
 
             usuario_id, confianza = modelo.predict(
                 rostro
             )
+
+            try:
+
+                persona = Persona.objects.get(
+                    id=usuario_id
+                )
+
+                print(
+                    f'RECONOCIDO -> '
+                    f'{persona.nombre} '
+                    f'{persona.apellido} '
+                    f'Confianza={confianza}'
+                )
+
+            except:
+                pass
 
             print(
 

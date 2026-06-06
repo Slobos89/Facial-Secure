@@ -73,6 +73,7 @@ Usuarios
                     <th>Tipo</th>
                     <th>Estado</th>
                     <th>Registro</th>
+                    <th>Acciones</th>
                 </tr>
                 </thead>
 
@@ -124,6 +125,14 @@ Usuarios
                         {{ persona.fecha_registro }}
                     </td>
 
+                    <td>
+                        {% if request.user.perfilusuario.rol == 'ADMIN' %}
+                            <a href="{% url 'editar_usuario' persona.id %}" class="btn-edit">
+                                ✏️ Editar
+                            </a>
+                        {% endif %}
+                    </td>
+
                 </tr>
 
                 {% endfor %}
@@ -162,6 +171,7 @@ Usuarios
                     <th>Tipo</th>
                     <th>Estado</th>
                     <th>Registro</th>
+                    <th>Acciones</th>
                 </tr>
                 </thead>
 
@@ -211,6 +221,14 @@ Usuarios
 
                     <td>
                         {{ persona.fecha_registro }}
+                    </td>
+
+                    <td>
+                        {% if request.user.perfilusuario.rol == 'ADMIN' %}
+                            <a href="{% url 'editar_usuario' persona.id %}" class="btn-edit">
+                                ✏️ Editar
+                            </a>
+                        {% endif %}
                     </td>
 
                 </tr>

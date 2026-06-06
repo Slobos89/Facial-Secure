@@ -18,6 +18,12 @@ class Persona(models.Model):
         ('suspendido', 'Suspendido'),
     ]
 
+    ENROLAMIENTOS = [
+        ('pendiente', 'Pendiente'),
+        ('parcial', 'Parcial'),
+        ('completo', 'Completo'),
+    ]
+
     nombre = models.CharField(max_length=100)
 
     apellido = models.CharField(max_length=100)
@@ -36,6 +42,12 @@ class Persona(models.Model):
         max_length=20,
         choices=ESTADOS,
         default='activo'
+    )
+
+    estado_enrolamiento = models.CharField(
+        max_length=20,
+        choices=ENROLAMIENTOS,
+        default='pendiente'
     )
 
     fecha_registro = models.DateTimeField(
@@ -74,6 +86,17 @@ class PerfilUsuario(models.Model):
 
         on_delete=models.CASCADE
 
+    )
+
+    persona = models.OneToOneField(
+
+        Persona,
+
+        on_delete=models.CASCADE,
+
+        null=True,
+
+        blank=True
     )
 
 

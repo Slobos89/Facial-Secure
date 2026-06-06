@@ -50,7 +50,6 @@ for rostro_db in dataset:
 
         ruta_imagen = rostro_db.imagen.path
 
-
         if not os.path.exists(ruta_imagen):
 
             print(
@@ -58,7 +57,6 @@ for rostro_db in dataset:
             )
 
             continue
-
 
         imagen = cv2.imread(
 
@@ -68,7 +66,6 @@ for rostro_db in dataset:
 
         )
 
-
         if imagen is None:
 
             print(
@@ -76,7 +73,6 @@ for rostro_db in dataset:
             )
 
             continue
-
 
         imagen = cv2.resize(
 
@@ -86,18 +82,17 @@ for rostro_db in dataset:
 
         )
 
+        persona_id = rostro_db.persona.id
 
         rostros.append(imagen)
 
-        labels.append(
-            rostro_db.persona.id
-        )
-
+        labels.append(persona_id)
 
         print(
 
             f'OK -> Persona ID: '
-            f'{rostro_db.persona.id}'
+
+            f'{persona_id}'
 
         )
 
@@ -106,7 +101,7 @@ for rostro_db in dataset:
         print(
             'ERROR:',
             e
-        )
+        )  
 
 
 print('\n====================')

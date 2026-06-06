@@ -6,7 +6,7 @@ import uuid
 import subprocess
 import sys
 from django.core.paginator import Paginator
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.core.files.base import ContentFile
 from django.db.models import OuterRef, Subquery
 from django.contrib import messages
@@ -23,6 +23,8 @@ from django.http import JsonResponse
 from .utils.face_detection import detectar_y_recortar_rostro
 from .utils.verificar_rostro import reconocer_rostro
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from .models import PerfilUsuario
 
 
 
@@ -227,6 +229,93 @@ def crear_persona(request):
         {
             'form': form
         }
+    )
+
+@login_required
+def registrar_gendarme(request):
+
+    if request.method == 'POST':
+
+        username = request.POST.get(
+            'username'
+        )
+
+        password = request.POST.get(
+            'password'
+        )
+
+        nombre = request.POST.get(
+            'nombre'
+        )
+
+        apellido = request.POST.get(
+            'apellido'
+        )
+
+        rut = request.POST.get(
+            'rut'
+        )
+
+        # =====================
+        # CREAR PERSONA
+        # =====================
+
+        persona = Persona.objects.create(
+
+            nombre=nombre,
+
+            apellido=apellido,
+
+            rut=rut,
+
+            tipo_persona='gendarme',
+
+            estado='activo'
+        )
+
+        # =====================
+        # CREAR USER DJANGO
+        # =====================
+
+        user = User.objects.create_user(
+
+            username=username,
+
+            password=password,
+
+            first_name=nombre,
+
+            last_name=apellido
+        )
+
+        # =====================
+        # ACTUALIZAR PERFIL
+        # =====================
+
+        perfil = user.perfilusuario
+
+        perfil.persona = persona
+
+        perfil.rol = 'GENDARME'
+
+        perfil.save()
+
+        messages.success(
+
+            request,
+
+            'Gendarme registrado correctamente'
+        )
+
+        return redirect(
+            'usuarios'
+        )
+
+    return render(
+
+        request,
+
+        'usuarios/registrar_gendarme.html'
     )
 
 def validar_rostro(request):
@@ -443,3 +532,213 @@ def entrenar_ia(request):
         )
 
     return redirect('usuarios')
+
+@login_required
+def editar_usuario(request, persona_id):
+
+    persona = Persona.objects.get(
+        id=persona_id
+    )
+
+    if request.method == 'POST':
+
+        persona.nombre = request.POST.get(
+            'nombre'
+        )
+
+        persona.apellido = request.POST.get(
+            'apellido'
+        )
+
+        persona.rut = request.POST.get(
+            'rut'
+        )
+
+        persona.estado = request.POST.get(
+            'estado'
+        )
+
+        persona.save()
+
+        messages.success(
+
+            request,
+
+            'Usuario actualizado correctamente'
+        )
+
+        return redirect(
+            'usuarios'
+        )
+
+    primer_rostro = (
+        persona.rostros.first()
+    )
+
+    huella = HuellaDactilar.objects.filter(
+        persona=persona
+    ).first()
+
+    return render(
+
+        request,
+
+        'usuarios/editar_usuario.html',
+
+        {
+
+            'persona': persona,
+            'primer_rostro': primer_rostro,
+            'huella': huella,
+
+        }
+    )
+
+@login_required
+def reenrolar_rostro(request, persona_id):
+
+    if request.method != 'POST':
+
+        return JsonResponse({
+            'success': False,
+            'error': 'Método no permitido'
+        })
+
+    persona = get_object_or_404(
+        Persona,
+        id=persona_id
+    )
+
+    capturas_json = request.POST.get(
+        'capturas'
+    )
+
+    if not capturas_json:
+
+        return JsonResponse({
+            'success': False,
+            'error': 'No se recibieron capturas'
+        })
+
+    # Eliminar dataset anterior
+
+    persona.rostros.all().delete()
+
+    capturas = json.loads(
+        capturas_json
+    )
+
+    contador = 0
+
+    for foto_data in capturas:
+
+        try:
+
+            format, imgstr = foto_data.split(
+                ';base64,'
+            )
+
+            image_data = base64.b64decode(
+                imgstr
+            )
+
+            image_pil = Image.open(
+                BytesIO(image_data)
+            )
+
+            rostro = detectar_y_recortar_rostro(
+                image_pil
+            )
+
+            if rostro is None:
+                continue
+
+            if rostro.mode == 'RGBA':
+
+                rostro = rostro.convert(
+                    'RGB'
+                )
+
+            rostro_io = BytesIO()
+
+            rostro.save(
+                rostro_io,
+                format='JPEG'
+            )
+
+            rostro_db = RostroCapturado(
+                persona=persona
+            )
+
+            rostro_db.imagen.save(
+
+                f'{persona.rut}_reenrolado_{contador}.jpg',
+
+                ContentFile(
+                    rostro_io.getvalue()
+                ),
+
+                save=True
+
+            )
+
+            contador += 1
+
+        except Exception as e:
+
+            print(
+                'ERROR REENROLAMIENTO:',
+                e
+            )
+
+    # Opcional
+
+    try:
+
+        entrenar_modelo()
+
+    except Exception as e:
+
+        print(
+            'ERROR ENTRENANDO:',
+            e
+        )
+
+    return JsonResponse({
+
+        'success': True,
+
+        'capturas': contador
+
+    })
+
+@login_required
+def registrar_huella(
+    request,
+    persona_id
+):
+
+    persona = get_object_or_404(
+        Persona,
+        id=persona_id
+    )
+
+    HuellaDactilar.objects.filter(
+        persona=persona
+    ).delete()
+
+    HuellaDactilar.objects.create(
+
+        persona=persona,
+
+        template=str(
+            uuid.uuid4()
+        )
+
+    )
+
+    return JsonResponse({
+
+        'success': True
+
+    })

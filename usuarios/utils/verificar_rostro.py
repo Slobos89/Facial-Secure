@@ -16,7 +16,27 @@ recognizer = cv2.face.LBPHFaceRecognizer_create(
 
 if os.path.exists(modelo_path):
 
-    recognizer.read(modelo_path)
+    try:
+
+        print(
+            "MODELO:",
+            os.path.abspath(modelo_path)
+        )
+
+        recognizer.read(
+            modelo_path
+        )
+
+        print(
+            "MODELO CARGADO"
+        )
+
+    except Exception as e:
+
+        print(
+            "ERROR CARGANDO MODELO:",
+            e
+        )
 
 
 face_cascade = cv2.CascadeClassifier(
@@ -28,10 +48,27 @@ face_cascade = cv2.CascadeClassifier(
 def reconocer_rostro(imagen_path):
 
     if not os.path.exists(modelo_path):
-        
+
+        print(
+            "NO EXISTE MODELO"
+        )
+
         return None
-    
-    recognizer.read(modelo_path)
+
+    try:
+
+        recognizer.read(
+            modelo_path
+        )
+
+    except Exception as e:
+
+        print(
+            "MODELO CORRUPTO:",
+            e
+        )
+
+        return None
         
     imagen = cv2.imread(imagen_path)
 
@@ -80,7 +117,7 @@ def reconocer_rostro(imagen_path):
 
         rostro = cv2.resize(
             rostro,
-            (300,300)
+            (160,160)
         )
 
         label, confianza = recognizer.predict(

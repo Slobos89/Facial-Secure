@@ -1579,7 +1579,14 @@ tbody tr{
 
 .actions{
     display:flex;
-    gap:14px;
+
+    justify-content:center;
+
+    align-items:center;
+
+    gap:18px;
+
+    margin-top:40px;
 }
 
 .input{
@@ -1963,10 +1970,6 @@ a.btn{
     gap:10px;
 }
 
-.form-group label{
-    font-size:14px;
-    color:var(--text-secondary);
-}
 
 .form-group input,
 .form-group select{
@@ -2270,14 +2273,35 @@ a.btn{
 }
 
 .fingerprint-scanner{
-    width:90px;
-    height:90px;
-    border-radius:20px;
+    width:92px;
+
+    height:92px;
+
+    margin:auto;
+
+    border-radius:22px;
+
+    background:#ffffff;
+
+    border:1px solid var(--border-color);
+
     display:flex;
-    align-items:center;
+
     justify-content:center;
-    background:#0f172a;
-    border:2px solid rgba(255,255,255,.08);
+
+    align-items:center;
+
+    cursor:pointer;
+
+}
+
+.validation-info h3{
+
+    color:var(--text-primary);
+
+    font-size:32px;
+
+    font-weight:700;
 }
 
 .fingerprint-icon{
@@ -3364,9 +3388,9 @@ a.btn{
 
 .validation-item{
 
-    background:#0f172a;
+    background:var(--bg-card);
 
-    border:1px solid rgba(255,255,255,.05);
+    border:1px solid var(--border-color);
 
     border-radius:24px;
 
@@ -3376,18 +3400,17 @@ a.btn{
 
     grid-template-columns:
         220px
-        1fr
-        240px
-        180px;
+        1.8fr
+        260px
+        220px;
 
-    gap:24px;
+    gap:22px;
 
     align-items:center;
 
-    transition:.3s;
+    transition:.25s;
 
-    box-shadow:
-        0 10px 30px rgba(0,0,0,.18);
+    box-shadow:var(--shadow);
 }
 
 .validation-item:hover{
@@ -3396,6 +3419,8 @@ a.btn{
         rgba(34,197,94,.18);
 
     transform:translateY(-2px);
+    box-shadow:
+        0 14px 32px rgba(37,99,235,.08);
 }
 
 /* FOTO */
@@ -3417,9 +3442,13 @@ a.btn{
 
     width:100%;
 
-    height:100%;
+    height:220px;
 
     object-fit:cover;
+
+    border-radius:20px;
+
+    border:1px solid var(--border-color);
 }
 
 /* INFO */
@@ -3461,20 +3490,20 @@ a.btn{
 
 .detail-box{
 
-    background:#111827;
+    background:var(--bg-card-soft);
 
     border-radius:16px;
 
-    padding:16px;
+    padding:18px;
 
-    border:1px solid rgba(255,255,255,.04);
+    border:1px solid var(--border-color);
 }
 
 .detail-box label{
 
     display:block;
 
-    color:#64748b;
+    color:var(--text-secondary);
 
     margin-bottom:8px;
 
@@ -3483,7 +3512,7 @@ a.btn{
 
 .detail-box strong{
 
-    color:white;
+    color:var(--text-primary);
 
     font-size:16px;
 }
@@ -3501,13 +3530,13 @@ a.btn{
 
 .bio-box{
 
-    background:#111827;
+    background:var(--bg-card-soft);
 
-    border-radius:18px;
+    border-radius:16px;
 
     padding:18px;
 
-    border:1px solid rgba(255,255,255,.04);
+    border:1px solid var(--border-color);
 }
 
 .bio-title{
@@ -3518,7 +3547,7 @@ a.btn{
 
     margin-bottom:12px;
 
-    font-size:14px;
+    font-size:13px;
 }
 
 .bio-status{
@@ -3578,13 +3607,13 @@ a.btn{
 
 .fingerprint-box{
 
-    background:#111827;
+    background:var(--bg-card-soft);
 
     border-radius:18px;
 
-    padding:18px;
+    padding:20px;
 
-    border:1px solid rgba(255,255,255,.05);
+    border:1px solid var(--border-color);
 
     display:flex;
 
@@ -3597,31 +3626,13 @@ a.btn{
     gap:16px;
 
     min-height:180px;
+
+    text-align: center;
 }
 
 /* SCANNER */
 
-.fingerprint-scanner{
 
-    width:90px;
-
-    height:90px;
-
-    border-radius:22px;
-
-    background:#0f172a;
-
-    border:2px solid rgba(34,197,94,.25);
-
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
-    box-shadow:
-        0 0 25px rgba(34,197,94,.12);
-}
 
 /* ICON */
 
@@ -3697,11 +3708,7 @@ a.btn{
 
 }
 
-.fingerprint-scanner{
 
-    cursor:pointer;
-
-}
 
 .fingerprint-scanner:hover{
 
@@ -4206,22 +4213,7 @@ a.btn{
     gap:24px;
 }
 
-/* ICONO HUELLA */
 
-.fingerprint-scanner{
-
-    width:90px;
-
-    height:90px;
-
-    border-radius:22px;
-
-    background:var(--bg-card-soft);
-
-    border:1px solid var(--border-color);
-
-    box-shadow:none;
-}
 
 /* TEXTO */
 
@@ -4348,4 +4340,286 @@ section.panel:last-child{
     height:56px;
 
     border-radius:16px;
+}
+
+/* =========================================
+   REGISTRAR GENDARME
+========================================= */
+
+.register-layout{
+
+    display:grid;
+
+    grid-template-columns:2fr 1fr;
+
+    gap:24px;
+
+    margin-top:24px;
+}
+
+
+
+.form-group label{
+
+    font-size:14px;
+
+    font-weight:600;
+
+    color:var(--text-secondary);
+}
+
+.form-group input{
+
+    height:54px;
+
+    border-radius:14px;
+
+    border:1px solid var(--border-color);
+
+    background:var(--bg-input);
+
+    padding:0 16px;
+
+    color:var(--text-primary);
+
+    font-size:15px;
+
+    transition:.25s;
+}
+
+.form-group input:focus{
+
+    outline:none;
+
+    border-color:#3b82f6;
+
+    box-shadow:
+        0 0 0 4px rgba(59,130,246,.10);
+}
+
+.bio-status{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:18px;
+}
+
+.btn-edit {
+    background: linear-gradient(
+        135deg,
+        #3b82f6,
+        #2563eb
+    );
+    color: white;
+    padding: 8px 14px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: .2s;
+}
+
+.btn-edit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(
+        59,
+        130,
+        246,
+        0.25
+    );
+}
+
+.edit-container{
+    max-width:1400px;
+    margin:auto;
+    padding:20px;
+}
+
+.card-section{
+    background:#f8fafc;
+    border:1px solid #dbe4f0;
+    border-radius:24px;
+    padding:30px;
+}
+
+.card-section h2{
+    color:#0f172a;
+    margin-bottom:25px;
+}
+
+.btn-save{
+    background:linear-gradient(
+        135deg,
+        #2563eb,
+        #3b82f6
+    );
+    color:white;
+    border:none;
+    padding:14px 28px;
+    border-radius:14px;
+    font-weight:600;
+    justify-content:center;
+    align-items:center;
+    display:flex;
+}
+
+.btn-cancel{
+    background:#e2e8f0;
+    color:#334155;
+    text-decoration:none;
+    padding:14px 28px;
+    border-radius:14px;
+    justify-content:center;
+    align-items:center;
+    display:flex;
+}
+
+/* =========================================
+   EDITAR USUARIO - BIOMETRIA
+========================================= */
+
+.edit-bio-actions{
+
+    display:flex;
+
+    justify-content:center;
+
+    gap:16px;
+
+    margin-top:28px;
+
+    margin-bottom:20px;
+
+}
+
+.edit-bio-progress{
+
+    max-width:500px;
+
+    margin:0 auto;
+
+}
+
+.edit-bio-divider{
+
+    margin:28px 0;
+
+    border:none;
+
+    border-top:1px solid var(--border-color);
+
+}
+
+.edit-fingerprint-card{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:20px;
+
+    padding:22px;
+
+    border-radius:18px;
+
+    background:var(--bg-card-soft);
+
+    border:1px solid var(--border-color);
+
+    margin-top:30px;
+
+}
+
+.edit-fingerprint-icon{
+
+    width:72px;
+
+    height:72px;
+
+    border-radius:18px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    background:#edf4ff;
+
+    border:1px solid var(--border-color);
+
+    font-size:34px;
+
+}
+
+.edit-fingerprint-info{
+
+    flex:1;
+
+}
+
+.edit-fingerprint-info h4{
+
+    margin:0 0 6px 0;
+
+    color:var(--text-primary);
+
+}
+
+.edit-fingerprint-info p{
+
+    margin:0;
+
+    color:var(--text-secondary);
+
+}
+
+.edit-face-preview{
+
+    margin-top:24px;
+
+    text-align:center;
+
+}
+
+.edit-face-preview img{
+
+    width:220px;
+
+    height:220px;
+
+    object-fit:cover;
+
+    border-radius:18px;
+
+    border:2px solid var(--border-color);
+
+}
+
+.edit-layout{
+
+    margin-bottom:32px;
+
+}
+
+.edit-layout .panel{
+
+    margin-bottom:0;
+
+}
+
+.edit-container .panel{
+
+    margin-bottom:28px;
+
+}
+
+/* separa el bloque biométrico del bloque inferior */
+
+.edit-container .panel:last-of-type{
+
+    margin-bottom:36px;
+
 }
