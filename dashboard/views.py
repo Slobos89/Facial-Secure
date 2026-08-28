@@ -201,6 +201,8 @@ def dashboard(request):
             'periodo': periodo,
             'alerta_texto': alerta_texto,
             'alerta_tipo': alerta_tipo,
+            'camaras_activas': 1,
+            'total_camaras': 1,
     }
 
     return render(
@@ -209,6 +211,7 @@ def dashboard(request):
         contexto
     )
 
+@login_required
 def dashboard_data(request):
 
     hoy = now().date()
@@ -280,6 +283,7 @@ def dashboard_data(request):
 
     })
 
+@login_required
 def exportar_pdf(request):
 
     response = HttpResponse(

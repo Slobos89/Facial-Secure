@@ -14,7 +14,8 @@ urlpatterns = [
     path('accesos/',include('accesos.urls')),
     path('alertas/',include('alertas.urls')),
     path('monitoreo/',include('monitoreo.urls')),
-    path("logout/", logout_view, name="logout")
+    path("logout/", logout_view, name="logout"),
+    path('media/secure/<path:ruta>', __import__('usuarios.views').views.ver_foto_segura, name='ver_foto_segura'),
 ]
 
 if settings.DEBUG:

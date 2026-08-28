@@ -113,13 +113,13 @@ Alertas
                     <div class="detail-item">
                         <label>Tipo</label>
                         <strong id="detalle-tipo">
-                            {% if alertas_activas.0.resultado == 'DENEGADO' %}Acceso no autorizado{% else %}Coincidencia facial baja{% endif %}
+                            {% if alertas_activas.0.resultado == 'DENEGADO' %}Acceso no autorizado{% else %}{% endif %}
                         </strong>
                     </div>
 
                     <div class="detail-item">
                         <label>Estado</label>
-                        <strong id="detalle-estado">Activo</strong>
+                        <strong id="detalle-estado"></strong>
                     </div>
 
                     <div class="detail-item">
@@ -154,7 +154,7 @@ Alertas
 
                             {% else %}
 
-                                Desconocido
+                                
 
                             {% endif %}
 
@@ -167,7 +167,7 @@ Alertas
 
                         <strong id="detalle-riesgo">
 
-                            Medio
+                            
 
                         </strong>
 
@@ -220,7 +220,7 @@ Alertas
 
                                 {% if alertas_activas.0.foto_validacion %}
 
-                                    {{ alertas_activas.0.foto_validacion.url }}
+                                    /media/secure/{{ alertas_activas.0.foto_validacion.name }}
 
                                 {% endif %}
 

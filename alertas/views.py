@@ -111,20 +111,9 @@ def alertas(request):
     )
 
     for acceso in alertas_activas:
-
         acceso.preview_registrado = ''
-
-        if acceso.persona:
-
-            primer_rostro = (
-                acceso.persona.rostros.first()
-            )
-
-            if primer_rostro:
-
-                acceso.preview_registrado = (
-                    primer_rostro.imagen.url
-                )
+        if acceso.persona and acceso.persona.foto:
+            acceso.preview_registrado = '/media/secure/' + acceso.persona.foto.name
 
     # =====================
     # RESUELTOS
@@ -250,20 +239,9 @@ def alertas_ajax(request):
     )
 
     for acceso in alertas_activas:
-
         acceso.preview_registrado = ''
-
-        if acceso.persona:
-
-            primer_rostro = (
-                acceso.persona.rostros.first()
-            )
-
-            if primer_rostro:
-
-                acceso.preview_registrado = (
-                    primer_rostro.imagen.url
-                )
+        if acceso.persona and acceso.persona.foto:
+            acceso.preview_registrado = '/media/secure/' + acceso.persona.foto.name
 
 
     alerts_html = render_to_string(
@@ -308,6 +286,7 @@ def alertas_ajax(request):
     })
 
 @require_POST
+@login_required
 def resolver_alerta(request, acceso_id):
 
     try:

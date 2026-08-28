@@ -62,7 +62,7 @@ Centro de Validación
 
             {% for acceso in accesos %}
 
-            <div class="validation-item" data-id="${card.id}"">
+            <div class="validation-item" data-id="{{ acceso.id }}">
 
                 <!-- FOTO -->
 
@@ -71,7 +71,7 @@ Centro de Validación
                     {% if acceso.foto_validacion %}
 
                         <img
-                            src="{{ acceso.foto_validacion.url }}"
+                            src="/media/secure/{{ acceso.foto_validacion.name }}"
                             alt="rostro"
                         >
 
@@ -312,6 +312,7 @@ Centro de Validación
 
 </div>
 
+<script src="{% static 'js/secugen.js' %}"></script>
 <script>
 
 async function actualizarKPIs(){
@@ -336,91 +337,149 @@ async function actualizarKPIs(){
 }
 
 const validationQueue =
-
     document.getElementById(
         'validation-queue'
     );
 
-
 let idsRenderizados = Array.from(
-
     document.querySelectorAll(
         '.validation-item'
     )
-
 ).map(card => Number(card.dataset.id))
 
 /* =========================
-   VALIDACION DACTILAR
+   VALIDACION DACTILAR REAL (SECUGEN)
 ========================= */
 
-function validarHuella(scanner){
+let escaneoEnCurso = false;
+
+async function validarHuella(scanner){
+
+    if(escaneoEnCurso){
+        return;
+    }
 
     const icon = scanner.querySelector(
         '.fingerprint-icon'
-    )
+    );
 
     const card = scanner.closest(
         '.validation-item'
-    )
+    );
+
+    const accesoId = card.dataset.id;
 
     const status = card.querySelector(
         '.fingerprint-status'
-    )
+    );
 
     const text = card.querySelector(
         '.fingerprint-data p'
-    )
+    );
 
+    const badgeResultado = card.querySelector(
+        '.status-badge'
+    );
 
-    /* ESCANEANDO */
+    /* ESTADO: ESCANEANDO */
+    escaneoEnCurso = true;
+    icon.innerHTML = '🖐️';
+    icon.classList.add('scanning');
+    status.classList.remove('success', 'danger');
+    status.classList.add('warning');
+    status.innerText = 'Coloque dedo...';
+    text.innerText = 'Activando lector SecuGen Hamster Plus...';
 
-    icon.innerHTML = '🖐️'
+    try {
+        // 1. Capturar template con el lector físico SecuGen
+        const captureResult = await secugenCapture({
+            timeout: 10000,
+            quality: 40,
+            templateFormat: 'ANSI378'
+        });
 
-    icon.classList.add(
-        'scanning'
-    )
+        if(!captureResult.success){
+            icon.classList.remove('scanning');
+            icon.innerHTML = '⚠️';
+            status.classList.remove('warning');
+            status.classList.add('danger');
+            status.innerText = 'Error sensor';
+            text.innerText = captureResult.error || 'Error al capturar huella.';
+            escaneoEnCurso = false;
+            return;
+        }
 
-    status.classList.remove(
-        'success'
-    )
+        // 2. Huella capturada: enviar template al servidor para comparar 1:1
+        text.innerText = `Huella capturada (Calidad: ${captureResult.quality}%). Comparando minucias...`;
 
-    status.classList.add(
-        'warning'
-    )
+        const response = await fetch('/validacion/validar-huella/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                acceso_id: accesoId,
+                template: captureResult.template,
+                calidad: captureResult.quality
+            })
+        });
 
-    status.innerText = 'Escaneando'
+        const data = await response.json();
 
-    text.innerText =
-        'Comparando huella dactilar...'
+        icon.classList.remove('scanning');
 
+        if(data.success && data.match){
+            // MATCH EXITOSO (Aprobado)
+            icon.innerHTML = '✓';
+            status.classList.remove('warning', 'danger');
+            status.classList.add('success');
+            status.innerText = `Validada (${data.score}%)`;
+            text.innerText = data.mensaje;
 
-    /* SIMULACION */
+            if(badgeResultado){
+                badgeResultado.className = 'status-badge card-success';
+                badgeResultado.innerText = 'APROBADO_MANUAL';
+            }
 
-    setTimeout(() => {
+            actualizarKPIs();
 
-        icon.classList.remove(
-            'scanning'
-        )
+            // Remover tarjeta de pendientes después de 2.5 segundos
+            setTimeout(() => {
+                card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    card.remove();
+                }, 500);
+            }, 2500);
 
-        icon.innerHTML = '✓'
+        } else {
+            // NO COINCIDE O ERROR
+            icon.innerHTML = '✕';
+            status.classList.remove('warning', 'success');
+            status.classList.add('danger');
+            status.innerText = data.score !== undefined ? `No coincide (${data.score}%)` : 'Rechazada';
+            text.innerText = data.mensaje || data.error || 'La huella no coincide.';
 
-        status.classList.remove(
-            'warning'
-        )
+            if(badgeResultado){
+                badgeResultado.className = 'status-badge card-danger';
+                badgeResultado.innerText = 'RECHAZADO';
+            }
+        }
 
-        status.classList.add(
-            'success'
-        )
-
-        status.innerText = 'Detectada'
-
-        text.innerText =
-            'Huella validada correctamente.'
-
-    }, 2000)
-
+    } catch(err){
+        console.error("Error en validación biométrica:", err);
+        icon.classList.remove('scanning');
+        icon.innerHTML = '⚠️';
+        status.classList.remove('warning');
+        status.classList.add('danger');
+        status.innerText = 'Error red';
+        text.innerText = 'Error de comunicación con el servidor.';
+    } finally {
+        escaneoEnCurso = false;
+    }
 }
+
 
 /* =========================
    CARDS LIVE

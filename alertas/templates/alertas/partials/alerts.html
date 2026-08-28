@@ -22,7 +22,7 @@
 
                 data-hora="{{ alerta.fecha_hora|date:'d/m/Y H:i:s' }}"
                 
-                data-foto="{{ alerta.foto_validacion.url }}"
+                data-foto="{% if alerta.foto_validacion %}/media/secure/{{ alerta.foto_validacion.name }}{% endif %}"
 
                 data-registrado="{{ alerta.preview_registrado }}"
 

@@ -56,6 +56,7 @@ def monitoreo(request):
     )
 
 @csrf_exempt
+@login_required
 def detectar_rostros(request):
 
 
@@ -286,12 +287,16 @@ def detectar_rostros(request):
             # FOTO VALIDACION
             # =========================
 
+            from usuarios.utils.security import encrypt_bytes
+            
+            encrypted_bytes = encrypt_bytes(buffer.tobytes())
+
             acceso.foto_validacion.save(
 
                 nombre_archivo,
 
                 ContentFile(
-                    buffer.tobytes()
+                    encrypted_bytes
                 ),
 
                 save=True

@@ -80,8 +80,12 @@ WSGI_APPLICATION = 'facial_secure.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'facial_secure_db',
+        'USER': 'postgres',
+        'PASSWORD': 'admin123',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -130,6 +134,11 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ==========================================
+# SEGURIDAD BIOMÉTRICA (AES-256)
+# ==========================================
+FERNET_KEY = b'5akElzFQh51zGSF7ZqG46ylYnA7Gvdj7tFiBp-CQwoE='
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

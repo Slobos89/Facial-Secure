@@ -108,7 +108,7 @@
 
                             <strong>
 
-                                {% if primer_rostro %}
+                                {% if persona.biometria_facial %}
                                     Registrado
                                 {% else %}
                                     Pendiente
@@ -136,18 +136,14 @@
 
                     </div>
 
-                    {% if primer_rostro %}
-
+                        {% if persona.foto %}
                         <div class="edit-face-preview">
-
                             <img
-                                src="{{ primer_rostro.imagen.url }}"
+                                src="/media/secure/{{ persona.foto.name }}"
                                 alt="Rostro"
                             >
-
                         </div>
-
-                    {% endif %}
+                        {% endif %}
 
                 </section>
 
@@ -235,15 +231,15 @@
                     <div class="edit-fingerprint-info">
 
                         <h4>
-                            Huella Dactilar
+                            Huella Dactilar (SecuGen)
                         </h4>
 
                         <p id="fingerprint-status">
 
                             {% if huella %}
-                                Huella registrada
+                                <span style="color: #22c55e; font-weight: 500;">✓ Huella registrada</span> (Formato: {{ huella.formato }}{% if huella.calidad %}, Calidad: {{ huella.calidad }}%{% endif %})
                             {% else %}
-                                Pendiente de registro
+                                <span style="color: #eab308; font-weight: 500;">⚠️ Pendiente de registro</span>
                             {% endif %}
 
                         </p>
@@ -256,9 +252,14 @@
                         id="registrar-huella"
                     >
 
-                        Registrar Huella
+                        {% if huella %}
+                            🖐️ Re-enrolar Huella
+                        {% else %}
+                            🖐️ Registrar Huella
+                        {% endif %}
 
                     </button>
+
 
                 </div>
 
@@ -288,7 +289,9 @@
 
 </div>
 
+<script src="{% static 'js/secugen.js' %}"></script>
 <script>
+
 
 const video = document.getElementById('video');
 
@@ -540,57 +543,82 @@ const btnHuella =
         'registrar-huella'
     );
 
+const fingerprintStatus =
+    document.getElementById(
+        'fingerprint-status'
+    );
+
 btnHuella.addEventListener(
-
     'click',
+    async () => {
 
-    () => {
+        btnHuella.disabled = true;
+        const textoOriginal = btnHuella.innerHTML;
+        btnHuella.innerHTML = '🖐️ Coloque dedo en sensor SecuGen...';
 
-        fetch(
+        if(fingerprintStatus){
+            fingerprintStatus.innerHTML = '<span style="color: #eab308;">Escaneando con SecuGen Hamster Plus...</span>';
+        }
 
-            "/usuarios/registrar-huella/{{ persona.id }}/",
+        try {
+            const captureResult = await secugenCapture({
+                timeout: 10000,
+                quality: 40,
+                templateFormat: 'ANSI378'
+            });
 
-            {
-
-                method:'POST',
-
-                headers:{
-
-                    'X-CSRFToken':
-
-                        document
-                            .querySelector(
-                                '[name=csrfmiddlewaretoken]'
-                            )
-                            .value
-
+            if(!captureResult.success){
+                alert(captureResult.error || 'Error al capturar huella con SecuGen');
+                if(fingerprintStatus){
+                    fingerprintStatus.innerHTML = `<span style="color: #ef4444;">${captureResult.error || 'Error de captura'}</span>`;
                 }
-
+                btnHuella.disabled = false;
+                btnHuella.innerHTML = textoOriginal;
+                return;
             }
 
-        )
+            const response = await fetch(
+                "/usuarios/registrar-huella/{{ persona.id }}/",
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken':
+                            document
+                                .querySelector(
+                                    '[name=csrfmiddlewaretoken]'
+                                )
+                                .value
+                    },
+                    body: JSON.stringify({
+                        template: captureResult.template,
+                        calidad: captureResult.quality,
+                        formato: 'ANSI378',
+                        imagen_muestra: captureResult.bmpBase64
+                    })
+                }
+            );
 
-        .then(
-            response => response.json()
-        )
-
-        .then(data => {
+            const data = await response.json();
 
             if(data.success){
-
-                alert(
-                    'Huella registrada correctamente'
-                );
-
+                alert(`Huella dactilar registrada exitosamente (Calidad: ${data.calidad || captureResult.quality}%)`);
                 location.reload();
-
+            } else {
+                alert(data.error || 'Error al guardar huella en el servidor');
+                btnHuella.disabled = false;
+                btnHuella.innerHTML = textoOriginal;
             }
 
-        });
-
+        } catch(err){
+            console.error("Error SecuGen:", err);
+            alert('Error de comunicación con el servicio SecuGen o con el servidor.');
+            btnHuella.disabled = false;
+            btnHuella.innerHTML = textoOriginal;
+        }
     }
-
 );
+
 
 </script>
 

@@ -118,27 +118,47 @@ if len(rostros) == 0:
     exit()
 
 
-recognizer.train(
+modelo_path = 'modelo/modelo_lbph.yml'
 
-    rostros,
+if os.path.exists(modelo_path):
+    print("Modelo existente encontrado, usando UPDATE para preservar el conocimiento previo...")
+    recognizer.read(modelo_path)
+    recognizer.update(rostros, np.array(labels))
+else:
+    print("No hay modelo existente, usando TRAIN...")
+    recognizer.train(rostros, np.array(labels))
 
-    np.array(labels)
+os.makedirs('modelo', exist_ok=True)
+recognizer.save(modelo_path)
 
-)
+print('\nBorrando evidencia cruda (Zero-Knowledge)...')
+personas_procesadas = set()
 
+for rostro_db in dataset:
+    persona = rostro_db.persona
+    
+    # Conservar la primera captura como foto de perfil cifrada si no tiene
+    if persona.id not in personas_procesadas and not persona.foto:
+        if os.path.exists(rostro_db.imagen.path):
+            from usuarios.utils.security import encrypt_bytes
+            from django.core.files.base import ContentFile
+            import uuid
+            
+            with open(rostro_db.imagen.path, 'rb') as f:
+                encrypted_bytes = encrypt_bytes(f.read())
+            
+            filename = f"perfil_auto_{persona.id}_{uuid.uuid4().hex[:6]}.jpg"
+            persona.foto.save(filename, ContentFile(encrypted_bytes), save=False)
+            personas_procesadas.add(persona.id)
 
-os.makedirs(
+    if not persona.biometria_facial:
+        persona.biometria_facial = True
+        
+    persona.save()
+        
+    ruta = rostro_db.imagen.path
+    if os.path.exists(ruta):
+        os.remove(ruta)
+dataset.delete()
 
-    'modelo',
-
-    exist_ok=True
-
-)
-
-
-recognizer.save(
-    'modelo/modelo_lbph.yml'
-)
-
-
-print('\nMODELO ENTRENADO CORRECTAMENTE\n')
+print('\nMODELO ENTRENADO Y DATASET DESTRUIDO CORRECTAMENTE\n')

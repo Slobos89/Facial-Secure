@@ -29,7 +29,7 @@ class Persona(models.Model):
     apellido = models.CharField(max_length=100)
 
     rut = models.CharField(
-        max_length=12,
+        max_length=50,
         unique=True
     )
 
@@ -48,6 +48,11 @@ class Persona(models.Model):
         max_length=20,
         choices=ENROLAMIENTOS,
         default='pendiente'
+    )
+
+    biometria_facial = models.BooleanField(
+        default=False,
+        help_text="Indica si el modelo de IA ya fue entrenado con este rostro"
     )
 
     fecha_registro = models.DateTimeField(
@@ -127,13 +132,8 @@ def crear_perfil_usuario(
 ):
 
     if created:
+        PerfilUsuario.objects.get_or_create(user=instance, defaults={'rol': 'GENDARME'})
 
-        PerfilUsuario.objects.create(
-
-            user=instance,
-
-            rol='GENDARME'
-        )
     
 class Acceso(models.Model):
 
@@ -222,6 +222,22 @@ class HuellaDactilar(models.Model):
 
     template = models.TextField()
 
+    calidad = models.IntegerField(
+        default=0,
+        blank=True,
+        null=True
+    )
+
+    formato = models.CharField(
+        max_length=20,
+        default='ANSI378'
+    )
+
+    imagen_muestra = models.TextField(
+        blank=True,
+        null=True
+    )
+
     fecha_registro = models.DateTimeField(
         auto_now_add=True
     )
@@ -233,6 +249,6 @@ class HuellaDactilar(models.Model):
     def __str__(self):
 
         return (
-            f'Huella - '
+            f'Huella ({self.formato}) - '
             f'{self.persona.nombre}'
         )

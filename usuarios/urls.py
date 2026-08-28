@@ -13,6 +13,8 @@ urlpatterns = [
     path('entrenar-ia/',entrenar_ia,name='entrenar_ia'),
     path('editar-usuario/<int:persona_id>/',views.editar_usuario,name='editar_usuario'),
     path('reenrolar-rostro/<int:persona_id>/',views.reenrolar_rostro,name='reenrolar_rostro'),
-    path('registrar-huella/<int:persona_id>/',views.registrar_huella,name='registrar_huella'),
-    path('registrar-gendarme/',views.registrar_gendarme,name='registrar_gendarme'),
-]
+    path('registrar-huella/<int:persona_id>/', views.registrar_huella, name='registrar_huella'),
+    path('registrar-gendarme/', views.registrar_gendarme, name='registrar_gendarme'),
+    path('api/capturar-huella-sensor/', views.api_capturar_huella_sensor, name='api_capturar_huella_sensor'),
+    path('api/estado-sensor/', views.api_estado_sensor, name='api_estado_sensor'),
+]

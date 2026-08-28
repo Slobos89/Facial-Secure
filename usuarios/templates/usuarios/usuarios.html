@@ -31,41 +31,39 @@ Usuarios
 
         </section>
 
-        <!-- USERS TABLE -->
-        <section class="users-panel">
+<!-- TOP ACTIONS -->
+<div class="actions" style="justify-content: flex-end; width: 100%;">
+
+    {% if request.user.perfilusuario.rol == 'ADMIN' %}
+        <a href="{% url 'registrar_gendarme' %}" class="btn btn-primary" style="justify-content: center;">
+            + Registrar Gendarme
+        </a>
+    {% endif %}
+    <a href="{% url 'crear_persona' %}" class="btn btn-add" style="justify-content: center;">
+        + Enrolar Usuario
+    </a>
+
+</div>
+
+
+<section class="users-panel">
 
             <div class="panel-header">
 
                 
 
                 <div class="panel-title">
-                    Internos y Gendarmes
+                    Gendarmes
                 </div>
 
                 <div class="actions">
-                    <div>
-                        <a
-                            id="train-button"
-                            class="btn btn-primary"
-                        >
-
-                            Reentrenar IA
-
-                        </a>
-                    </div>
-                    {% if request.user.perfilusuario.rol == 'ADMIN' %}
-                        <a href="{% url 'registrar_gendarme' %}" class="btn btn-primary">
-                            + Registrar Gendarme
-                        </a>
-                    {% endif %}
-                    <a href="{% url 'crear_persona' %}" class="btn btn-add">
-                        + Enrolar Usuario
-                    </a>
+                    <!-- Botón eliminado -->
+                    
 
                     
                     <input
                         type="text"
-                        id="search-internos"
+                        id="search-gendarmes"
                         class="input"
                         placeholder="Buscar usuario..."
                     >
@@ -73,6 +71,7 @@ Usuarios
 
             </div>
 
+            <div class="table-scroll">
             <table>
 
                 <thead>
@@ -86,17 +85,16 @@ Usuarios
                 </tr>
                 </thead>
 
-                <tbody id="tbody-internos">
+                <tbody id="tbody-gendarmes">
 
-                {% for persona in internos_gendarmes %}
+                {% for persona in gendarmes_lista %}
 
                 <tr
                 
                     class="user-row"
 
-                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
-
                     data-rut="{{ persona.rut }}"
+                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
 
                     data-tipo="{{ persona.get_tipo_persona_display }}"
 
@@ -149,6 +147,110 @@ Usuarios
                 </tbody>
 
             </table>
+            </div>
+
+        </section>
+
+                <section class="users-panel">
+
+            <div class="panel-header">
+
+                
+
+                <div class="panel-title">
+                    Internos
+                </div>
+
+                <div class="actions">
+             
+                    
+                    <input
+                        type="text"
+                        id="search-internos"
+                        class="input"
+                        placeholder="Buscar usuario..."
+                    >
+                </div>
+
+            </div>
+
+            <div class="table-scroll">
+            <table>
+
+                <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>RUT</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Registro</th>
+                    <th>Acciones</th>
+                </tr>
+                </thead>
+
+                <tbody id="tbody-internos">
+
+                {% for persona in internos %}
+
+                <tr
+                
+                    class="user-row"
+
+                    data-rut="{{ persona.rut }}"
+                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
+
+                    data-tipo="{{ persona.get_tipo_persona_display }}"
+
+                    data-estado="{{ persona.get_estado_display }}"
+
+                    data-foto="{{ persona.preview_facial }}"
+
+                    data-acceso="
+                    {% if persona.ultimo_acceso %}
+                    {{ persona.ultimo_acceso|date:'d/m/Y H:i:s' }}
+                    {% else %}
+                    Sin registros
+                    {% endif %}
+                    "
+
+                >
+
+                    <td>
+                        {{ persona.nombre }} {{ persona.apellido }}
+                    </td>
+
+                    <td>
+                        {{ persona.rut }}
+                    </td>
+
+                    <td>
+                        {{ persona.get_tipo_persona_display }}
+                    </td>
+
+                    <td>
+                        {{ persona.get_estado_display }}
+                    </td>
+
+                    <td>
+                        {{ persona.fecha_registro }}
+                    </td>
+
+                    <td>
+                        
+                        <a href="{% url 'editar_usuario' persona.id %}" class="btn-edit">
+                            ✏️ Editar
+                        </a>
+                        
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+            </div>
 
         </section>
 
@@ -171,6 +273,7 @@ Usuarios
 
             </div>
 
+            <div class="table-scroll">
             <table>
 
                 <thead>
@@ -192,9 +295,8 @@ Usuarios
                 
                     class="user-row"
 
-                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
-
                     data-rut="{{ persona.rut }}"
+                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
 
                     data-tipo="{{ persona.get_tipo_persona_display }}"
 
@@ -247,6 +349,7 @@ Usuarios
                 </tbody>
 
             </table>
+            </div>
 
         </section>
 
@@ -352,111 +455,40 @@ Usuarios
 
         </section>
 
-        <!-- OVERLAY IA -->
-
-        <div
-            id="training-overlay"
-            class="training-overlay"
-        >
-
-            <div class="training-box">
-
-                <div
-                    id="training-spinner"
-                    class="training-spinner"
-                ></div>
-
-                <div
-                    id="training-success"
-                    class="training-success"
-                >
-
-                    ✔
-
-                </div>
-
-                <h2 id="training-text">
-                    Entrenando IA Biométrica...
-                </h2>
-
-                <p>
-                    Procesando dataset facial
-                </p>
-
-            </div>
-
-        </div>
-
-<script>
+        <script>
 
 /* =========================
-   BUSQUEDA INTERNOS
+   BUSQUEDA DINAMICA (FILTRADO)
 ========================= */
 
-const searchInternos = document.getElementById(
-    'search-internos'
-);
+function setupTableFilter(inputId, tbodyId) {
+    const input = document.getElementById(inputId);
+    const tbody = document.getElementById(tbodyId);
+    if (!input || !tbody) return;
 
-searchInternos.addEventListener('keyup', () => {
+    const normalize = (str) =>
+        (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-    const value = searchInternos.value.toLowerCase();
+    input.addEventListener('input', () => {
+        const query = normalize(input.value);
+        const rows = tbody.querySelectorAll('tr.user-row');
 
-    const rows = document.querySelectorAll(
-        '#tbody-internos tr'
-    );
-
-    rows.forEach(row => {
-
-        const texto = row.innerText.toLowerCase();
-
-        row.style.display = texto.includes(value)
-
-            ? ''
-
-            : 'none';
-
+        rows.forEach(row => {
+            const text = normalize(row.innerText);
+            row.style.display = text.includes(query) ? '' : 'none';
+        });
     });
+}
 
-});
-
-
-/* =========================
-   BUSQUEDA EXTERNOS
-========================= */
-
-const searchExternos = document.getElementById(
-    'search-externos'
-);
-
-searchExternos.addEventListener('keyup', () => {
-
-    const value = searchExternos.value.toLowerCase();
-
-    const rows = document.querySelectorAll(
-        '#tbody-externos tr'
-    );
-
-    rows.forEach(row => {
-
-        const texto = row.innerText.toLowerCase();
-
-        row.style.display = texto.includes(value)
-
-            ? ''
-
-            : 'none';
-
-    });
-
-});
+setupTableFilter('search-gendarmes', 'tbody-gendarmes');
+setupTableFilter('search-internos', 'tbody-internos');
+setupTableFilter('search-externos', 'tbody-externos');
 
 /* =========================
    PERFIL DINAMICO
 ========================= */
 
-const rows = document.querySelectorAll(
-    '.user-row'
-);
+const userRows = document.querySelectorAll('.user-row');
 
 
 const profileName = document.getElementById(
@@ -495,154 +527,49 @@ const profileStatus = document.getElementById(
    CLICK FILA
 ========================= */
 
-rows.forEach(row => {
 
+userRows.forEach(row => {
     row.addEventListener('click', () => {
+        try {
+            const nombre = row.dataset.nombre || 'Desconocido';
+            const partes = nombre.split(' ').filter(Boolean);
+            let iniciales = 'NN';
+            if (partes.length >= 2) {
+                iniciales = partes[0][0] + partes[1][0];
+            } else if (partes.length === 1 && partes[0].length > 0) {
+                iniciales = partes[0][0];
+            }
+            if (profileAvatar) profileAvatar.textContent = iniciales.toUpperCase();
 
-        const nombre = row.dataset.nombre;
+            const rut = row.dataset.rut || '---';
+            const tipo = row.dataset.tipo || '---';
+            const estado = row.dataset.estado || '---';
+            const foto = row.dataset.foto ? row.dataset.foto.trim() : "";
+            const acceso = row.dataset.acceso ? row.dataset.acceso.trim() : "Sin registros";
 
-        const partes = nombre.split(' ');
+            if (profileName) profileName.textContent = nombre;
+            if (profileInfo) profileInfo.textContent = tipo + ' • ' + estado;
+            if (profileRut) profileRut.textContent = rut;
+            if (profileRole) profileRole.textContent = tipo;
+            if (profileAccess) profileAccess.textContent = acceso;
 
-        let iniciales = '';
-
-        if(partes.length >= 2){
-
-            iniciales =
-
-                partes[0][0] +
-
-                partes[1][0];
-
-        }else{
-
-            iniciales = partes[0][0];
-
+            if (profileFace && profileStatus) {
+                if (foto) {
+                    profileFace.src = foto;
+                    profileFace.style.display = 'block';
+                    profileStatus.textContent = 'Registrada';
+                } else {
+                    profileFace.style.display = 'none';
+                    profileStatus.textContent = 'No registrada';
+                }
+            }
+        } catch (e) {
+            console.error("Error updating profile panel:", e);
         }
-
-        profileAvatar.textContent =
-            iniciales.toUpperCase();
-
-        const rut = row.dataset.rut;
-
-        const tipo = row.dataset.tipo;
-
-        const estado = row.dataset.estado;
-
-        const foto = row.dataset.foto.trim();
-
-        console.log(foto);
-
-        const acceso = row.dataset.acceso;
-
-
-        profileName.textContent = nombre;
-
-        profileInfo.textContent =
-            `${tipo} • ${estado}`;
-
-        profileRut.textContent = rut;
-
-        profileRole.textContent = tipo;
-
-        profileAccess.textContent = acceso;
-
-
-        if(foto){
-
-            profileFace.src = foto;
-
-            profileFace.style.display = 'block';
-
-            profileStatus.textContent =
-                'Registrada';
-
-        }else{
-
-            profileFace.style.display = 'none';
-
-            profileStatus.textContent =
-                'No registrada';
-
-        }
-
     });
-
 });
 
-/* =========================
-   ENTRENAMIENTO IA
-========================= */
 
-const trainButton = document.getElementById(
-    'train-button'
-);
-
-const overlay = document.getElementById(
-    'training-overlay'
-);
-
-const spinner = document.getElementById(
-    'training-spinner'
-);
-
-const success = document.getElementById(
-    'training-success'
-);
-
-const text = document.getElementById(
-    'training-text'
-);
-
-
-trainButton.addEventListener('click', async () => {
-
-    overlay.classList.add('active');
-
-
-    try{
-
-        const response = await fetch(
-
-            "{% url 'entrenar_ia' %}"
-
-        );
-
-
-        if(response.ok){
-
-            spinner.style.display = 'none';
-
-            success.style.display = 'block';
-
-            text.textContent =
-                'IA Entrenada Correctamente';
-
-
-            setTimeout(() => {
-
-                overlay.classList.remove(
-                    'active'
-                );
-
-                spinner.style.display = 'block';
-
-                success.style.display = 'none';
-
-                text.textContent =
-                    'Entrenando IA Biométrica...';
-
-            },2000);
-
-        }
-
-    }catch(error){
-
-        text.textContent =
-            'Error entrenando IA';
-
-    }
-
-});
 </script>
 {% endblock %}
 

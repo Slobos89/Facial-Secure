@@ -10,7 +10,9 @@
     </div>
 
     <form method="POST">
-        {% csrf_token %}
+        
+
+
 
         <div class="gendarme-layout">
 
@@ -19,7 +21,7 @@
             <section class="panel">
 
                 <div class="panel-header">
-                    <h2>👤 Información Personal</h2>
+                    <h2>📝 Información Personal</h2>
                 </div>
 
                 <div class="form-grid">
@@ -54,7 +56,7 @@
             <section class="panel">
 
                 <div class="panel-header">
-                    <h2>🔐 Credenciales de Acceso</h2>
+                    <h2>🔑 Credenciales de Acceso</h2>
                 </div>
 
                 <div class="form-grid">
@@ -78,7 +80,7 @@
             <section class="panel">
 
                 <div class="panel-header">
-                    <h2>🛡 Estado Biométrico</h2>
+                    <h2>🧬 Estado Biométrico</h2>
                 </div>
 
                 <div class="gendarme-status">
@@ -112,6 +114,20 @@
                 </div>
 
             </section>
+            {% csrf_token %}
+            {% if messages %}
+            <div style="max-width: 600px; margin: 0 auto 20px auto;">
+                {% for message in messages %}
+                    <div style="padding: 12px 20px; margin-bottom: 10px; border-radius: 8px; font-weight: 500; font-size: 0.95rem; 
+                        {% if message.tags == 'error' %}background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca;
+                        {% elif message.tags == 'success' %}background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;
+                        {% else %}background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe;{% endif %}">
+                        <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}" style="margin-right: 8px;"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
 
             <!-- BOTONES -->
 
@@ -128,7 +144,7 @@
                     </button>
 
                     <a
-                        href="{% url 'usuarios' %}"
+                        href="{% if request.user.is_authenticated %}{% url 'usuarios' %}{% else %}{% url 'login' %}{% endif %}"
                         class="btn btn-secondary">
 
                         Cancelar

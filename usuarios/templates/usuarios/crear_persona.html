@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 
@@ -110,12 +111,16 @@
                     name="capturas"
                     id="capturas"
                 >
+                <input type="hidden" name="huella_template" id="huella_template">
+                <input type="hidden" name="huella_calidad" id="huella_calidad">
+                <input type="hidden" name="huella_formato" id="huella_formato" value="ANSI378">
+                <input type="hidden" name="huella_bmp" id="huella_bmp">
 
                 <div class="capture-progress">
 
                     <div class="fingerprint-panel">
 
-                        <div class="fingerprint-scanner">
+                        <div class="fingerprint-scanner" onclick="capturarHuellaEnrolamiento()" style="cursor: pointer;" title="Clic para escanear huella con SecuGen">
 
                             <div
                                 class="fingerprint-icon"
@@ -131,14 +136,16 @@
                         <div class="fingerprint-info">
 
                             <h4>
-                                Escáner Dactilar
+                                Escáner Dactilar (SecuGen)
                             </h4>
 
                             <p id="fingerprint-status">
-
-                                Esperando escaneo...
-
+                                Esperando escaneo dactilar...
                             </p>
+
+                            <button type="button" class="btn btn-secondary" onclick="capturarHuellaEnrolamiento()" style="margin-top: 6px; padding: 4px 10px; font-size: 12px;">
+                                🖐️ Capturar con SecuGen
+                            </button>
 
                         </div>
 
@@ -214,8 +221,9 @@
 
 </div>
 
-
+<script src="{% static 'js/secugen.js' %}"></script>
 <script>
+
 
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
@@ -372,17 +380,9 @@ function iniciarCapturaAutomatica(){
             ).innerText =
                 'Enrolado';
 
-
-            iniciarEscaneoHuella();
-
-
-            setTimeout(() => {
-
-                completarHuella();
-
-                guardarBtn.disabled = false;
-
-            }, 2500);
+            captureStatus.innerText = 'Captura facial lista. Ahora capture la huella dactilar con SecuGen.';
+            guardarBtn.disabled = false; // Permitir guardar incluso si decide capturar huella después
+            capturarHuellaEnrolamiento();
 
         }
 
@@ -390,50 +390,54 @@ function iniciarCapturaAutomatica(){
 
 }
 
-function iniciarEscaneoHuella(){
+async function capturarHuellaEnrolamiento(){
 
-    const icon = document.getElementById(
-        'fingerprint-icon'
-    );
+    const icon = document.getElementById('fingerprint-icon');
+    const status = document.getElementById('fingerprint-status');
+    const estadoHuella = document.getElementById('estado-huella');
+    const templateInput = document.getElementById('huella_template');
+    const calidadInput = document.getElementById('huella_calidad');
+    const bmpInput = document.getElementById('huella_bmp');
 
-    const status = document.getElementById(
-        'fingerprint-status'
-    );
+    icon.classList.remove('valid');
+    icon.classList.add('scanning');
+    status.innerText = 'Coloque el dedo en el sensor SecuGen...';
 
-    icon.classList.add(
-        'scanning'
-    );
+    try {
+        const result = await secugenCapture({
+            timeout: 10000,
+            quality: 40,
+            templateFormat: 'ANSI378'
+        });
 
-    status.innerText =
-        'Escaneando huella...';
+        icon.classList.remove('scanning');
 
+        if(result.success){
+            icon.classList.add('valid');
+            status.innerText = `Huella capturada con éxito (Calidad: ${result.quality}%)`;
+            estadoHuella.innerText = `Enrolada (${result.quality}%)`;
+            estadoHuella.style.color = '#22c55e';
+
+            templateInput.value = result.template;
+            calidadInput.value = result.quality;
+            if(result.bmpBase64){
+                bmpInput.value = result.bmpBase64;
+            }
+
+            guardarBtn.disabled = false;
+        } else {
+            icon.classList.remove('valid');
+            status.innerText = result.error || 'Error al capturar huella.';
+            estadoHuella.innerText = 'No enrolada';
+            estadoHuella.style.color = '#eab308';
+        }
+    } catch(err){
+        console.error("Error SecuGen:", err);
+        icon.classList.remove('scanning');
+        status.innerText = 'Error de comunicación con el lector SecuGen.';
+    }
 }
 
-function completarHuella(){
-
-    const icon = document.getElementById(
-        'fingerprint-icon'
-    );
-
-    const status = document.getElementById(
-        'fingerprint-status'
-    );
-
-    icon.classList.remove(
-        'scanning'
-    );
-
-    icon.classList.add(
-        'valid'
-    );
-
-    status.innerText =
-        'Huella enrolada';
-
-    document.getElementById(
-        'estado-huella'
-    ).innerText =
-        'Enrolada';
 
 const rutInput = document.getElementById('rut');
 
@@ -463,7 +467,6 @@ if(rutInput){
 
 }
 
-}
 </script>
 
 

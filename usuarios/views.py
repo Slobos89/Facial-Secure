@@ -8,7 +8,7 @@ import sys
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.files.base import ContentFile
-from django.db.models import OuterRef, Subquery
+from django.db.models import OuterRef, Subquery, Q
 from django.contrib import messages
 from .models import Persona, RostroCapturado, HuellaDactilar, Acceso
 from .forms import PersonaForm
@@ -36,11 +36,16 @@ def usuarios(request):
     ).order_by('-fecha_hora')
 
 
-    internos_gendarmes = Persona.objects.filter(
-        tipo_persona__in=[
-            'interno',
-            'gendarme'
-        ]
+    internos = Persona.objects.filter(
+        tipo_persona='interno'
+    ).annotate(
+        ultimo_acceso=Subquery(
+            ultimo_acceso.values('fecha_hora')[:1]
+        )
+    )
+
+    gendarmes_lista = Persona.objects.filter(
+        tipo_persona='gendarme'
     ).annotate(
         ultimo_acceso=Subquery(
             ultimo_acceso.values('fecha_hora')[:1]
@@ -55,34 +60,23 @@ def usuarios(request):
         )
     )
 
-    for persona in internos_gendarmes:
-
-        primer_rostro = persona.rostros.first()
-
-        if primer_rostro:
-
-            persona.preview_facial = (
-                primer_rostro.imagen.url
-            )
-
+    for persona in internos:
+        if persona.foto:
+            persona.preview_facial = "/media/secure/" + persona.foto.name
         else:
+            persona.preview_facial = ""
 
-            persona.preview_facial = ''
-
+    for persona in gendarmes_lista:
+        if persona.foto:
+            persona.preview_facial = "/media/secure/" + persona.foto.name
+        else:
+            persona.preview_facial = ""
 
     for persona in externos:
-
-        primer_rostro = persona.rostros.first()
-
-        if primer_rostro:
-
-            persona.preview_facial = (
-                primer_rostro.imagen.url
-            )
-
+        if persona.foto:
+            persona.preview_facial = "/media/secure/" + persona.foto.name
         else:
-
-            persona.preview_facial = ''
+            persona.preview_facial = ""
 
     total_usuarios = Persona.objects.count()
 
@@ -95,7 +89,7 @@ def usuarios(request):
     ).count()
 
     biometrias = Persona.objects.filter(
-        rostros__isnull=False
+        Q(biometria_facial=True) | (Q(foto__isnull=False) & ~Q(foto='')) | Q(rostros__isnull=False)
     ).distinct().count()
 
     
@@ -104,7 +98,8 @@ def usuarios(request):
         request,
         'usuarios/usuarios.html',
         {
-            'internos_gendarmes': internos_gendarmes,
+            'internos': internos,
+            'gendarmes_lista': gendarmes_lista,
             'externos': externos,
             'total_usuarios': total_usuarios,
             'usuarios_activos': usuarios_activos,
@@ -114,6 +109,7 @@ def usuarios(request):
     )
 
 
+@login_required
 def crear_persona(request):
 
     if request.method == 'POST':
@@ -246,27 +242,50 @@ def registrar_gendarme(request):
         # VALIDACIONES
         # =====================
 
+        # 1. Campos vacíos
+        if not username or not password or not nombre or not apellido or not rut:
+            messages.error(request, 'Todos los campos son obligatorios.')
+            return redirect('registrar_gendarme')
+
+        # 2. Fuerza de la contraseña
+        if len(password) < 8:
+            messages.error(request, 'La contraseña debe tener al menos 8 caracteres.')
+            return redirect('registrar_gendarme')
+
+        # 3. Validación Algorítmica de RUT Chileno
+        rut_clean = rut.replace('.', '').replace('-', '').upper()
+        if len(rut_clean) < 2:
+            messages.error(request, 'El RUT ingresado no tiene un formato válido.')
+            return redirect('registrar_gendarme')
+            
+        cuerpo = rut_clean[:-1]
+        dv = rut_clean[-1]
+        
+        if not cuerpo.isdigit():
+            messages.error(request, 'El cuerpo del RUT solo debe contener números.')
+            return redirect('registrar_gendarme')
+
+        suma = 0
+        multiplo = 2
+        for c in reversed(cuerpo):
+            suma += int(c) * multiplo
+            multiplo = multiplo + 1 if multiplo < 7 else 2
+
+        dv_esperado = 11 - (suma % 11)
+        dv_calculado = '0' if dv_esperado == 11 else ('K' if dv_esperado == 10 else str(dv_esperado))
+
+        if dv != dv_calculado:
+            messages.error(request, 'El RUT ingresado no es válido (Dígito Verificador incorrecto).')
+            return redirect('registrar_gendarme')
+
+        # 4. Duplicados en BD
         if User.objects.filter(username=username).exists():
-
-            messages.error(
-                request,
-                'El usuario ya existe'
-            )
-
-            return redirect(
-                'registrar_gendarme'
-            )
+            messages.error(request, 'El nombre de usuario ya está en uso.')
+            return redirect('registrar_gendarme')
 
         if Persona.objects.filter(rut=rut).exists():
-
-            messages.error(
-                request,
-                'El RUT ya está registrado'
-            )
-
-            return redirect(
-                'registrar_gendarme'
-            )
+            messages.error(request, 'El RUT ya está registrado en el sistema.')
+            return redirect('registrar_gendarme')
 
         # =====================
         # CREAR PERSONA
@@ -318,6 +337,7 @@ def registrar_gendarme(request):
 
     
 
+@login_required
 def validar_rostro(request):
 
     if request.method == 'POST':
@@ -408,6 +428,7 @@ def validar_rostro(request):
         'success': False
     })
 
+@login_required
 def historial_ajax(request):
 
     accesos = Acceso.objects.order_by(
@@ -452,6 +473,7 @@ def historial_ajax(request):
 
     })
 
+@login_required
 def live_feed(request):
 
     accesos = Acceso.objects.order_by(
@@ -501,6 +523,7 @@ def live_feed(request):
 
     })
 
+@login_required
 def entrenar_ia(request):
 
     try:
@@ -742,3 +765,47 @@ def registrar_huella(
         'success': True
 
     })
+from django.http import HttpResponse, Http404
+import os
+from django.conf import settings
+from .utils.security import decrypt_bytes
+
+@login_required
+def ver_foto_segura(request, ruta):
+    ruta_completa = os.path.join(settings.MEDIA_ROOT, ruta)
+    
+    if not os.path.exists(ruta_completa):
+        raise Http404('Imagen no encontrada')
+        
+    try:
+        with open(ruta_completa, 'rb') as f:
+            datos = f.read()
+            
+        try:
+            datos_descifrados = decrypt_bytes(datos)
+        except Exception:
+            datos_descifrados = datos
+            
+        return HttpResponse(datos_descifrados, content_type='image/jpeg')
+    except Exception as e:
+        raise Http404('Error leyendo archivo')
+
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+@login_required
+def api_capturar_huella_sensor(request):
+    from .utils.secugen_driver import capturar_huella_nativo
+    try:
+        timeout_ms = int(request.GET.get("timeout", 10000))
+    except (ValueError, TypeError):
+        timeout_ms = 10000
+
+    resultado = capturar_huella_nativo(timeout_ms=timeout_ms, quality_min=40)
+    return JsonResponse(resultado)
+
+def api_estado_sensor(request):
+    from .utils.secugen_driver import verificar_sensor_conectado
+    conectado, mensaje = verificar_sensor_conectado()
+    return JsonResponse({"conectado": conectado, "mensaje": mensaje})

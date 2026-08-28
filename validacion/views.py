@@ -55,6 +55,7 @@ def validacion_biometrica(request):
 
     )
 
+@login_required
 def kpis_validacion(request):
 
     hoy = timezone.now().date()
@@ -84,6 +85,7 @@ def kpis_validacion(request):
 
     })
 
+@login_required
 def cards_validacion(request):
 
     accesos = Acceso.objects.filter(
@@ -120,7 +122,7 @@ def cards_validacion(request):
                 acceso.resultado,
 
             'foto':
-                acceso.foto_validacion.url
+                ('/media/secure/' + acceso.foto_validacion.name)
                 if acceso.foto_validacion
                 else '/static/img/no-face.jpg',
 
@@ -138,6 +140,7 @@ def cards_validacion(request):
     })
 
 @csrf_exempt
+@login_required
 def actualizar_estado(request):
 
     if request.method == 'POST':
@@ -156,6 +159,7 @@ def actualizar_estado(request):
         )
 
         acceso.resultado = estado
+        acceso.resuelto = True
 
         acceso.save()
 
@@ -171,4 +175,95 @@ def actualizar_estado(request):
         'success': False
 
     })
+
+
+@csrf_exempt
+@login_required
+def validar_huella_acceso(request):
+    """
+    Endpoint para validación biométrica dactilar 1:1 con SecuGen Hamster Plus.
+    Compara el template en vivo contra el template registrado de la persona.
+    """
+    if request.method != 'POST':
+        return JsonResponse({
+            'success': False,
+            'error': 'Método no permitido'
+        })
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    acceso_id = data.get('acceso_id') or data.get('id')
+    template_vivo = data.get('template') or data.get('template_base64')
+    calidad = data.get('calidad', 0)
+
+    if not acceso_id:
+        return JsonResponse({
+            'success': False,
+            'error': 'Falta el identificador del acceso'
+        })
+
+    if not template_vivo:
+        return JsonResponse({
+            'success': False,
+            'error': 'No se recibió el template dactilar del lector SecuGen'
+        })
+
+    try:
+        acceso = Acceso.objects.select_related('persona').get(id=acceso_id)
+    except Acceso.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Acceso no encontrado'
+        })
+
+    if not acceso.persona:
+        return JsonResponse({
+            'success': False,
+            'error': 'El acceso no tiene una persona identificada para realizar la comparación 1:1.'
+        })
+
+    huella_reg = getattr(acceso.persona, 'huella', None)
+    if not huella_reg or not huella_reg.template:
+        return JsonResponse({
+            'success': False,
+            'error': f'{acceso.persona.nombre} {acceso.persona.apellido} no tiene una huella registrada en el sistema.'
+        })
+
+    try:
+        from usuarios.utils.secugen_driver import comparar_templates_nativo
+        resultado_match = comparar_templates_nativo(huella_reg.template, template_vivo)
+    except Exception:
+        from usuarios.utils.biometria_dactilar import comparar_templates_huella
+        resultado_match = comparar_templates_huella(
+            huella_reg.template,
+            template_vivo,
+            umbral_coincidencia=70.0
+        )
+
+    if resultado_match['match']:
+        acceso.resultado = 'APROBADO_MANUAL'
+        acceso.resuelto = True
+        acceso.save()
+
+
+        return JsonResponse({
+            'success': True,
+            'match': True,
+            'score': resultado_match['score'],
+            'persona': f'{acceso.persona.nombre} {acceso.persona.apellido}',
+            'estado': acceso.resultado,
+            'mensaje': f"Huella validada correctamente ({resultado_match['score']}% coincidencia)."
+        })
+    else:
+        return JsonResponse({
+            'success': True,
+            'match': False,
+            'score': resultado_match['score'],
+            'persona': f'{acceso.persona.nombre} {acceso.persona.apellido}',
+            'mensaje': f"Huella NO coincide con el registro ({resultado_match['score']}% coincidencia). Posible suplantación."
+        })
+
 
