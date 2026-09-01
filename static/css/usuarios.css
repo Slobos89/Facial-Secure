@@ -1,0 +1,230 @@
+/* ========================================================
+   ESTILOS DEDICADOS: USUARIOS.CSS
+   ======================================================== */
+
+/* ========================================================
+       ESTILOS DEL PANEL DE USUARIOS Y FICHA 360°
+       ======================================================== */
+    .users-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .kpis-row-4 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 16px;
+    }
+
+    .usr-kpi-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 16px 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .usr-kpi-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .usr-kpi-info h3 {
+        font-size: 22px;
+        font-weight: 800;
+        margin: 0;
+        color: #0f172a;
+        line-height: 1.1;
+    }
+
+    .usr-kpi-info span {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    /* BARRA DE ACCIONES Y PESTAÑAS */
+    .controls-wrapper {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .tabs-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 14px;
+    }
+
+    .role-tabs {
+        display: flex;
+        gap: 8px;
+    }
+
+    .tab-btn {
+        background: #f1f5f9;
+        color: #475569;
+        border: none;
+        padding: 8px 18px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+
+    .tab-btn.active {
+        background: #0f172a;
+        color: #ffffff;
+    }
+
+    .tab-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+    }
+
+    .tab-btn:not(.active) .tab-badge {
+        background: #cbd5e1;
+        color: #334155;
+    }
+
+    .filter-search-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .search-box-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        max-width: 450px;
+    }
+
+    .search-input-usr {
+        width: 100%;
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        font-size: 13px;
+        outline: none;
+    }
+
+    .search-input-usr:focus {
+        border-color: #2563eb;
+    }
+
+    /* TABLAS */
+    .user-table-wrap {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+
+    .usr-avatar-cell {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #000;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 10px;
+    }
+
+    .usr-avatar-cell img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .btn-action-view {
+        background: #f1f5f9;
+        color: #0f172a;
+        border: 1px solid #cbd5e1;
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.2s ease;
+    }
+
+    .btn-action-view:hover {
+        background: #2563eb;
+        color: #ffffff;
+        border-color: #2563eb;
+    }
+
+    /* MODAL FICHA 360 */
+    .modal-360-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    .modal-360-card {
+        background: #ffffff;
+        border-radius: 14px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+        border: 1px solid #e2e8f0;
+    }
+
+    .modal-360-header {
+        background: #0f172a;
+        color: #ffffff;
+        padding: 16px 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }

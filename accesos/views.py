@@ -16,49 +16,27 @@ def accesos(request):
 
     periodo = request.GET.get(
         'periodo',
-        'hoy'
+        'todo'
     )
 
     hoy = now().date()
 
-
     # =====================
     # QUERY BASE
     # =====================
-
-    queryset = Acceso.objects.all()
-
+    queryset = Acceso.objects.select_related('persona').all()
 
     # =====================
     # FILTROS POR PERIODO
     # =====================
-
     if periodo == 'hoy':
-
-        queryset = queryset.filter(
-            fecha_hora__date=hoy
-        )
-
-
-    elif periodo == 'semana':
-
-        queryset = queryset.filter(
-
-            fecha_hora__date__gte=
-            hoy - timedelta(days=7)
-
-        )
-
-
-    elif periodo == 'mes':
-
-        queryset = queryset.filter(
-
-            fecha_hora__month=hoy.month,
-
-            fecha_hora__year=hoy.year
-
-        )
+        queryset = queryset.filter(fecha_hora__date=hoy)
+    elif periodo in ['semana', '7']:
+        queryset = queryset.filter(fecha_hora__date__gte=hoy - timedelta(days=7))
+    elif periodo in ['mes', '30']:
+        queryset = queryset.filter(fecha_hora__date__gte=hoy - timedelta(days=30))
+    elif periodo == 'todo':
+        pass
 
 
     # =====================
@@ -190,10 +168,21 @@ def accesos(request):
 
 @login_required
 def accesos_ajax(request):
+    periodo = request.GET.get('periodo', 'todo')
+    hoy = now().date()
 
-    accesos = Acceso.objects.order_by(
-        '-fecha_hora'
-    )
+    accesos = Acceso.objects.select_related('persona').all()
+
+    if periodo == 'hoy':
+        accesos = accesos.filter(fecha_hora__date=hoy)
+    elif periodo in ['semana', '7']:
+        accesos = accesos.filter(fecha_hora__date__gte=hoy - timedelta(days=7))
+    elif periodo in ['mes', '30']:
+        accesos = accesos.filter(fecha_hora__date__gte=hoy - timedelta(days=30))
+    elif periodo == 'todo':
+        pass
+
+    accesos = accesos.order_by('-fecha_hora')
 
     busqueda = request.GET.get(
         'buscar'
@@ -279,3 +268,93 @@ def accesos_ajax(request):
         'paginacion': paginacion_html
 
     })
+
+
+@login_required
+def exportar_accesos_csv(request):
+    import csv
+    from django.http import HttpResponse
+
+    periodo = request.GET.get('periodo', 'todo')
+    busqueda = request.GET.get('buscar', '').strip()
+    resultado_filtro = request.GET.get('resultado', '').strip()
+    hoy = now().date()
+
+    queryset = Acceso.objects.select_related('persona', 'resuelto_por').all()
+
+    if periodo == 'hoy':
+        queryset = queryset.filter(fecha_hora__date=hoy)
+    elif periodo in ['semana', '7']:
+        queryset = queryset.filter(fecha_hora__date__gte=hoy - timedelta(days=7))
+    elif periodo in ['mes', '30']:
+        queryset = queryset.filter(fecha_hora__date__gte=hoy - timedelta(days=30))
+    elif periodo == 'todo':
+        pass
+
+    if resultado_filtro:
+        queryset = queryset.filter(resultado=resultado_filtro)
+
+    if busqueda:
+        queryset = queryset.filter(
+            Q(persona__nombre__icontains=busqueda) |
+            Q(persona__apellido__icontains=busqueda) |
+            Q(persona__rut__icontains=busqueda) |
+            Q(camara__icontains=busqueda) |
+            Q(resultado__icontains=busqueda)
+        )
+
+    queryset = queryset.order_by('-fecha_hora')
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"reporte_accesos_{periodo}_{now().strftime('%Y%m%d_%H%M')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    # Byte Order Mark UTF-8 para compatibilidad directa con Microsoft Excel en Windows
+    response.write('\ufeff')
+
+    writer = csv.writer(response, delimiter=';')
+    writer.writerow([
+        'ID Acceso',
+        'Fecha y Hora',
+        'Nombre y Apellido',
+        'RUT / Identificación',
+        'Tipo de Usuario',
+        'Cámara / Canal',
+        'Resultado',
+        'Coincidencia IA (%)',
+        'Estado de Resolución',
+        'Motivo de Resolución',
+        'Resuelto Por',
+        'Fecha de Resolución'
+    ])
+
+    for acc in queryset:
+        if acc.persona:
+            nombre = f"{acc.persona.nombre} {acc.persona.apellido}"
+            rut = acc.persona.rut
+            tipo = acc.persona.get_tipo_persona_display()
+        else:
+            nombre = acc.nombre_detectado or "Sujeto Desconocido"
+            rut = "---"
+            tipo = "Externo / Sin Registro"
+
+        resuelto_str = "Resuelto" if acc.resuelto else "Pendiente"
+        resuelto_por_str = (acc.resuelto_por.get_full_name() or acc.resuelto_por.username) if acc.resuelto_por else "---"
+        fecha_res_str = acc.fecha_resolucion.strftime('%d/%m/%Y %H:%M:%S') if acc.fecha_resolucion else "---"
+
+        writer.writerow([
+            acc.id,
+            acc.fecha_hora.strftime('%d/%m/%Y %H:%M:%S'),
+            nombre,
+            rut,
+            tipo,
+            acc.camara or 'Principal',
+            acc.resultado,
+            f"{acc.coincidencia:.1f}",
+            resuelto_str,
+            acc.motivo_resolucion or "---",
+            resuelto_por_str,
+            fecha_res_str
+        ])
+
+    return response

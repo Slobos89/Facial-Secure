@@ -2,835 +2,425 @@
 {% load static %}
 
 {% block title %}
-Centro de Validación
+Centro de Validación Biometría Dual
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/validacion.css' %}?v=1.0">
 {% endblock %}
 
 {% block content %}
 
-<div class="content-body">
-
-    <!-- KPIS -->
-
-    <div class="kpis">
-
-        <div class="kpi-card2 kpi-yellow" >
-            <h2 id="kpi-pendientes">{{ pendientes }}</h2>
-            <span>Validaciones Pendientes Hoy</span>
+<div class="validation-container">
+    <!-- KPIS OPERATIVOS -->
+    <div class="kpis-row">
+        <div class="val-kpi-card kpi-amber">
+            <div class="val-kpi-icon">⏳</div>
+            <div class="val-kpi-info">
+                <h3 id="kpi-pendientes">{{ pendientes }}</h3>
+                <span>Validaciones Pendientes</span>
+            </div>
         </div>
-
-        <div class="kpi-card2 kpi-green" >
-            <h2 id="kpi-aprobados">{{ aprobados }}</h2>
-            <span>Validaciones Aprobadas Hoy</span>
+        <div class="val-kpi-card kpi-green">
+            <div class="val-kpi-icon">✅</div>
+            <div class="val-kpi-info">
+                <h3 id="kpi-aprobados">{{ aprobados }}</h3>
+                <span>Aprobadas Manualmente</span>
+            </div>
         </div>
-
-        <div class="kpi-card2 kpi-red" >
-            <h2 id="kpi-rechazados">{{ rechazados }}</h2>
-            <span>Validaciones Denegadas Hoy</span>
+        <div class="val-kpi-card kpi-red">
+            <div class="val-kpi-icon">⛔</div>
+            <div class="val-kpi-info">
+                <h3 id="kpi-rechazados">{{ rechazados }}</h3>
+                <span>Rechazadas Hoy</span>
+            </div>
         </div>
-
-        
-
     </div>
 
-    <!-- PANEL PRINCIPAL -->
+    <!-- BARRA DE ATAJOS DE TECLADO PARA EL OPERADOR -->
+    <div class="shortcuts-bar">
+        <span>⚡ <b>Atajos de Teclado:</b></span>
+        <span><span class="shortcut-key">A</span> Aprobar caso actual</span>
+        <span><span class="shortcut-key">R</span> Rechazar caso actual</span>
+        <span><span class="shortcut-key">H</span> Disparar sensor de huella</span>
+        <span style="margin-left: auto; color: #38bdf8;">🟢 Cola operativa en vivo</span>
+    </div>
 
-    <section class="users-panel">
-
-        <!-- HEADER -->
-
-        <div class="panel-header">
-
-            <div>
-
-                <h2 class="panel-title">
-                    Centro de Validación
-                </h2>
-
-                <p class="panel-subtitle">
-                    Revisión biométrica operativa en tiempo real
-                </p>
-
+    <!-- COLA DE REVISIÓN BIOMÉTRICA -->
+    <div class="validation-queue" id="validation-queue">
+        {% for acceso in accesos %}
+        <div class="val-card" data-id="{{ acceso.id }}" id="card-{{ acceso.id }}">
+            <!-- HEADER TARJETA -->
+            <div class="val-card-header">
+                <div class="val-card-title">
+                    <span>🛡️ Incidente de Validación #{{ acceso.id }}</span>
+                    <span style="color: #64748b; font-weight: 500; font-size: 12px;">• {{ acceso.fecha_hora|date:"d/m/Y H:i:s" }}</span>
+                </div>
+                <div>
+                    <span style="background: #fef3c7; color: #b45309; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px;">
+                        REVISIÓN REQUERIDA
+                    </span>
+                </div>
             </div>
 
-            
-
-        </div>
-
-        <!-- GRID -->
-
-        <div class="validation-queue" id="validation-queue">
-
-            {% for acceso in accesos %}
-
-            <div class="validation-item" data-id="{{ acceso.id }}">
-
-                <!-- FOTO -->
-
-                <div class="validation-face">
-
-                    {% if acceso.foto_validacion %}
-
-                        <img
-                            src="/media/secure/{{ acceso.foto_validacion.name }}"
-                            alt="rostro"
-                        >
-
-                    {% else %}
-
-                        <img
-                            src="{% static 'img/no-face.jpg' %}"
-                            alt="rostro"
-                        >
-
-                    {% endif %}
-
-                </div>
-
-
-                <!-- INFO -->
-
-                <div class="validation-info">
-
-                    <div class="validation-info-top">
-
-                        <h3>
-
-                            {{ acceso.nombre_detectado }}
-
-                        </h3>
-
-
-                        <span class="status-badge
-
-                            {% if acceso.resultado == 'PERMITIDO' %}
-
-                                card-success
-
-                            {% elif acceso.resultado == 'REVISION' %}
-
-                                card-warning
-
+            <!-- CUERPO TARJETA -->
+            <div class="val-card-body">
+                <!-- 1. COMPARADOR CARA A CARA -->
+                <div class="split-comparator">
+                    <div class="photo-col">
+                        <span>📸 Captura en Vivo</span>
+                        <div class="photo-frame frame-live">
+                            {% if acceso.foto_validacion %}
+                                <img src="/media/secure/{{ acceso.foto_validacion.name }}" alt="Cámara">
                             {% else %}
-
-                                card-danger
-
+                                <img src="{% static 'img/no-face.jpg' %}" alt="Sin foto">
                             {% endif %}
-
-                        ">
-
-                            {{ acceso.resultado }}
-
-                        </span>
-
+                        </div>
                     </div>
 
+                    <div class="vs-divider">
+                        <span class="vs-badge">VS</span>
+                        <span class="match-percent">{{ acceso.coincidencia|floatformat:1 }}%</span>
+                    </div>
 
-                    <!-- GRID INFO -->
-
-                    <div class="validation-grid-info">
-
-                        <div class="detail-box">
-
-                            <label>Coincidencia</label>
-
-                            <strong>
-
-                                {{ acceso.coincidencia }}%
-
-                            </strong>
-
+                    <div class="photo-col">
+                        <span>👤 Foto Oficial</span>
+                        <div class="photo-frame frame-registered">
+                            {% if acceso.persona and acceso.persona.foto %}
+                                <img src="/media/secure/{{ acceso.persona.foto.name }}" alt="Registrada">
+                            {% else %}
+                                <img src="{% static 'img/no-face.jpg' %}" alt="No registrado">
+                            {% endif %}
                         </div>
+                    </div>
+                </div>
 
+                <!-- 2. METADATOS Y CONFIANZA -->
+                <div class="val-details">
+                    <div>
+                        <h3 class="val-user-name">
+                            {% if acceso.persona %}
+                                {{ acceso.persona.nombre }} {{ acceso.persona.apellido }}
+                            {% else %}
+                                {{ acceso.nombre_detectado|default:"Sujeto No Identificado" }}
+                            {% endif %}
+                        </h3>
+                        <span style="font-size: 12px; color: #64748b; font-weight: 600;">
+                            {% if acceso.persona %}
+                                {{ acceso.persona.get_tipo_persona_display }} • RUT: {{ acceso.persona.rut }}
+                            {% else %}
+                                Sujeto Externo / Sin Registro
+                            {% endif %}
+                        </span>
+                    </div>
 
-                        <div class="detail-box">
-
-                            <label>Cámara</label>
-
-                            <strong>
-
-                                {{ acceso.camara }}
-
-                            </strong>
-
+                    <div class="val-meta-grid">
+                        <div class="val-meta-box">
+                            <label>Cámara Origen</label>
+                            <strong>{{ acceso.camara|default:"Principal" }}</strong>
                         </div>
-
-
-                        <div class="detail-box">
-
-                            <label>Hora</label>
-
-                            <strong>
-
-                                {{ acceso.fecha_hora|date:"H:i:s" }}
-
-                            </strong>
-
+                        <div class="val-meta-box">
+                            <label>Hora Detección</label>
+                            <strong>{{ acceso.fecha_hora|date:"H:i:s" }}</strong>
                         </div>
+                    </div>
 
+                    <div class="confidence-meter">
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700;">
+                            <span style="color: #64748b;">Nivel de Confianza Facial</span>
+                            <span style="color: #d97706;">{{ acceso.coincidencia|floatformat:1 }}%</span>
+                        </div>
+                        <div class="meter-bar-bg">
+                            <div class="meter-bar-fill" style="width: {{ acceso.coincidencia }}%;"></div>
+                        </div>
+                    </div>
+                </div>
 
-                        <div class="detail-box">
-
-                            <label>Tipo Usuario</label>
-
-                            <strong>
-
-                                {% if acceso.persona %}
-
-                                    {{ acceso.persona.tipo_persona }}
-
+                <!-- 3. ACCIONES & HUELLA DACTILAR -->
+                <div class="val-actions-col">
+                    <div class="fingerprint-widget" onclick="validarHuellaDirecta('{{ acceso.id }}')">
+                        <div class="fp-icon" id="fp-icon-{{ acceso.id }}">🖐️</div>
+                        <div class="fp-info">
+                            <h4>Validación Dactilar</h4>
+                            <p id="fp-status-{{ acceso.id }}">
+                                {% if acceso.persona and acceso.persona.huellas.exists %}
+                                    Lector listo para verificar
                                 {% else %}
-
-                                    No identificado
-
+                                    Sin huella registrada (Opcional)
                                 {% endif %}
-
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <!-- BIOMETRÍA -->
-
-                <div class="validation-biometric">
-
-                    <div class="bio-box">
-
-                        <span class="bio-title">
-
-                            Biometría Facial
-
-                        </span>
-
-                        <div class="bio-status success">
-
-                            Detectada
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="bio-box">
-
-                        <span class="bio-title">
-
-                            Biometría Dactilar
-
-                        </span>
-
-                        <div class="bio-status warning fingerprint-status">
-
-                            Pendiente
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <!-- ACCIONES -->
-
-                <div class="validation-actions">
-
-                    <!-- SENSOR HUELLA -->
-
-                    <div class="fingerprint-box">
-
-                        <div class="fingerprint-scanner" onclick="validarHuella(this)">
-
-                            <div class="fingerprint-icon scanning">
-
-                                🖐️
-
-                            </div>
-
-                        </div>
-
-                        <div class="fingerprint-data">
-
-                            <h4>
-
-                                Escaneo Dactilar
-
-                            </h4>
-
-                            <p>
-
-                                Esperando validación biométrica...
-
                             </p>
-
                         </div>
-
                     </div>
 
-
-                    <!-- BOTONES -->
-
-                    <div class="validation-buttons">
-
-                        <button class="btn btn-success" onclick="aprobarAcceso(this)">
-
-                            Aprobar
-
+                    <div class="btn-group-actions">
+                        <button type="button" class="btn-val btn-approve" onclick="resolverAcceso('{{ acceso.id }}', 'APROBADO_MANUAL')">
+                            ✅ Aprobar
                         </button>
-
-                        <button class="btn btn-danger" onclick="rechazarAcceso(this)">
-
-                            Rechazar
-
+                        <button type="button" class="btn-val btn-reject" onclick="resolverAcceso('{{ acceso.id }}', 'RECHAZADO')">
+                            ⛔ Rechazar
                         </button>
-
                     </div>
-
                 </div>
-
             </div>
-
-            {% empty %}
-
-            <div class="empty-state">
-
-                <h3>
-
-                    No hay validaciones pendientes
-
-                </h3>
-
-            </div>
-
-            {% endfor %}
-
         </div>
-
-    </section>
-
+        {% empty %}
+        <div class="empty-state-panel" id="empty-state">
+            <div style="font-size: 36px; margin-bottom: 10px;">✨</div>
+            <h3 style="margin: 0 0 6px 0; color: #0f172a;">No hay validaciones pendientes</h3>
+            <p style="margin: 0; font-size: 13px;">Todos los accesos están autorizados o han sido procesados correctamente.</p>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 
 <script src="{% static 'js/secugen.js' %}"></script>
 <script>
-
-async function actualizarKPIs(){
-
-    const response = await fetch(
-        "/validacion/kpis/"
-    )
-
-    const data = await response.json()
-
-    document.getElementById(
-        "kpi-pendientes"
-    ).innerText = data.pendientes
-
-    document.getElementById(
-        "kpi-aprobados"
-    ).innerText = data.aprobados
-
-    document.getElementById(
-        "kpi-rechazados"
-    ).innerText = data.rechazados
+/* ========================================================
+   ACTUALIZACIÓN AUTOMÁTICA Y POLLING EN VIVO
+   ======================================================== */
+async function actualizarKPIs() {
+    try {
+        const response = await fetch('/validacion/kpis/');
+        const data = await response.json();
+        document.getElementById('kpi-pendientes').textContent = data.pendientes;
+        document.getElementById('kpi-aprobados').textContent = data.aprobados;
+        document.getElementById('kpi-rechazados').textContent = data.rechazados;
+    } catch (e) {}
 }
 
-const validationQueue =
-    document.getElementById(
-        'validation-queue'
-    );
-
-let idsRenderizados = Array.from(
-    document.querySelectorAll(
-        '.validation-item'
-    )
-).map(card => Number(card.dataset.id))
-
-/* =========================
-   VALIDACION DACTILAR REAL (SECUGEN)
-========================= */
-
-let escaneoEnCurso = false;
-
-async function validarHuella(scanner){
-
-    if(escaneoEnCurso){
-        return;
-    }
-
-    const icon = scanner.querySelector(
-        '.fingerprint-icon'
-    );
-
-    const card = scanner.closest(
-        '.validation-item'
-    );
-
-    const accesoId = card.dataset.id;
-
-    const status = card.querySelector(
-        '.fingerprint-status'
-    );
-
-    const text = card.querySelector(
-        '.fingerprint-data p'
-    );
-
-    const badgeResultado = card.querySelector(
-        '.status-badge'
-    );
-
-    /* ESTADO: ESCANEANDO */
-    escaneoEnCurso = true;
-    icon.innerHTML = '🖐️';
-    icon.classList.add('scanning');
-    status.classList.remove('success', 'danger');
-    status.classList.add('warning');
-    status.innerText = 'Coloque dedo...';
-    text.innerText = 'Activando lector SecuGen Hamster Plus...';
-
+async function actualizarCards() {
     try {
-        // 1. Capturar template con el lector físico SecuGen
-        const captureResult = await secugenCapture({
-            timeout: 10000,
-            quality: 40,
-            templateFormat: 'ANSI378'
-        });
+        const response = await fetch('/validacion/cards/');
+        const data = await response.json();
 
-        if(!captureResult.success){
-            icon.classList.remove('scanning');
-            icon.innerHTML = '⚠️';
-            status.classList.remove('warning');
-            status.classList.add('danger');
-            status.innerText = 'Error sensor';
-            text.innerText = captureResult.error || 'Error al capturar huella.';
-            escaneoEnCurso = false;
+        const queue = document.getElementById('validation-queue');
+        const emptyState = document.getElementById('empty-state');
+
+        if (data.cards.length === 0) {
+            if (!emptyState && queue.children.length === 0) {
+                queue.innerHTML = `
+                    <div class="empty-state-panel" id="empty-state">
+                        <div style="font-size: 36px; margin-bottom: 10px;">✨</div>
+                        <h3 style="margin: 0 0 6px 0; color: #0f172a;">No hay validaciones pendientes</h3>
+                        <p style="margin: 0; font-size: 13px;">Todos los accesos están autorizados o han sido procesados correctamente.</p>
+                    </div>
+                `;
+            }
             return;
         }
 
-        // 2. Huella capturada: enviar template al servidor para comparar 1:1
-        text.innerText = `Huella capturada (Calidad: ${captureResult.quality}%). Comparando minucias...`;
+        if (emptyState) emptyState.remove();
 
-        const response = await fetch('/validacion/validar-huella/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                acceso_id: accesoId,
-                template: captureResult.template,
-                calidad: captureResult.quality
-            })
+        const currentIds = Array.from(queue.querySelectorAll('.val-card')).map(c => c.dataset.id);
+        const incomingIds = data.cards.map(c => String(c.id));
+
+        // Remover las que ya no están pendientes
+        currentIds.forEach(id => {
+            if (!incomingIds.includes(id)) {
+                const card = document.getElementById(`card-${id}`);
+                if (card) card.remove();
+            }
         });
 
-        const data = await response.json();
+        // Insertar nuevas
+        data.cards.forEach(cardData => {
+            if (!currentIds.includes(String(cardData.id))) {
+                const cardHtml = `
+                    <div class="val-card" data-id="${cardData.id}" id="card-${cardData.id}">
+                        <div class="val-card-header">
+                            <div class="val-card-title">
+                                <span>🛡️ Incidente de Validación #${cardData.id}</span>
+                                <span style="color: #64748b; font-weight: 500; font-size: 12px;">• ${cardData.fecha} ${cardData.hora}</span>
+                            </div>
+                            <div>
+                                <span style="background: #fef3c7; color: #b45309; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px;">
+                                    REVISIÓN REQUERIDA
+                                </span>
+                            </div>
+                        </div>
 
-        icon.classList.remove('scanning');
+                        <div class="val-card-body">
+                            <div class="split-comparator">
+                                <div class="photo-col">
+                                    <span>📸 Captura en Vivo</span>
+                                    <div class="photo-frame frame-live">
+                                        <img src="${cardData.foto}" alt="Cámara">
+                                    </div>
+                                </div>
+                                <div class="vs-divider">
+                                    <span class="vs-badge">VS</span>
+                                    <span class="match-percent">${cardData.coincidencia}%</span>
+                                </div>
+                                <div class="photo-col">
+                                    <span>👤 Foto Oficial</span>
+                                    <div class="photo-frame frame-registered">
+                                        <img src="${cardData.foto_registrada}" alt="Registrada">
+                                    </div>
+                                </div>
+                            </div>
 
-        if(data.success && data.match){
-            // MATCH EXITOSO (Aprobado)
-            icon.innerHTML = '✓';
-            status.classList.remove('warning', 'danger');
-            status.classList.add('success');
-            status.innerText = `Validada (${data.score}%)`;
-            text.innerText = data.mensaje;
+                            <div class="val-details">
+                                <div>
+                                    <h3 class="val-user-name">${cardData.nombre}</h3>
+                                    <span style="font-size: 12px; color: #64748b; font-weight: 600;">
+                                        ${cardData.tipo_persona} • RUT: ${cardData.rut}
+                                    </span>
+                                </div>
+                                <div class="val-meta-grid">
+                                    <div class="val-meta-box">
+                                        <label>Cámara Origen</label>
+                                        <strong>${cardData.camara}</strong>
+                                    </div>
+                                    <div class="val-meta-box">
+                                        <label>Hora Detección</label>
+                                        <strong>${cardData.hora}</strong>
+                                    </div>
+                                </div>
+                                <div class="confidence-meter">
+                                    <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700;">
+                                        <span style="color: #64748b;">Nivel de Confianza Facial</span>
+                                        <span style="color: #d97706;">${cardData.coincidencia}%</span>
+                                    </div>
+                                    <div class="meter-bar-bg">
+                                        <div class="meter-bar-fill" style="width: ${cardData.coincidencia}%;"></div>
+                                    </div>
+                                </div>
+                            </div>
 
-            if(badgeResultado){
-                badgeResultado.className = 'status-badge card-success';
-                badgeResultado.innerText = 'APROBADO_MANUAL';
+                            <div class="val-actions-col">
+                                <div class="fingerprint-widget" onclick="validarHuellaDirecta('${cardData.id}')">
+                                    <div class="fp-icon" id="fp-icon-${cardData.id}">🖐️</div>
+                                    <div class="fp-info">
+                                        <h4>Validación Dactilar</h4>
+                                        <p id="fp-status-${cardData.id}">${cardData.tiene_huella ? 'Lector listo para verificar' : 'Sin huella registrada (Opcional)'}</p>
+                                    </div>
+                                </div>
+                                <div class="btn-group-actions">
+                                    <button type="button" class="btn-val btn-approve" onclick="resolverAcceso('${cardData.id}', 'APROBADO_MANUAL')">
+                                        ✅ Aprobar
+                                    </button>
+                                    <button type="button" class="btn-val btn-reject" onclick="resolverAcceso('${cardData.id}', 'RECHAZADO')">
+                                        ⛔ Rechazar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                queue.insertAdjacentHTML('afterbegin', cardHtml);
             }
+        });
+    } catch (e) {}
+}
 
-            actualizarKPIs();
+setInterval(actualizarKPIs, 3000);
+setInterval(actualizarCards, 3000);
 
-            // Remover tarjeta de pendientes después de 2.5 segundos
+/* ========================================================
+   RESOLUCIÓN DE ACCESO (APROBADO / RECHAZADO)
+   ======================================================== */
+async function resolverAcceso(id, nuevoEstado) {
+    const card = document.getElementById(`card-${id}`);
+    if (card) {
+        card.style.transition = 'all 0.3s ease';
+        card.style.opacity = '0.4';
+        card.style.transform = 'scale(0.98)';
+    }
+
+    try {
+        const response = await fetch('/validacion/actualizar-estado/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, estado: nuevoEstado })
+        });
+        const res = await response.json();
+
+        if (res.success && card) {
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(50px)';
             setTimeout(() => {
-                card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-                card.style.opacity = '0';
-                card.style.transform = 'scale(0.95)';
-                setTimeout(() => {
-                    card.remove();
-                }, 500);
-            }, 2500);
-
-        } else {
-            // NO COINCIDE O ERROR
-            icon.innerHTML = '✕';
-            status.classList.remove('warning', 'success');
-            status.classList.add('danger');
-            status.innerText = data.score !== undefined ? `No coincide (${data.score}%)` : 'Rechazada';
-            text.innerText = data.mensaje || data.error || 'La huella no coincide.';
-
-            if(badgeResultado){
-                badgeResultado.className = 'status-badge card-danger';
-                badgeResultado.innerText = 'RECHAZADO';
-            }
+                card.remove();
+                actualizarKPIs();
+                actualizarCards();
+            }, 300);
+        } else if (card) {
+            card.style.opacity = '1';
+            card.style.transform = 'none';
         }
-
-    } catch(err){
-        console.error("Error en validación biométrica:", err);
-        icon.classList.remove('scanning');
-        icon.innerHTML = '⚠️';
-        status.classList.remove('warning');
-        status.classList.add('danger');
-        status.innerText = 'Error red';
-        text.innerText = 'Error de comunicación con el servidor.';
-    } finally {
-        escaneoEnCurso = false;
+    } catch (e) {
+        if (card) {
+            card.style.opacity = '1';
+            card.style.transform = 'none';
+        }
     }
 }
 
+/* ========================================================
+   VALIDACIÓN DACTILAR CON SECUGEN
+   ======================================================== */
+async function validarHuellaDirecta(accesoId) {
+    const icon = document.getElementById(`fp-icon-${accesoId}`);
+    const statusText = document.getElementById(`fp-status-${accesoId}`);
 
-/* =========================
-   CARDS LIVE
-========================= */
+    if (icon) icon.textContent = '⏳';
+    if (statusText) statusText.textContent = 'Coloque el dedo en el sensor...';
 
-async function actualizarCards(){
-
-    const response = await fetch(
-        '/validacion/cards/'
-    )
-
-    const data = await response.json()
-
-    const idsBackend = data.cards.map(
-        card => String(card.id)
-    )
-
-
-    document.querySelectorAll(
-        '.validation-item'
-    ).forEach(card => {
-
-        const id = card.dataset.id
-
-        if(
-            !idsBackend.includes(id)
-        ){
-
-            card.remove()
-
+    try {
+        const capture = await secugenCapture({ timeout: 8000, quality: 40 });
+        if (!capture.success) {
+            if (icon) icon.textContent = '⚠️';
+            if (statusText) statusText.textContent = capture.error || 'Error de sensor';
+            return;
         }
 
-    })    
-
-    data.cards.forEach(card => {
-
-        if(
-            idsRenderizados.includes(
-                card.id
-            )
-        ){
-            return
-        }
-
-
-        idsRenderizados.push(
-            card.id
-        )
-
-
-        const html = `
-
-<div class="validation-item" data-id="${card.id}"">
-
-    <div class="validation-face">
-
-        <img
-            src="${card.foto}"
-            alt="rostro"
-        >
-
-    </div>
-
-
-    <div class="validation-info">
-
-        <div class="validation-info-top">
-
-            <h3>
-
-                ${card.nombre}
-
-            </h3>
-
-            <span class="status-badge card-warning">
-
-                ${card.resultado}
-
-            </span>
-
-        </div>
-
-
-        <div class="validation-grid-info">
-
-            <div class="detail-box">
-
-                <label>Coincidencia</label>
-
-                <strong>
-
-                    ${card.coincidencia}%
-
-                </strong>
-
-            </div>
-
-
-            <div class="detail-box">
-
-                <label>Cámara</label>
-
-                <strong>
-
-                    ${card.camara}
-
-                </strong>
-
-            </div>
-
-
-            <div class="detail-box">
-
-                <label>Hora</label>
-
-                <strong>
-
-                    ${card.hora}
-
-                </strong>
-
-            </div>
-
-
-            <div class="detail-box">
-
-                <label>Tipo Usuario</label>
-
-                <strong>
-
-                    ${card.tipo_persona}
-
-                </strong>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="validation-biometric">
-
-        <div class="bio-box">
-
-            <span class="bio-title">
-
-                Biometría Facial
-
-            </span>
-
-            <div class="bio-status success">
-
-                Detectada
-
-            </div>
-
-        </div>
-
-
-        <div class="bio-box">
-
-            <span class="bio-title">
-
-                Biometría Dactilar
-
-            </span>
-
-            <div class="bio-status warning fingerprint-status">
-
-                Pendiente
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="validation-actions">
-
-        <div class="fingerprint-box">
-
-            <div class="fingerprint-scanner" onclick="validarHuella(this)">
-
-                <div class="fingerprint-icon scanning">
-
-                    🖐️
-
-                </div>
-
-            </div>
-
-            <div class="fingerprint-data">
-
-                <h4>
-
-                    Escaneo Dactilar
-
-                </h4>
-
-                <p>
-
-                    Esperando validación biométrica...
-
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <div class="validation-buttons">
-
-            <button class="btn btn-success" onclick="aprobarAcceso(this)">
-
-                Aprobar
-
-            </button>
-
-            <button class="btn btn-danger" onclick="rechazarAcceso(this)">
-
-                Rechazar
-
-            </button>
-
-        </div>
-
-    </div>
-
-</div>
-
-`
-
-
-        validationQueue.insertAdjacentHTML(
-
-            'afterbegin',
-
-            html
-
-        )
-
-    })
-
-}
-
-/* REFRESH */
-
-setInterval(
-    actualizarKPIs,
-    3000
-)
-
-setInterval(
-    actualizarCards,
-    3000
-)
-
-/* INIT */
-
-actualizarKPIs()
-actualizarCards()
-
-/* =========================
-   APROBAR
-========================= */
-
-async function aprobarAcceso(button){
-
-    const card = button.closest(
-        '.validation-item'
-    )
-
-    const id = card.dataset.id
-
-
-    await fetch(
-
-        '/validacion/actualizar-estado/',
-
-        {
-
-            method:'POST',
-
-            headers:{
-                'Content-Type':
-                    'application/json'
-            },
-
-            body:JSON.stringify({
-
-                id:id,
-
-                estado:'APROBADO_MANUAL'
-
+        if (statusText) statusText.textContent = 'Verificando minucias dactilares...';
+
+        const resp = await fetch('/validacion/validar-huella/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                acceso_id: accesoId,
+                template: capture.template,
+                calidad: capture.quality
             })
+        });
+        const data = await resp.json();
 
+        if (data.success && data.match) {
+            if (icon) icon.textContent = '✅';
+            if (statusText) statusText.textContent = `Huella Coincidente (${data.score}%)`;
+            setTimeout(() => resolverAcceso(accesoId, 'APROBADO_MANUAL'), 800);
+        } else {
+            if (icon) icon.textContent = '❌';
+            if (statusText) statusText.textContent = `No coincide (${data.score || 0}%)`;
         }
-
-    )
-
-
-    card.remove()
-
+    } catch (err) {
+        if (icon) icon.textContent = '⚠️';
+        if (statusText) statusText.textContent = 'Error de conexión';
+    }
 }
 
+/* ========================================================
+   ATAJOS DE TECLADO PARA EL OPERADOR DE GUARDIA
+   ======================================================== */
+document.addEventListener('keydown', (e) => {
+    // Si el foco está en un input de texto, ignorar atajos
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
 
-/* =========================
-   RECHAZAR
-========================= */
+    const firstCard = document.querySelector('.val-card');
+    if (!firstCard) return;
+    const firstId = firstCard.dataset.id;
 
-async function rechazarAcceso(button){
-
-    const card = button.closest(
-        '.validation-item'
-    )
-
-    const id = card.dataset.id
-
-
-    await fetch(
-
-        '/validacion/actualizar-estado/',
-
-        {
-
-            method:'POST',
-
-            headers:{
-                'Content-Type':
-                    'application/json'
-            },
-
-            body:JSON.stringify({
-
-                id:id,
-
-                estado:'RECHAZADO'
-
-            })
-
-        }
-
-    )
-
-
-    card.remove()
-
-}
-
+    if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        resolverAcceso(firstId, 'APROBADO_MANUAL');
+    } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        resolverAcceso(firstId, 'RECHAZADO');
+    } else if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        validarHuellaDirecta(firstId);
+    }
+});
 </script>
-
 {% endblock %}

@@ -1,3 +1,4 @@
+import os
 import cv2
 import base64
 import numpy as np
@@ -9,35 +10,44 @@ from django.core.files.base import ContentFile
 from usuarios.models import Acceso, Persona
 from django.contrib.auth.decorators import login_required
 
+# ==========================================
+# OPTIMIZACIÓN: Cargar detector y modelo 1 sola vez en memoria
+# ==========================================
+detector_rostros = cv2.CascadeClassifier(
+    cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+)
 
+modelo_path = 'modelo/modelo_lbph.yml'
 modelo = cv2.face.LBPHFaceRecognizer_create(
     radius=2,
     neighbors=16,
     grid_x=8,
     grid_y=8
 )
+ultimo_modelo_mtime = 0
 
-try:
+def get_modelo():
+    """Recarga el modelo en caliente si fue actualizado tras un nuevo enrolamiento."""
+    global modelo, ultimo_modelo_mtime
+    if os.path.exists(modelo_path):
+        try:
+            mtime = os.path.getmtime(modelo_path)
+            if mtime != ultimo_modelo_mtime:
+                modelo.read(modelo_path)
+                ultimo_modelo_mtime = mtime
+                print('MODELO MONITOREO ACTUALIZADO EN MEMORIA')
+        except Exception as e:
+            print('ERROR MODELO MONITOREO:', e)
+    return modelo
 
-    modelo.read(
-        'modelo/modelo_lbph.yml'
-    )
+# Carga inicial
+get_modelo()
 
-    print(
-        'MODELO MONITOREO CARGADO'
-    )
-
-except Exception as e:
-
-    print(
-        'ERROR MODELO MONITOREO:',
-        e
-    )
 
 @login_required
 def monitoreo(request):
 
-    accesos = Acceso.objects.order_by(
+    accesos = Acceso.objects.select_related('persona').order_by(
         '-fecha_hora'
     )[:20]
 
@@ -100,15 +110,8 @@ def detectar_rostros(request):
         )
 
 
-        detector = cv2.CascadeClassifier(
-
-            cv2.data.haarcascades +
-            'haarcascade_frontalface_default.xml'
-
-        )
-
-
-        faces = detector.detectMultiScale(
+        # Detección ultra rápida con clasificador precargado
+        faces = detector_rostros.detectMultiScale(
 
             gray,
 
@@ -123,7 +126,7 @@ def detectar_rostros(request):
 
         resultados = []
 
-        
+        modelo_actual = get_modelo()
 
         for(x,y,w,h) in faces:
 
@@ -158,7 +161,7 @@ def detectar_rostros(request):
             )
 
 
-            usuario_id, confianza = modelo.predict(
+            usuario_id, confianza = modelo_actual.predict(
                 rostro
             )
 
@@ -304,20 +307,17 @@ def detectar_rostros(request):
             )
 
             resultados.append({
-
                 'id': f'{x}-{y}-{w}-{h}',
-
                 'x': int(x),
                 'y': int(y),
                 'w': int(w),
                 'h': int(h),
-
                 'estado': estado,
-
                 'coincidencia': coincidencia,
-
-                'nombre': nombre
-
+                'nombre': nombre,
+                'tipo': persona.get_tipo_persona_display() if persona else 'Desconocido',
+                'rut': persona.rut if persona else '---',
+                'hora': acceso.fecha_hora.strftime('%H:%M:%S')
             })
 
 

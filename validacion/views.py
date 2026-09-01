@@ -87,56 +87,36 @@ def kpis_validacion(request):
 
 @login_required
 def cards_validacion(request):
-
     accesos = Acceso.objects.filter(
         resultado='REVISION'
     ).select_related(
         'persona'
     ).order_by(
         '-fecha_hora'
-    )[:10]
+    )[:15]
 
     data = []
-
     for acceso in accesos:
+        foto_en_vivo = ('/media/secure/' + acceso.foto_validacion.name) if acceso.foto_validacion else '/static/img/no-face.jpg'
+        foto_registrada = ('/media/secure/' + acceso.persona.foto.name) if (acceso.persona and acceso.persona.foto) else '/static/img/no-face.jpg'
 
         data.append({
-
             'id': acceso.id,
-
-            'nombre':
-                acceso.nombre_detectado,
-
-            'coincidencia':
-                acceso.coincidencia,
-
-            'camara':
-                acceso.camara,
-
-            'hora':
-                acceso.fecha_hora.strftime(
-                    '%H:%M:%S'
-                ),
-
-            'resultado':
-                acceso.resultado,
-
-            'foto':
-                ('/media/secure/' + acceso.foto_validacion.name)
-                if acceso.foto_validacion
-                else '/static/img/no-face.jpg',
-
-            'tipo_persona':
-                acceso.persona.tipo_persona
-                if acceso.persona
-                else 'No identificado'
-
+            'nombre': acceso.persona.nombre + ' ' + acceso.persona.apellido if acceso.persona else (acceso.nombre_detectado or 'Sujeto No Identificado'),
+            'rut': acceso.persona.rut if acceso.persona else '---',
+            'coincidencia': round(acceso.coincidencia, 1),
+            'camara': acceso.camara or 'Cámara Principal',
+            'hora': acceso.fecha_hora.strftime('%H:%M:%S'),
+            'fecha': acceso.fecha_hora.strftime('%d/%m/%Y'),
+            'resultado': acceso.resultado,
+            'foto': foto_en_vivo,
+            'foto_registrada': foto_registrada,
+            'tipo_persona': acceso.persona.get_tipo_persona_display() if acceso.persona else 'No identificado',
+            'tiene_huella': bool(acceso.persona.huellas.exists()) if (acceso.persona and hasattr(acceso.persona, 'huellas')) else False
         })
 
     return JsonResponse({
-
         'cards': data
-
     })
 
 @csrf_exempt

@@ -17,4 +17,6 @@ urlpatterns = [
     path('registrar-gendarme/', views.registrar_gendarme, name='registrar_gendarme'),
     path('api/capturar-huella-sensor/', views.api_capturar_huella_sensor, name='api_capturar_huella_sensor'),
     path('api/estado-sensor/', views.api_estado_sensor, name='api_estado_sensor'),
+    path('perfil-ajax/<int:persona_id>/', views.perfil_persona_ajax, name='perfil_persona_ajax'),
+    path('toggle-estado/<int:persona_id>/', views.toggle_estado_persona, name='toggle_estado_persona'),
 ]

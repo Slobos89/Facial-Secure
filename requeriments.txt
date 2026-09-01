@@ -1,5 +1,8 @@
-opencv-python
-face-recognition
-numpy
+Django>=5.0
+psycopg2-binary
+cryptography
+opencv-contrib-python
 Pillow
 reportlab
+numpy
+requests

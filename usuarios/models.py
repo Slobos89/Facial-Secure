@@ -35,13 +35,15 @@ class Persona(models.Model):
 
     tipo_persona = models.CharField(
         max_length=20,
-        choices=TIPOS_PERSONA
+        choices=TIPOS_PERSONA,
+        db_index=True
     )
 
     estado = models.CharField(
         max_length=20,
         choices=ESTADOS,
-        default='activo'
+        default='activo',
+        db_index=True
     )
 
     estado_enrolamiento = models.CharField(
@@ -52,6 +54,7 @@ class Persona(models.Model):
 
     biometria_facial = models.BooleanField(
         default=False,
+        db_index=True,
         help_text="Indica si el modelo de IA ya fue entrenado con este rostro"
     )
 
@@ -157,7 +160,8 @@ class Acceso(models.Model):
     )
 
     fecha_hora = models.DateTimeField(
-        auto_now_add=True
+        auto_now_add=True,
+        db_index=True
     )
 
     camara = models.CharField(
@@ -168,7 +172,8 @@ class Acceso(models.Model):
 
     resultado = models.CharField(
         max_length=20,
-        choices=RESULTADOS
+        choices=RESULTADOS,
+        db_index=True
     )
 
     foto_validacion = models.ImageField(
@@ -178,7 +183,27 @@ class Acceso(models.Model):
     )
 
     resuelto = models.BooleanField(
-        default=False
+        default=False,
+        db_index=True
+    )
+
+    motivo_resolucion = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
+    resuelto_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='alertas_resueltas'
+    )
+
+    fecha_resolucion = models.DateTimeField(
+        null=True,
+        blank=True
     )
 
     def __str__(self):

@@ -36,13 +36,21 @@ Accesos
 
             <!-- DERECHA -->
 
-            <div class="filters-right">
+            <div class="filters-right" style="display: flex; align-items: center; gap: 10px;">
 
                 <select
                     class="select"
                     name="periodo"
                     onchange="this.form.submit()"
                 >
+                    <option
+                        value="todo"
+                        {% if request.GET.periodo == 'todo' or not request.GET.periodo %}
+                            selected
+                        {% endif %}
+                    >
+                        Historial Completo (Global)
+                    </option>
 
                     <option
                         value="hoy"
@@ -50,28 +58,35 @@ Accesos
                             selected
                         {% endif %}
                     >
-                        Hoy
+                        Hoy (Turno Actual)
                     </option>
 
                     <option
                         value="semana"
-                        {% if request.GET.periodo == 'semana' %}
+                        {% if request.GET.periodo == 'semana' or request.GET.periodo == '7' %}
                             selected
                         {% endif %}
                     >
-                        7 días
+                        Últimos 7 días
                     </option>
 
                     <option
                         value="mes"
-                        {% if request.GET.periodo == 'mes' %}
+                        {% if request.GET.periodo == 'mes' or request.GET.periodo == '30' %}
                             selected
                         {% endif %}
                     >
-                        Mes
+                        Últimos 30 días
                     </option>
 
                 </select>
+
+                <a href="/accesos/exportar-csv/?periodo={{ request.GET.periodo|default:'todo' }}&buscar={{ request.GET.buscar|default:'' }}" 
+                   class="btn-export-compact" 
+                   style="background: #10b981; color: #ffffff; text-decoration: none; height: 38px; padding: 0 14px; border-radius: 8px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; width: auto; max-width: fit-content; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s ease;"
+                   title="Exportar listado a Excel / CSV">
+                    📊 Exportar Excel / CSV
+                </a>
 
             </div>
 

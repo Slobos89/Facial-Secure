@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+Enrolamiento Dactilar | {{ persona.nombre }} {{ persona.apellido }}
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/registrar_huella.css' %}?v=1.0">
+{% endblock %}
+
+{% block content %}
+
+<div class="fingerprint-enroll-card">
+    <div class="f-header">
+        <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 800;">🖐️ Enrolamiento Dactilar SecuGen</h3>
+            <span style="font-size: 12px; opacity: 0.8;">Lector Óptico Hamster Plus</span>
+        </div>
+        <a href="{% url 'usuarios' %}" style="color: #cbd5e1; text-decoration: none; font-size: 13px;">← Volver a Usuarios</a>
+    </div>
+
+    <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- PERFIL RESUMEN -->
+        <div style="display: flex; gap: 14px; align-items: center; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0;">
+            <div style="width: 50px; height: 50px; border-radius: 8px; overflow: hidden; background: #000; flex-shrink: 0;">
+                {% if persona.foto %}
+                    <img src="/media/secure/{{ persona.foto.name }}" alt="Foto" style="width: 100%; height: 100%; object-fit: cover;">
+                {% else %}
+                    <img src="{% static 'img/no-face.jpg' %}" alt="Sin foto" style="width: 100%; height: 100%; object-fit: cover;">
+                {% endif %}
+            </div>
+            <div>
+                <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #0f172a;">{{ persona.nombre }} {{ persona.apellido }}</h4>
+                <span style="font-size: 12px; color: #64748b; font-weight: 600;">RUT: {{ persona.rut }} • {{ persona.get_tipo_persona_display }}</span>
+            </div>
+        </div>
+
+        <!-- ESCÁNER VISUAL -->
+        <div class="scanner-box" id="scanner-box" onclick="capturarHuella()">
+            <div class="f-icon" id="scanner-icon">🖐️</div>
+            <img id="fingerprint-img" class="f-preview-img" alt="Huella">
+        </div>
+
+        <div style="text-align: center;">
+            <h4 id="scanner-title" style="margin: 0; font-size: 14px; font-weight: 700; color: #0f172a;">Esperando escaneo...</h4>
+            <p id="scanner-desc" style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">Haga clic en el botón inferior o en el recuadro y apoye el dedo firmemente en el sensor SecuGen.</p>
+        </div>
+
+        <!-- BARRA DE CALIDAD -->
+        <div id="quality-container" style="display: none;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">
+                <span>Calidad de Minucias</span>
+                <span id="quality-val">0%</span>
+            </div>
+            <div style="background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden;">
+                <div id="quality-bar" style="background: #10b981; width: 0%; height: 100%; transition: width 0.3s;"></div>
+            </div>
+        </div>
+
+        <!-- BOTONES DE CONTROL -->
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button type="button" id="btn-scan" class="btn btn-primary" onclick="capturarHuella()" style="flex: 1; height: 42px; border-radius: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                🖐️ Capturar con SecuGen
+            </button>
+            <button type="button" id="btn-save" class="btn btn-success" onclick="guardarHuellaEnBD()" disabled style="flex: 1; height: 42px; border-radius: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                💾 Guardar Huella
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/secugen.js' %}"></script>
+<script>
+let templateCapturado = null;
+let calidadCapturada = 0;
+
+async function capturarHuella() {
+    const box = document.getElementById('scanner-box');
+    const icon = document.getElementById('scanner-icon');
+    const title = document.getElementById('scanner-title');
+    const desc = document.getElementById('scanner-desc');
+    const btnScan = document.getElementById('btn-scan');
+    const btnSave = document.getElementById('btn-save');
+    const imgPreview = document.getElementById('fingerprint-img');
+    const qualityContainer = document.getElementById('quality-container');
+    const qualityVal = document.getElementById('quality-val');
+    const qualityBar = document.getElementById('quality-bar');
+
+    box.className = 'scanner-box scanning';
+    icon.style.display = 'block';
+    imgPreview.style.display = 'none';
+    title.textContent = 'Leyendo sensor...';
+    desc.textContent = 'Apoye el dedo sobre la ventana óptica del lector SecuGen.';
+    btnScan.disabled = true;
+
+    try {
+        const result = await secugenCapture({ timeout: 10000, quality: 40 });
+        btnScan.disabled = false;
+
+        if (result.success && result.template) {
+            templateCapturado = result.template;
+            calidadCapturada = result.quality || 80;
+
+            box.className = 'scanner-box valid';
+            if (result.bmpBase64) {
+                icon.style.display = 'none';
+                imgPreview.src = result.bmpBase64;
+                imgPreview.style.display = 'block';
+            }
+
+            title.textContent = '¡Huella Capturada con Éxito!';
+            desc.textContent = `Plantilla biométrica generada con ${calidadCapturada}% de calidad. Haga clic en Guardar.`;
+
+            qualityContainer.style.display = 'block';
+            qualityVal.textContent = `${calidadCapturada}%`;
+            qualityBar.style.width = `${calidadCapturada}%`;
+            qualityBar.style.background = calidadCapturada >= 60 ? '#10b981' : '#f59e0b';
+
+            btnSave.disabled = false;
+        } else {
+            box.className = 'scanner-box';
+            title.textContent = 'No se completó la captura';
+            desc.textContent = result.error || 'Intente nuevamente colocando el dedo firme sobre el sensor.';
+            btnSave.disabled = true;
+        }
+    } catch (e) {
+        btnScan.disabled = false;
+        box.className = 'scanner-box';
+        title.textContent = 'Error de comunicación';
+        desc.textContent = 'No se pudo conectar con el lector SecuGen.';
+        console.error(e);
+    }
+}
+
+async function guardarHuellaEnBD() {
+    if (!templateCapturado) {
+        alert('Debe capturar primero la huella dactilar.');
+        return;
+    }
+
+    const btnSave = document.getElementById('btn-save');
+    btnSave.disabled = true;
+    btnSave.textContent = 'Guardando...';
+
+    try {
+        const res = await fetch('/usuarios/registrar-huella/{{ persona.id }}/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                template: templateCapturado,
+                calidad: calidadCapturada,
+                formato: 'ANSI378'
+            })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            alert('✅ ' + data.mensaje);
+            window.location.href = '/usuarios/';
+        } else {
+            alert('❌ Error: ' + (data.error || 'No se pudo guardar la huella.'));
+            btnSave.disabled = false;
+            btnSave.textContent = '💾 Guardar Huella';
+        }
+    } catch (e) {
+        alert('❌ Error de conexión al guardar.');
+        btnSave.disabled = false;
+        btnSave.textContent = '💾 Guardar Huella';
+    }
+}
+</script>
+{% endblock %}

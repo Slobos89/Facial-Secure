@@ -1,135 +1,65 @@
-   
+{% for alerta in alertas_activas %}
+<div class="alert-card"
+     onclick="abrirModalResolucion(this)"
+     data-id="{{ alerta.id }}"
+     data-tipo="{% if alerta.resultado == 'DENEGADO' or alerta.resultado == 'RECHAZADO' %}Acceso No Autorizado / Denegado{% else %}Validación Pendiente / Coincidencia Baja{% endif %}"
+     data-estado="{% if alerta.resuelto %}Resuelto{% else %}Activo / Sin Resolver{% endif %}"
+     data-camara="{{ alerta.camara|default:'Principal' }}"
+     data-coincidencia="{{ alerta.coincidencia|floatformat:1 }}"
+     data-hora="{{ alerta.fecha_hora|date:'d/m/Y H:i:s' }}"
+     data-foto="{% if alerta.foto_validacion %}/media/secure/{{ alerta.foto_validacion.name }}{% else %}/static/img/no-face.jpg{% endif %}"
+     data-registrado="{% if alerta.preview_registrado %}{{ alerta.preview_registrado }}{% else %}/static/img/no-face.jpg{% endif %}"
+     data-persona="{% if alerta.persona %}{{ alerta.persona.nombre }} {{ alerta.persona.apellido }}{% else %}{{ alerta.nombre_detectado|default:'Sujeto Desconocido' }}{% endif %}"
+     data-rut="{% if alerta.persona %}{{ alerta.persona.rut }}{% else %}---{% endif %}"
+     data-resultado="{{ alerta.resultado }}"
+     style="cursor: pointer;">
 
-            {% for alerta in alertas_activas %}
+    <div class="alert-left">
+        <div class="alert-icon {% if alerta.resultado == 'DENEGADO' or alerta.resultado == 'RECHAZADO' %}icon-critical{% else %}icon-warning{% endif %}">
+            {% if alerta.resultado == 'DENEGADO' or alerta.resultado == 'RECHAZADO' %}🚨{% else %}⚠️{% endif %}
+        </div>
+        <div class="alert-info">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <h3 style="margin: 0;">
+                    {% if alerta.resultado == 'DENEGADO' or alerta.resultado == 'RECHAZADO' %}
+                        Acceso No Autorizado Detectado
+                    {% else %}
+                        Coincidencia Facial en Revisión
+                    {% endif %}
+                </h3>
+                <span class="feed-badge {% if alerta.resultado == 'DENEGADO' or alerta.resultado == 'RECHAZADO' %}risk-high{% else %}risk-medium{% endif %}" style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px;">
+                    {{ alerta.coincidencia|floatformat:1 }}% IA
+                </span>
+            </div>
+            <p style="margin: 4px 0 0 0;">
+                <b>{% if alerta.persona %}{{ alerta.persona.nombre }} {{ alerta.persona.apellido }}{% else %}{{ alerta.nombre_detectado|default:'Desconocido' }}{% endif %}</b>
+                • {{ alerta.camara|default:'Principal' }} • {{ alerta.fecha_hora|date:'d/m/Y H:i:s' }}
+            </p>
+        </div>
+    </div>
 
-            <div
-
-                class="alert-card"
-
-                onclick="mostrarDetalle(this)"
-
-                data-tipo="{% if alerta.resultado == 'DENEGADO' %}Acceso no autorizado{% else %}Coincidencia facial baja{% endif %}"
-
-                data-estado="Activo"
-
-                data-camara="{{ alerta.camara }}"
-
-                data-coincidencia="{{ alerta.coincidencia }}%"
-
-                data-ubicacion="{{ alerta.camara }}"
-
-                data-operador="Administrador"
-
+    <div class="alert-actions">
+        <button type="button"
+                class="btn btn-resolve"
+                onclick="event.stopPropagation(); abrirModalResolucion(this)"
+                data-id="{{ alerta.id }}"
+                data-tipo="{% if alerta.resultado == 'DENEGADO' or alerta.resultado == 'RECHAZADO' %}Acceso No Autorizado / Denegado{% else %}Validación Pendiente / Coincidencia Baja{% endif %}"
+                data-estado="{% if alerta.resuelto %}Resuelto{% else %}Activo / Sin Resolver{% endif %}"
+                data-persona="{% if alerta.persona %}{{ alerta.persona.nombre }} {{ alerta.persona.apellido }}{% else %}{{ alerta.nombre_detectado|default:'Sujeto Desconocido' }}{% endif %}"
+                data-rut="{% if alerta.persona %}{{ alerta.persona.rut }}{% else %}---{% endif %}"
+                data-camara="{{ alerta.camara|default:'Principal' }}"
                 data-hora="{{ alerta.fecha_hora|date:'d/m/Y H:i:s' }}"
-                
-                data-foto="{% if alerta.foto_validacion %}/media/secure/{{ alerta.foto_validacion.name }}{% endif %}"
-
-                data-registrado="{{ alerta.preview_registrado }}"
-
-                data-persona="{% if alerta.persona %}{{ alerta.persona.nombre }} {{ alerta.persona.apellido }}{% else %}Desconocido{% endif %}"
-                >
-
-                
-
-                <div class="alert-left">
-
-                    <div class="alert-icon
-
-                        {% if alerta.resultado == 'DENEGADO' %}
-                            icon-critical
-                        {% else %}
-                            icon-warning
-                        {% endif %}
-
-                    ">
-
-                        {% if alerta.resultado == 'DENEGADO' %}
-                            🚨
-                        {% else %}
-                            ⚠️
-                        {% endif %}
-
-                    </div>
-
-                    <div class="alert-info">
-
-                        <h3>
-
-                            {% if alerta.resultado == 'DENEGADO' %}
-
-                                Acceso no autorizado detectado
-
-                            {% else %}
-
-                                Coincidencia facial baja
-
-                            {% endif %}
-
-                        </h3>
-
-                        <p>
-
-                            {{ alerta.camara }}
-
-                            •
-
-                            {{ alerta.fecha_hora|time:"H:i" }}
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <div class="alert-actions">
-
-                    <button class="btn btn-resolve"
-                    
-                            onclick="resolverAlerta(
-
-                            {{ alerta.id }},
-
-                            this
-
-                        )">
-
-                        Resolver
-
-                    </button>
-
-                </div>
-
-            </div>
-
-            {% empty %}
-
-            <div class="alert-card">
-
-                <div class="alert-left">
-
-                    <div class="alert-icon icon-info">
-                        ✅
-                    </div>
-
-                    <div class="alert-info">
-
-                        <h3>
-                            No existen alertas activas
-                        </h3>
-
-                        <p>
-                            Sistema operando normalmente
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            {% endfor %}
-
-   
-
-
-    
+                data-coincidencia="{{ alerta.coincidencia|floatformat:1 }}"
+                data-foto="{% if alerta.foto_validacion %}/media/secure/{{ alerta.foto_validacion.name }}{% else %}/static/img/no-face.jpg{% endif %}"
+                data-registrado="{% if alerta.preview_registrado %}{{ alerta.preview_registrado }}{% else %}/static/img/no-face.jpg{% endif %}"
+                data-resultado="{{ alerta.resultado }}"
+                style="background: #2563eb; color: #ffffff; padding: 8px 16px; border-radius: 6px; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            🛡️ Inspeccionar y Resolver
+        </button>
+    </div>
+</div>
+{% empty %}
+<div style="text-align: center; padding: 40px; color: #64748b;">
+    <span>No existen alertas activas pendientes de resolución para el período seleccionado.</span>
+</div>
+{% endfor %}

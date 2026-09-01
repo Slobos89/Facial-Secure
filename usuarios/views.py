@@ -23,6 +23,7 @@ from django.http import JsonResponse
 from .utils.face_detection import detectar_y_recortar_rostro
 from .utils.verificar_rostro import reconocer_rostro
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
 from .models import PerfilUsuario
 
@@ -120,14 +121,17 @@ def crear_persona(request):
 
             persona = form.save()
 
-            HuellaDactilar.objects.create(
+            huella_tpl = request.POST.get('huella_template')
+            huella_cal = int(request.POST.get('huella_calidad') or 0)
+            huella_fmt = request.POST.get('huella_formato') or 'ANSI378'
 
-                persona=persona,
-
-                template=str(uuid.uuid4())
-                #template=sensor.capture_template() cambiar a futuro con dispositivo fisico
-
-            )
+            if huella_tpl and len(huella_tpl.strip()) > 10:
+                HuellaDactilar.objects.create(
+                    persona=persona,
+                    template=huella_tpl.strip(),
+                    calidad=huella_cal,
+                    formato=huella_fmt
+                )
 
             capturas_json = request.POST.get(
                 'capturas'
@@ -206,8 +210,8 @@ def crear_persona(request):
                             'ERROR CAPTURA:',
                             e
                         )
-
-            #entrenar_modelo()
+            # Entrenamiento Incremental Zero-Knowledge automático
+            entrenar_modelo()
 
             return JsonResponse({
 
@@ -735,35 +739,58 @@ def reenrolar_rostro(request, persona_id):
 
     })
 
+@csrf_exempt
 @login_required
-def registrar_huella(
-    request,
-    persona_id
-):
+def registrar_huella(request, persona_id):
+    persona = get_object_or_404(Persona, id=persona_id)
 
-    persona = get_object_or_404(
-        Persona,
-        id=persona_id
-    )
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            data = request.POST
 
-    HuellaDactilar.objects.filter(
-        persona=persona
-    ).delete()
+        template = data.get('template') or data.get('huella_template') or data.get('template_base64')
+        calidad = int(data.get('calidad') or data.get('huella_calidad') or 0)
+        formato = data.get('formato') or data.get('huella_formato') or 'ANSI378'
 
-    HuellaDactilar.objects.create(
+        # Si no vino template en el POST, intentar capturarlo directamente del sensor SecuGen
+        if not template:
+            from .utils.secugen_driver import capturar_huella_nativo
+            resultado = capturar_huella_nativo(timeout_ms=10000, quality_min=40)
+            if not resultado.get('success'):
+                return JsonResponse({
+                    'success': False,
+                    'error': resultado.get('error', 'No se pudo capturar la huella del sensor.')
+                })
+            template = resultado.get('template')
+            calidad = resultado.get('calidad', calidad)
+            formato = resultado.get('formato', formato)
 
-        persona=persona,
+        if not template or len(template.strip()) < 10:
+            return JsonResponse({
+                'success': False,
+                'error': 'El template dactilar recibido no es válido.'
+            })
 
-        template=str(
-            uuid.uuid4()
+        huella, _ = HuellaDactilar.objects.update_or_create(
+            persona=persona,
+            defaults={
+                'template': template.strip(),
+                'calidad': calidad,
+                'formato': formato
+            }
         )
 
-    )
+        return JsonResponse({
+            'success': True,
+            'mensaje': f'Huella dactilar de {persona.nombre} {persona.apellido} registrada exitosamente.',
+            'calidad': calidad,
+            'persona_id': persona.id
+        })
 
-    return JsonResponse({
-
-        'success': True
-
+    return render(request, 'usuarios/registrar_huella.html', {
+        'persona': persona
     })
 from django.http import HttpResponse, Http404
 import os
@@ -809,3 +836,52 @@ def api_estado_sensor(request):
     from .utils.secugen_driver import verificar_sensor_conectado
     conectado, mensaje = verificar_sensor_conectado()
     return JsonResponse({"conectado": conectado, "mensaje": mensaje})
+
+
+@login_required
+def perfil_persona_ajax(request, persona_id):
+    persona = get_object_or_404(Persona, id=persona_id)
+    foto_url = ('/media/secure/' + persona.foto.name) if persona.foto else '/static/img/no-face.jpg'
+
+    ultimos_accesos = Acceso.objects.filter(persona=persona).order_by('-fecha_hora')[:5]
+    accesos_list = []
+    for acc in ultimos_accesos:
+        accesos_list.append({
+            'fecha': acc.fecha_hora.strftime('%d/%m/%Y %H:%M'),
+            'camara': acc.camara or 'Principal',
+            'resultado': acc.resultado,
+            'coincidencia': round(acc.coincidencia, 1)
+        })
+
+    return JsonResponse({
+        'id': persona.id,
+        'nombre': persona.nombre,
+        'apellido': persona.apellido,
+        'nombre_completo': f"{persona.nombre} {persona.apellido}",
+        'rut': persona.rut,
+        'tipo': persona.get_tipo_persona_display(),
+        'tipo_raw': persona.tipo_persona,
+        'estado': persona.estado,
+        'foto': foto_url,
+        'rostros_count': persona.rostros.count(),
+        'tiene_huella': hasattr(persona, 'huella') and persona.huella is not None,
+        'fecha_registro': persona.fecha_registro.strftime('%d/%m/%Y') if persona.fecha_registro else '---',
+        'accesos': accesos_list
+    })
+
+
+@csrf_exempt
+@login_required
+def toggle_estado_persona(request, persona_id):
+    if request.user.perfilusuario.rol != 'ADMIN':
+        return JsonResponse({'success': False, 'error': 'Solo administradores pueden modificar el estado del usuario.'}, status=403)
+
+    persona = get_object_or_404(Persona, id=persona_id)
+    persona.estado = 'bloqueado' if persona.estado == 'activo' else 'activo'
+    persona.save()
+
+    return JsonResponse({
+        'success': True,
+        'nuevo_estado': persona.estado,
+        'nuevo_estado_display': persona.get_estado_display()
+    })

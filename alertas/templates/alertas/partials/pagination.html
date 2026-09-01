@@ -1,28 +1,17 @@
-                {% if alertas_activas.has_previous %}
+{% if alertas_activas.has_other_pages %}
+    {% if alertas_activas.has_previous %}
+        <button type="button" data-page="{{ alertas_activas.previous_page_number }}" class="btn-alert-page" style="cursor: pointer; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+            ← Anterior
+        </button>
+    {% endif %}
 
-                    <button data-page="{{ alertas_activas.previous_page_number }}" class="btn-alert-page">
+    <span style="font-size: 13px; font-weight: 600; color: #64748b; margin: 0 10px;">
+        Página {{ alertas_activas.number }} de {{ alertas_activas.paginator.num_pages }}
+    </span>
 
-                        ← Anterior
-
-                    </button>
-
-                {% endif %}
-
-                <span>
-
-                    Página {{ alertas_activas.number }}
-                    de
-                    {{ alertas_activas.paginator.num_pages }}
-
-                </span>
-
-                {% if alertas_activas.has_next %}
-
-                    <button data-page="{{ alertas_activas.next_page_number }}" class="btn-alert-page">
-
-                        Siguiente →
-
-                    </button>
-
-                {% endif %}
-
+    {% if alertas_activas.has_next %}
+        <button type="button" data-page="{{ alertas_activas.next_page_number }}" class="btn-alert-page" style="cursor: pointer; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+            Siguiente →
+        </button>
+    {% endif %}
+{% endif %}

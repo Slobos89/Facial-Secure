@@ -1,497 +1,322 @@
 {% extends 'base.html' %}
-
 {% load static %}
 
 {% block title %}
-Alertas
+Gestión de Alertas e Incidentes
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/alertas.css' %}?v=1.0">
 {% endblock %}
 
 {% block content %}
 
-        <!-- KPI -->
-        <section>
-            <select
-                class="select"
-                onchange="window.location.href=this.value"
-            >
+<!-- KPI & CONTROLES SUPERIORES -->
+<section style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-weight: 700; font-size: 13px; color: #0f172a;">📅 Período de Análisis:</span>
+        <select class="select" onchange="window.location.href=this.value" style="height: 38px; padding: 0 12px; font-size: 12px; border-radius: 6px;">
+            <option value="?periodo=todo" {% if periodo == 'todo' or not periodo %}selected{% endif %}>Historial Completo (Global)</option>
+            <option value="?periodo=hoy" {% if periodo == 'hoy' %}selected{% endif %}>Hoy (Turno Actual)</option>
+            <option value="?periodo=semana" {% if periodo == 'semana' or periodo == '7' %}selected{% endif %}>Últimos 7 días</option>
+            <option value="?periodo=mes" {% if periodo == 'mes' or periodo == '30' %}selected{% endif %}>Últimos 30 días</option>
+        </select>
+    </div>
 
-                <option
-                    value="?periodo=hoy"
-                    {% if periodo == 'hoy' %}
-                        selected
-                    {% endif %}
-                >
-                    Hoy
-                </option>
+    <a href="/alertas/exportar-csv/?periodo={{ periodo|default:'todo' }}" 
+       class="btn-export-compact" 
+       style="background: #0f172a; color: #f8fafc; text-decoration: none; height: 38px; padding: 0 14px; border-radius: 8px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+       title="Exportar bitácora de incidentes a Excel / CSV">
+        📑 Exportar Bitácora CSV
+    </a>
+</section>
 
-                <option
-                    value="?periodo=semana"
-                    {% if periodo == 'semana' %}
-                        selected
-                    {% endif %}
-                >
-                    7 días
-                </option>
+<section class="kpi-grid1">
+    <div class="kpi-card2 kpi-red">
+        <h2>{{ total_alertas }}</h2>
+        <span>Alertas Activas</span>
+    </div>
+    <div class="kpi-card2 kpi-yellow">
+        <h2>{{ total_criticas }}</h2>
+        <span>Intentos Denegados</span>
+    </div>
+    <div class="kpi-card2 kpi-blue">
+        <h2>{{ total_revision }}</h2>
+        <span>Incidentes Resueltos</span>
+    </div>
+</section>
 
-                <option
-                    value="?periodo=mes"
-                    {% if periodo == 'mes' %}
-                        selected
-                    {% endif %}
-                >
-                    Mes
-                </option>
+<!-- LISTADO PRINCIPAL DE ALERTAS -->
+<section class="alerts-panel">
+    <div class="panel-header">
+        <div class="panel-title">🚨 Registro de Alertas e Incidentes en Tiempo Real</div>
+        <div class="alert-count">{{ total_alertas }} incidentes activos</div>
+    </div>
 
-            </select>
-        </section>
+    <div class="alert-list" id="alert-list">
+        {% include 'alertas/partials/alerts.html' %}
+    </div>
 
-        <section class="kpi-grid1">
+    <div class="pagination" id="pagination-alertas" style="display: flex; justify-content: center; align-items: center; padding: 14px 0;">
+        {% include 'alertas/partials/pagination.html' %}
+    </div>
+</section>
 
-            <div class="kpi-card2 kpi-red">
-                <h2>{{ total_alertas }}</h2>
-                <span>Alertas Activas</span>
+<!-- ========================================================
+     MODAL INTEGRAL: INSPECCIÓN BIOMÉTRICA CARA A CARA Y RESOLUCIÓN
+     ======================================================== -->
+<div id="modal-resolucion" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 620px;">
+        <div class="modal-header">
+            <div class="modal-title">
+                <span>🛡️ Inspección Biométrica y Resolución de Incidente</span>
             </div>
-
-            <div class="kpi-card2 kpi-yellow">
-                <h2>{{ total_criticas }}</h2>
-                <span>Intentos denegados</span>
-            </div>
-
-            <div class="kpi-card2 kpi-blue">
-                <h2>{{ total_revision }}</h2>
-                <span>Incidentes Resueltos</span>
-            </div>
-
-        </section>
-
-        <!-- ALERTS -->
-        <section class="alerts-panel">
-
-            <div class="panel-header">
-
-                <div class="panel-title">
-                    Alertas Activas
-                </div>
-
-                <div class="alert-count">
-                    {{ total_alertas }} incidentes detectados
-                </div>
-
-            </div>
-
-            <div class="alert-list" id="alert-list">
-
-                {% include 'alertas/partials/alerts.html' %}
-
-            </div>
-
-           
-
-            <div class="pagination" id="pagination-alertas">
-
-                {% include 'alertas/partials/pagination.html' %}
-
-            </div>
-
-
-            
-
-        </section>
-
-        <!-- BOTTOM -->
-        <section class="bottom-grid">
-
-            <!-- DETAIL -->
-            <div class="detail-panel">
-
-                <div class="panel-title">
-                    Detalle del Incidente
-                </div>
-
-                <div class="detail-grid">
-
-                    <div class="detail-item">
-                        <label>Tipo</label>
-                        <strong id="detalle-tipo">
-                            {% if alertas_activas.0.resultado == 'DENEGADO' %}Acceso no autorizado{% else %}{% endif %}
-                        </strong>
-                    </div>
-
-                    <div class="detail-item">
-                        <label>Estado</label>
-                        <strong id="detalle-estado"></strong>
-                    </div>
-
-                    <div class="detail-item">
-                        <label>Cámara</label>
-                        <strong id="detalle-camara">
-                            {% if alertas_activas %}{{ alertas_activas.0.camara }}{% endif %}
-                        </strong>
-                    </div>
-
-                    <div class="detail-item">
-                        <label>Coincidencia IA</label>
-                        <strong id="detalle-coincidencia">
-
-                            {% if alertas_activas %}
-
-                                {{ alertas_activas.0.coincidencia }}%
-
-                            {% endif %}
-
-                        </strong>
-                    </div>
-
-                    <div class="detail-item">
-                        <label>Persona Detectada</label>
-                        <strong id="detalle-persona">
-
-                            {% if alertas_activas.0.persona %}
-
-                                {{ alertas_activas.0.persona.nombre }}
-
-                                {{ alertas_activas.0.persona.apellido }}
-
-                            {% else %}
-
-                                
-
-                            {% endif %}
-
-                        </strong>
-                    </div>
-
-                    <div class="detail-item">
-
-                        <label>Nivel de Riesgo</label>
-
-                        <strong id="detalle-riesgo">
-
-                            
-
-                        </strong>
-
-                    </div>
-
-                    
-
-                </div>
-
-                <div class="evidence">
-
-
-                    <div class="evidence-info">
-
-                        Última detección:
-
-                        {% if alertas_activas %}
-
-                            {{ alertas_activas.0.fecha_hora|date:"d/m/Y H:i:s" }}
-
-                        {% endif %}
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <div class="comparison-panel">
-
-                <div class="panel-title">
-                    Comparación Biométrica
-                </div>
-
-                <div class="compare-grid">
-
-                    <div class="compare-card">
-
-                        <label>
-                            Captura del Incidente
-                        </label>
-
-                        <div class="compare-image">
-
-                            <img
-
-                                id="compare-incidente"
-
-                                src="
-
-                                {% if alertas_activas.0.foto_validacion %}
-
-                                    /media/secure/{{ alertas_activas.0.foto_validacion.name }}
-
-                                {% endif %}
-
-                                "
-
-                            >
-
+            <button type="button" class="modal-close" onclick="cerrarModalResolucion()">✕</button>
+        </div>
+
+        <form id="form-resolver-alerta" onsubmit="confirmarResolucionModal(event)">
+            <input type="hidden" id="modal-alerta-id" value="">
+
+            <div class="modal-body" style="gap: 12px; max-height: 80vh; overflow-y: auto;">
+                
+                <!-- 1. COMPARACIÓN FACIAL CARA A CARA (1:1) -->
+                <div class="modal-split-comparator">
+                    <!-- FOTO INCIDENTE (CÁMARA) -->
+                    <div class="modal-photo-col">
+                        <div class="modal-photo-col-label">
+                            <span>🔴 Captura Incidente</span>
                         </div>
-
-                    </div>
-
-                    <div class="compare-card">
-
-                        <label>
-                            Rostro Registrado
-                        </label>
-
-                        <div class="compare-image">
-
-                            <img
-
-                                id="compare-registrado"
-
-                                src="
-
-                                {% if alertas_activas.0.preview_registrado %}
-
-                                    {{ alertas_activas.0.preview_registrado }}
-
-                                {% endif %}
-
-                                "
-
-                            >
-
+                        <div class="modal-photo-frame frame-live">
+                            <img id="modal-compare-incidente" src="{% static 'img/no-face.jpg' %}" alt="Incidente">
                         </div>
-
+                        <small id="modal-compare-camera-tag" style="font-size: 10px; color: #64748b; font-weight: 600;">Canal: Principal</small>
                     </div>
 
+                    <!-- DIVISOR VS Y MATCH SCORE -->
+                    <div class="modal-vs-divider">
+                        <span class="modal-vs-badge">VS</span>
+                        <span class="modal-match-percent" id="modal-compare-vs-score">0.0%</span>
+                        <span id="modal-compare-badge" class="risk-high" style="font-size: 9px; margin-top: 2px;">RIESGO ALTO</span>
+                    </div>
+
+                    <!-- FOTO OFICIAL REGISTRADA -->
+                    <div class="modal-photo-col">
+                        <div class="modal-photo-col-label">
+                            <span>🔵 Ficha Oficial</span>
+                        </div>
+                        <div class="modal-photo-frame frame-registered">
+                            <img id="modal-compare-registrado" src="{% static 'img/no-face.jpg' %}" alt="Oficial">
+                        </div>
+                        <small id="modal-compare-persona-tag" style="font-size: 10px; color: #64748b; font-weight: 600;">Sujeto Desconocido</small>
+                    </div>
                 </div>
 
+                <!-- 2. DETALLE TÉCNICO DEL INCIDENTE -->
+                <div class="modal-detail-grid">
+                    <div class="modal-detail-item">
+                        <label>Incidente ID:</label>
+                        <strong id="modal-incident-id">#--</strong>
+                    </div>
+                    <div class="modal-detail-item">
+                        <label>Sujeto Detectado:</label>
+                        <strong id="modal-incident-persona">--</strong>
+                    </div>
+                    <div class="modal-detail-item">
+                        <label>Tipo de Evento:</label>
+                        <strong id="modal-incident-tipo">--</strong>
+                    </div>
+                    <div class="modal-detail-item">
+                        <label>Cámara / Ubicación:</label>
+                        <strong id="modal-incident-camara">--</strong>
+                    </div>
+                    <div class="modal-detail-item" style="grid-column: span 2;">
+                        <label>Fecha y Hora Exacta:</label>
+                        <strong id="modal-incident-hora">--</strong>
+                    </div>
+                </div>
+
+                <!-- 3. DICTAMEN / ACCIÓN OPERATIVA -->
+                <div class="form-group">
+                    <label for="modal-accion"><b>Dictamen del Operador (Acción a Tomar):</b></label>
+                    <select id="modal-accion" class="form-control" required>
+                        <option value="APROBADO_MANUAL">✅ Autorizar Acceso (Aprobado Manualmente)</option>
+                        <option value="RECHAZADO">⛔ Mantener Rechazado / Acceso Denegado</option>
+                        <option value="DENEGADO">🚨 Confirmar Intrusión / Incidente de Seguridad</option>
+                    </select>
+                </div>
+
+                <!-- 4. CAUSA / MOTIVO OPERATIVO -->
+                <div class="form-group">
+                    <label for="modal-motivo"><b>Causa / Justificación Operativa:</b></label>
+                    <select id="modal-motivo" class="form-control" required>
+                        <option value="Identidad corroborada con Cédula de Identidad / Credencial institucional">Identidad corroborada con Cédula de Identidad / Credencial institucional</option>
+                        <option value="Falso positivo atribuible a condiciones de iluminación o ángulo facial">Falso positivo atribuible a condiciones de iluminación o ángulo facial</option>
+                        <option value="Intento de ingreso no autorizado neutralizado por personal de guardia">Intento de ingreso no autorizado neutralizado por personal de guardia</option>
+                        <option value="Persona externa regularizada / Visita autorizada por jefatura de turno">Persona externa regularizada / Visita autorizada por jefatura de turno</option>
+                        <option value="Prueba técnica / Calibración de sistema de biometría">Prueba técnica / Calibración de sistema de biometría</option>
+                        <option value="Otro motivo">Otro motivo (especificar en observaciones)</option>
+                    </select>
+                </div>
+
+                <!-- 5. OBSERVACIONES ADICIONALES -->
+                <div class="form-group">
+                    <label for="modal-notas"><b>Observaciones / Bitácora de Guardia (Opcional):</b></label>
+                    <textarea id="modal-notas" class="form-control" rows="2" placeholder="Detalles relevantes de la verificación física o procedimiento realizado..."></textarea>
+                </div>
+
+                <!-- 6. FIRMA DEL OPERADOR -->
+                <div class="modal-signature">
+                    <span>👮 <b>Gendarme / Operador Responsable:</b> {{ request.user.get_full_name|default:request.user.username }}</span>
+                </div>
             </div>
 
-        </section>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalResolucion()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="btn-guardar-resolucion">
+                    💾 Guardar en Bitácora y Cerrar Alerta
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script>
-function cargarAlertas(page){
+let alertaCardActiva = null;
 
-    const periodo =
-        new URLSearchParams(
-            window.location.search
-        ).get('periodo') || 'hoy';
+function abrirModalResolucion(elem) {
+    const ds = elem.dataset;
+    alertaCardActiva = elem.closest('.alert-card') || elem;
 
+    // 1. Asignar Identificadores y Textos
+    document.getElementById('modal-alerta-id').value = ds.id;
+    document.getElementById('modal-incident-id').textContent = `#${ds.id}`;
+    document.getElementById('modal-incident-persona').textContent = `${ds.persona || 'Desconocido'} ${ds.rut ? `(RUT: ${ds.rut})` : ''}`;
+    document.getElementById('modal-incident-tipo').textContent = ds.tipo || 'Incidente de Acceso';
+    document.getElementById('modal-incident-camara').textContent = ds.camara || 'Principal';
+    document.getElementById('modal-incident-hora').textContent = ds.hora || '--';
 
-    fetch(
+    // 2. Comparador Facial
+    const compareIncidente = document.getElementById('modal-compare-incidente');
+    const compareRegistrado = document.getElementById('modal-compare-registrado');
+    const compareCameraTag = document.getElementById('modal-compare-camera-tag');
+    const comparePersonaTag = document.getElementById('modal-compare-persona-tag');
+    const compareVsScore = document.getElementById('modal-compare-vs-score');
+    const compareBadge = document.getElementById('modal-compare-badge');
 
-        `/alertas/ajax/?page=${page}&periodo=${periodo}`
+    if (compareIncidente) compareIncidente.src = ds.foto || '/static/img/no-face.jpg';
+    if (compareRegistrado) compareRegistrado.src = ds.registrado || '/static/img/no-face.jpg';
+    if (compareCameraTag) compareCameraTag.textContent = `Canal: ${ds.camara || 'Principal'}`;
+    if (comparePersonaTag) comparePersonaTag.textContent = ds.persona || 'Sujeto Desconocido';
 
-    )
+    const coincidencia = parseFloat(ds.coincidencia) || 0;
+    if (compareVsScore) compareVsScore.textContent = `${coincidencia.toFixed(1)}%`;
 
-    .then(response => response.json())
+    if (ds.resultado === 'DENEGADO' || ds.resultado === 'RECHAZADO' || coincidencia < 35) {
+        if (compareVsScore) compareVsScore.style.color = '#dc2626';
+        if (compareBadge) {
+            compareBadge.textContent = 'RIESGO ALTO';
+            compareBadge.className = 'risk-high';
+        }
+    } else if (coincidencia < 60) {
+        if (compareVsScore) compareVsScore.style.color = '#d97706';
+        if (compareBadge) {
+            compareBadge.textContent = 'RIESGO MEDIO';
+            compareBadge.className = 'risk-medium';
+        }
+    } else {
+        if (compareVsScore) compareVsScore.style.color = '#16a34a';
+        if (compareBadge) {
+            compareBadge.textContent = 'RIESGO BAJO';
+            compareBadge.className = 'risk-low';
+        }
+    }
 
-    .then(data => {
+    // 3. Sugerir acción de dictamen
+    const selectAccion = document.getElementById('modal-accion');
+    if (ds.resultado === 'REVISION') {
+        selectAccion.value = 'APROBADO_MANUAL';
+    } else {
+        selectAccion.value = 'RECHAZADO';
+    }
 
-        document.getElementById(
-            'alert-list'
-        ).innerHTML =
-            data.alerts;
-
-
-        document.getElementById(
-            'pagination-alertas'
-        ).innerHTML =
-            data.pagination;
-
-    });
-
+    document.getElementById('modal-notas').value = '';
+    document.getElementById('modal-resolucion').style.display = 'flex';
 }
 
-
-document.addEventListener(
-
-    'click',
-
-    function(e){
-
-        if(
-
-            e.target.classList.contains(
-                'btn-alert-page'
-            )
-
-        ){
-
-            const page =
-                e.target.dataset.page;
-
-            cargarAlertas(page);
-
-        }
-
-    }
-
-);
-
-function mostrarDetalle(card){
-
-    document.getElementById(
-        'detalle-tipo'
-    ).innerText =
-        card.dataset.tipo;
-
-    document.getElementById(
-        'detalle-estado'
-    ).innerText =
-        card.dataset.estado;
-
-
-    document.getElementById(
-        'detalle-camara'
-    ).innerText =
-        card.dataset.camara;
-
-
-    document.getElementById(
-        'detalle-coincidencia'
-    ).innerText =
-        card.dataset.coincidencia;
-
-
-    document.getElementById(
-        'detalle-persona'
-    ).innerText =
-        card.dataset.persona;
-
-
-    const coincidencia = parseInt(
-        card.dataset.coincidencia
-    );
-
-    document.getElementById(
-        'compare-incidente'
-    ).src =
-        card.dataset.foto;
-
-
-    document.getElementById(
-        'compare-registrado'
-    ).src =
-        card.dataset.registrado;
-
-
-    let riesgo = 'BAJO';
-
-
-    if(coincidencia < 35){
-
-        riesgo = 'ALTO';
-
-    }
-
-    else if(coincidencia < 55){
-
-        riesgo = 'MEDIO';
-
-    }
-
-
-    const detalleRiesgo =
-        document.getElementById(
-            'detalle-riesgo'
-        );
-
-
-    detalleRiesgo.innerText =
-        riesgo;
-
-    detalleRiesgo.className = '';
-
-    if(riesgo === 'ALTO'){
-
-        detalleRiesgo.classList.add(
-            'risk-high'
-        );
-
-    }
-
-    else if(riesgo === 'MEDIO'){
-
-        detalleRiesgo.classList.add(
-            'risk-medium'
-        );
-
-    }
-
-    else{
-
-        detalleRiesgo.classList.add(
-            'risk-low'
-        );
-
-    }
-
-    document.querySelector(
-        '.evidence-info'
-    ).innerText =
-
-        'Última detección: ' +
-
-        card.dataset.hora;
-
-    document.getElementById(
-        'detalle-foto'
-    ).src =
-        card.dataset.foto;
-
+function cerrarModalResolucion() {
+    document.getElementById('modal-resolucion').style.display = 'none';
 }
 
-function resolverAlerta(id, btn){
+async function confirmarResolucionModal(e) {
+    e.preventDefault();
 
-    event.stopPropagation();
+    const id = document.getElementById('modal-alerta-id').value;
+    const accion = document.getElementById('modal-accion').value;
+    const motivo = document.getElementById('modal-motivo').value;
+    const notas = document.getElementById('modal-notas').value;
+    const btnGuardar = document.getElementById('btn-guardar-resolucion');
 
+    btnGuardar.disabled = true;
+    btnGuardar.textContent = 'Guardando...';
 
-    fetch(
+    try {
+        const formData = new FormData();
+        formData.append('accion', accion);
+        formData.append('motivo', motivo);
+        formData.append('notas', notas);
 
-        `/alertas/resolver/${id}/`,
+        const response = await fetch(`/alertas/resolver/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: formData
+        });
 
-        {
+        const data = await response.json();
 
-            method:'POST',
+        if (data.success) {
+            cerrarModalResolucion();
 
-            headers:{
-
-                'X-CSRFToken':
-                    '{{ csrf_token }}'
-
-            }
-
-        }
-
-    )
-
-    .then(response => response.json())
-
-    .then(data => {
-
-        if(data.success){
-
-            const card =
-                btn.closest('.alert-card');
-
-
-            card.style.opacity = '0';
-
-
-            card.style.transform =
-                'translateX(40px)';
-
-
-            setTimeout(() => {
-
-                card.remove();
-
+            if (alertaCardActiva) {
+                alertaCardActiva.style.transition = 'all 0.3s ease';
+                alertaCardActiva.style.opacity = '0';
+                alertaCardActiva.style.transform = 'translateX(40px)';
+                setTimeout(() => {
+                    alertaCardActiva.remove();
+                    location.reload();
+                }, 300);
+            } else {
                 location.reload();
-
-            }, 300);
-
+            }
+        } else {
+            alert(data.error || 'Error al resolver la alerta.');
         }
-
-    });
-
+    } catch (err) {
+        console.error('Error:', err);
+        alert('Error de conexión con el servidor.');
+    } finally {
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = '💾 Guardar en Bitácora y Cerrar Alerta';
+    }
 }
+
+function cargarAlertas(page) {
+    const periodo = new URLSearchParams(window.location.search).get('periodo') || 'todo';
+    fetch(`/alertas/ajax/?page=${page}&periodo=${periodo}`)
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('alert-list').innerHTML = data.alerts;
+        document.getElementById('pagination-alertas').innerHTML = data.pagination;
+    });
+}
+
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-alert-page');
+    if (btn && btn.dataset.page) {
+        e.preventDefault();
+        cargarAlertas(btn.dataset.page);
+    }
+});
 </script>
-{% endblock %}   
+{% endblock %}

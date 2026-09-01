@@ -1,576 +1,463 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
-Usuarios
+Gestión de Usuarios y Enrolamiento Biométrico
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/usuarios.css' %}?v=1.0">
 {% endblock %}
 
 {% block content %}
 
-        <!-- KPI -->
-        <section class="kpi-grid">
-
-            <div class="kpi-card2 kpi-blue">
-                <h2>{{ total_usuarios }}</h2>
-                <span>Usuarios Registrados</span>
+<div class="users-container">
+    <!-- KPIS CONSOLIDADOS -->
+    <div class="kpis-row-4">
+        <div class="usr-kpi-card">
+            <div class="usr-kpi-icon" style="background: #eff6ff; color: #2563eb;">👥</div>
+            <div class="usr-kpi-info">
+                <h3>{{ total_usuarios }}</h3>
+                <span>Total Registrados</span>
             </div>
-
-            <div class="kpi-card2 kpi-green">
-                <h2>{{ usuarios_activos }}</h2>
+        </div>
+        <div class="usr-kpi-card">
+            <div class="usr-kpi-icon" style="background: #dcfce7; color: #16a34a;">🟢</div>
+            <div class="usr-kpi-info">
+                <h3>{{ usuarios_activos }}</h3>
                 <span>Usuarios Activos</span>
             </div>
+        </div>
+        <div class="usr-kpi-card">
+            <div class="usr-kpi-icon" style="background: #fee2e2; color: #dc2626;">⛔</div>
+            <div class="usr-kpi-info">
+                <h3>{{ usuarios_bloqueados }}</h3>
+                <span>Bloqueados / Sanción</span>
+            </div>
+        </div>
+        <div class="usr-kpi-card">
+            <div class="usr-kpi-icon" style="background: #fef3c7; color: #d97706;">🧠</div>
+            <div class="usr-kpi-info">
+                <h3>{{ biometrias }}</h3>
+                <span>Con Biometría Facial</span>
+            </div>
+        </div>
+    </div>
 
-            <div class="kpi-card2 kpi-red">
-                <h2>{{ usuarios_bloqueados }}</h2>
-                <span>Usuarios Bloqueados</span>
+    <!-- CONTROLES, PESTAÑAS Y BUSCADOR -->
+    <div class="controls-wrapper">
+        <div class="tabs-header-row">
+            <div class="role-tabs">
+                <button type="button" class="tab-btn active" onclick="cambiarTab('gendarmes', this)">
+                    👮 Gendarmes <span class="tab-badge">{{ gendarmes_lista|length }}</span>
+                </button>
+                <button type="button" class="tab-btn" onclick="cambiarTab('internos', this)">
+                    🔒 Internos <span class="tab-badge">{{ internos|length }}</span>
+                </button>
+                <button type="button" class="tab-btn" onclick="cambiarTab('externos', this)">
+                    👥 Visitas y Externos <span class="tab-badge">{{ externos|length }}</span>
+                </button>
             </div>
 
-            <div class="kpi-card2 kpi-yellow">
-                <h2>{{ biometrias }}</h2>
-                <span>Biometrías Registradas</span>
+            <div style="display: flex; gap: 8px;">
+                {% if request.user.perfilusuario.rol == 'ADMIN' %}
+                    <a href="{% url 'registrar_gendarme' %}" class="btn-export-compact" style="background: #1e293b; color: #ffffff; text-decoration: none; padding: 0 14px; height: 36px; border-radius: 6px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                        + Registrar Gendarme
+                    </a>
+                {% endif %}
+                <a href="{% url 'crear_persona' %}" class="btn-export-compact" style="background: #2563eb; color: #ffffff; text-decoration: none; padding: 0 14px; height: 36px; border-radius: 6px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                    + Enrolar Usuario
+                </a>
             </div>
+        </div>
 
-        </section>
-
-<!-- TOP ACTIONS -->
-<div class="actions" style="justify-content: flex-end; width: 100%;">
-
-    {% if request.user.perfilusuario.rol == 'ADMIN' %}
-        <a href="{% url 'registrar_gendarme' %}" class="btn btn-primary" style="justify-content: center;">
-            + Registrar Gendarme
-        </a>
-    {% endif %}
-    <a href="{% url 'crear_persona' %}" class="btn btn-add" style="justify-content: center;">
-        + Enrolar Usuario
-    </a>
-
-</div>
-
-
-<section class="users-panel">
-
-            <div class="panel-header">
-
-                
-
-                <div class="panel-title">
-                    Gendarmes
-                </div>
-
-                <div class="actions">
-                    <!-- Botón eliminado -->
-                    
-
-                    
-                    <input
-                        type="text"
-                        id="search-gendarmes"
-                        class="input"
-                        placeholder="Buscar usuario..."
-                    >
-                </div>
-
+        <div class="filter-search-row">
+            <div class="search-box-wrap">
+                <input type="text" id="live-user-search" class="search-input-usr" placeholder="🔍 Buscar por nombre, apellido o RUT..." oninput="filtrarUsuariosEnVivo()">
             </div>
+            <div style="display: flex; gap: 8px;">
+                <select id="filter-status-select" class="select" onchange="filtrarUsuariosEnVivo()" style="height: 36px; padding: 0 10px; font-size: 12px; border-radius: 6px;">
+                    <option value="todos">Todos los Estados</option>
+                    <option value="activo">Solo Activos</option>
+                    <option value="bloqueado">Solo Bloqueados</option>
+                </select>
+            </div>
+        </div>
+    </div>
 
-            <div class="table-scroll">
-            <table>
-
-                <thead>
+    <!-- TABLA: GENDARMES -->
+    <div id="tab-gendarmes" class="tab-content-panel user-table-wrap">
+        <table>
+            <thead>
                 <tr>
-                    <th>Nombre</th>
+                    <th>Usuario / Funcionario</th>
                     <th>RUT</th>
-                    <th>Tipo</th>
+                    <th>Rol Institucional</th>
                     <th>Estado</th>
                     <th>Registro</th>
                     <th>Acciones</th>
                 </tr>
-                </thead>
-
-                <tbody id="tbody-gendarmes">
-
+            </thead>
+            <tbody id="tbody-gendarmes">
                 {% for persona in gendarmes_lista %}
-
-                <tr
-                
-                    class="user-row"
-
-                    data-rut="{{ persona.rut }}"
-                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
-
-                    data-tipo="{{ persona.get_tipo_persona_display }}"
-
-                    data-estado="{{ persona.get_estado_display }}"
-
-                    data-foto="{{ persona.preview_facial }}"
-
-                    data-acceso="
-                    {% if persona.ultimo_acceso %}
-                    {{ persona.ultimo_acceso|date:'d/m/Y H:i:s' }}
-                    {% else %}
-                    Sin registros
-                    {% endif %}
-                    "
-
-                >
-
+                <tr class="user-row" data-id="{{ persona.id }}" data-nombre="{{ persona.nombre }} {{ persona.apellido }}" data-rut="{{ persona.rut }}" data-estado="{{ persona.estado }}">
                     <td>
-                        {{ persona.nombre }} {{ persona.apellido }}
+                        <div class="usr-avatar-cell">
+                            {% if persona.foto %}
+                                <img src="/media/secure/{{ persona.foto.name }}" alt="foto">
+                            {% else %}
+                                <img src="{% static 'img/no-face.jpg' %}" alt="sin foto">
+                            {% endif %}
+                        </div>
+                        <strong>{{ persona.nombre }} {{ persona.apellido }}</strong>
                     </td>
-
+                    <td><b>{{ persona.rut }}</b></td>
+                    <td><span style="background: #eff6ff; color: #2563eb; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">Gendarme</span></td>
                     <td>
-                        {{ persona.rut }}
+                        {% if persona.estado == 'activo' %}
+                            <span class="badge success">Activo</span>
+                        {% else %}
+                            <span class="badge danger">Bloqueado</span>
+                        {% endif %}
                     </td>
-
+                    <td>{{ persona.fecha_registro|date:"d/m/Y" }}</td>
                     <td>
-                        {{ persona.get_tipo_persona_display }}
-                    </td>
-
-                    <td>
-                        {{ persona.get_estado_display }}
-                    </td>
-
-                    <td>
-                        {{ persona.fecha_registro }}
-                    </td>
-
-                    <td>
-                        
-                        <a href="{% url 'editar_usuario' persona.id %}" class="btn-edit">
-                            ✏️ Editar
-                        </a>
-                        
-                    </td>
-
-                </tr>
-
-                {% endfor %}
-
-                </tbody>
-
-            </table>
-            </div>
-
-        </section>
-
-                <section class="users-panel">
-
-            <div class="panel-header">
-
-                
-
-                <div class="panel-title">
-                    Internos
-                </div>
-
-                <div class="actions">
-             
-                    
-                    <input
-                        type="text"
-                        id="search-internos"
-                        class="input"
-                        placeholder="Buscar usuario..."
-                    >
-                </div>
-
-            </div>
-
-            <div class="table-scroll">
-            <table>
-
-                <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>RUT</th>
-                    <th>Tipo</th>
-                    <th>Estado</th>
-                    <th>Registro</th>
-                    <th>Acciones</th>
-                </tr>
-                </thead>
-
-                <tbody id="tbody-internos">
-
-                {% for persona in internos %}
-
-                <tr
-                
-                    class="user-row"
-
-                    data-rut="{{ persona.rut }}"
-                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
-
-                    data-tipo="{{ persona.get_tipo_persona_display }}"
-
-                    data-estado="{{ persona.get_estado_display }}"
-
-                    data-foto="{{ persona.preview_facial }}"
-
-                    data-acceso="
-                    {% if persona.ultimo_acceso %}
-                    {{ persona.ultimo_acceso|date:'d/m/Y H:i:s' }}
-                    {% else %}
-                    Sin registros
-                    {% endif %}
-                    "
-
-                >
-
-                    <td>
-                        {{ persona.nombre }} {{ persona.apellido }}
-                    </td>
-
-                    <td>
-                        {{ persona.rut }}
-                    </td>
-
-                    <td>
-                        {{ persona.get_tipo_persona_display }}
-                    </td>
-
-                    <td>
-                        {{ persona.get_estado_display }}
-                    </td>
-
-                    <td>
-                        {{ persona.fecha_registro }}
-                    </td>
-
-                    <td>
-                        
-                        <a href="{% url 'editar_usuario' persona.id %}" class="btn-edit">
-                            ✏️ Editar
-                        </a>
-                        
-                    </td>
-
-                </tr>
-
-                {% endfor %}
-
-                </tbody>
-
-            </table>
-            </div>
-
-        </section>
-
-        <section class="users-panel">
-
-            <div class="panel-header">
-
-                <div class="panel-title">
-                    Usuarios Externos
-                </div>
-                
-                <div class="actions">
-                    <input
-                        type="text"
-                        id="search-externos"
-                        class="input"
-                        placeholder="Buscar usuario..."
-                    >        
-                </div>
-
-            </div>
-
-            <div class="table-scroll">
-            <table>
-
-                <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>RUT</th>
-                    <th>Tipo</th>
-                    <th>Estado</th>
-                    <th>Registro</th>
-                    <th>Acciones</th>
-                </tr>
-                </thead>
-
-                <tbody id="tbody-externos">
-
-                {% for persona in externos %}
-
-                <tr
-                
-                    class="user-row"
-
-                    data-rut="{{ persona.rut }}"
-                    data-nombre="{{ persona.nombre }} {{ persona.apellido }}"
-
-                    data-tipo="{{ persona.get_tipo_persona_display }}"
-
-                    data-estado="{{ persona.get_estado_display }}"
-
-                    data-foto="{{ persona.preview_facial }}"
-
-                    data-acceso="
-                    {% if persona.ultimo_acceso %}
-                    {{ persona.ultimo_acceso|date:'d/m/Y H:i:s' }}
-                    {% else %}
-                    Sin registros
-                    {% endif %}
-                    "
-
-                >
-
-                    <td>
-                        {{ persona.nombre }} {{ persona.apellido }}
-                    </td>
-
-                    <td>
-                        {{ persona.rut }}
-                    </td>
-
-                    <td>
-                        {{ persona.get_tipo_persona_display }}
-                    </td>
-
-                    <td>
-                        {{ persona.get_estado_display }}
-                    </td>
-
-                    <td>
-                        {{ persona.fecha_registro }}
-                    </td>
-
-                    <td>
+                        <button type="button" class="btn-action-view" onclick="abrirFicha360('{{ persona.id }}')">
+                            👁️ Ficha 360°
+                        </button>
                         {% if request.user.perfilusuario.rol == 'ADMIN' %}
-                            <a href="{% url 'editar_usuario' persona.id %}" class="btn-edit">
+                            <a href="{% url 'editar_usuario' persona.id %}" class="btn-action-view">
                                 ✏️ Editar
                             </a>
                         {% endif %}
                     </td>
-
                 </tr>
-
+                {% empty %}
+                <tr><td colspan="6" style="text-align: center; padding: 20px; color: #64748b;">No hay gendarmes registrados</td></tr>
                 {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-                </tbody>
+    <!-- TABLA: INTERNOS -->
+    <div id="tab-internos" class="tab-content-panel user-table-wrap" style="display: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Interno</th>
+                    <th>RUT</th>
+                    <th>Rol Institucional</th>
+                    <th>Estado</th>
+                    <th>Registro</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-internos">
+                {% for persona in internos %}
+                <tr class="user-row" data-id="{{ persona.id }}" data-nombre="{{ persona.nombre }} {{ persona.apellido }}" data-rut="{{ persona.rut }}" data-estado="{{ persona.estado }}">
+                    <td>
+                        <div class="usr-avatar-cell">
+                            {% if persona.foto %}
+                                <img src="/media/secure/{{ persona.foto.name }}" alt="foto">
+                            {% else %}
+                                <img src="{% static 'img/no-face.jpg' %}" alt="sin foto">
+                            {% endif %}
+                        </div>
+                        <strong>{{ persona.nombre }} {{ persona.apellido }}</strong>
+                    </td>
+                    <td><b>{{ persona.rut }}</b></td>
+                    <td><span style="background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">Interno</span></td>
+                    <td>
+                        {% if persona.estado == 'activo' %}
+                            <span class="badge success">Activo</span>
+                        {% else %}
+                            <span class="badge danger">Bloqueado</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ persona.fecha_registro|date:"d/m/Y" }}</td>
+                    <td>
+                        <button type="button" class="btn-action-view" onclick="abrirFicha360('{{ persona.id }}')">
+                            👁️ Ficha 360°
+                        </button>
+                        {% if request.user.perfilusuario.rol == 'ADMIN' %}
+                            <a href="{% url 'editar_usuario' persona.id %}" class="btn-action-view">
+                                ✏️ Editar
+                            </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="text-align: center; padding: 20px; color: #64748b;">No hay internos registrados</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-            </table>
+    <!-- TABLA: EXTERNOS -->
+    <div id="tab-externos" class="tab-content-panel user-table-wrap" style="display: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Visita / Externo</th>
+                    <th>RUT</th>
+                    <th>Rol Institucional</th>
+                    <th>Estado</th>
+                    <th>Registro</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-externos">
+                {% for persona in externos %}
+                <tr class="user-row" data-id="{{ persona.id }}" data-nombre="{{ persona.nombre }} {{ persona.apellido }}" data-rut="{{ persona.rut }}" data-estado="{{ persona.estado }}">
+                    <td>
+                        <div class="usr-avatar-cell">
+                            {% if persona.foto %}
+                                <img src="/media/secure/{{ persona.foto.name }}" alt="foto">
+                            {% else %}
+                                <img src="{% static 'img/no-face.jpg' %}" alt="sin foto">
+                            {% endif %}
+                        </div>
+                        <strong>{{ persona.nombre }} {{ persona.apellido }}</strong>
+                    </td>
+                    <td><b>{{ persona.rut }}</b></td>
+                    <td><span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">Visita / Externo</span></td>
+                    <td>
+                        {% if persona.estado == 'activo' %}
+                            <span class="badge success">Activo</span>
+                        {% else %}
+                            <span class="badge danger">Bloqueado</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ persona.fecha_registro|date:"d/m/Y" }}</td>
+                    <td>
+                        <button type="button" class="btn-action-view" onclick="abrirFicha360('{{ persona.id }}')">
+                            👁️ Ficha 360°
+                        </button>
+                        {% if request.user.perfilusuario.rol == 'ADMIN' %}
+                            <a href="{% url 'editar_usuario' persona.id %}" class="btn-action-view">
+                                ✏️ Editar
+                            </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="text-align: center; padding: 20px; color: #64748b;">No hay visitas o externos registrados</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ========================================================
+     MODAL FICHA BIOMÉTRICA 360°
+     ======================================================== -->
+<div id="modal-ficha-360" class="modal-360-overlay" style="display: none;">
+    <div class="modal-360-card">
+        <div class="modal-360-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span>🛡️ Ficha Biométrica y Credencial 360°</span>
+            </div>
+            <button type="button" onclick="cerrarFicha360()" style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer;">✕</button>
+        </div>
+
+        <div style="padding: 24px; display: flex; flex-direction: column; gap: 18px;">
+            <!-- CABECERA DE PERFIL -->
+            <div style="display: flex; gap: 18px; align-items: center;">
+                <div style="width: 110px; height: 110px; border-radius: 12px; overflow: hidden; background: #000; flex-shrink: 0; border: 3px solid #cbd5e1; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                    <img id="f360-foto" src="{% static 'img/no-face.jpg' %}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
+                    <h2 id="f360-nombre" style="margin: 0; font-size: 18px; font-weight: 800; color: #0f172a;">--</h2>
+                    <span id="f360-rut" style="font-size: 13px; color: #64748b; font-weight: 700;">RUT: --</span>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                        <span id="f360-tipo" style="background: #eff6ff; color: #2563eb; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 4px;">--</span>
+                        <span id="f360-estado-badge" style="font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 4px;">--</span>
+                    </div>
+                </div>
             </div>
 
-        </section>
-
-        <!-- BOTTOM -->
-        <section class="bottom-grid">
-
-            <!-- PROFILE -->
-            <div class="profile-panel">
-
-                <div class="panel-title">
-                    Perfil del Usuario
+            <!-- AUDITORÍA BIOMÉTRICA DUAL -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                    <span style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">📸 Reconocimiento Facial</span>
+                    <h4 id="f360-rostros-count" style="margin: 4px 0 0 0; font-size: 14px; color: #0f172a;">-- Muestras IA</h4>
                 </div>
-
-                <div class="profile-header">
-
-                    <div class="profile-avatar" id="profile-avatar">
-                        JP
-                    </div>
-
-                    <div class="profile-info">
-
-                        <h2 id="profile-name">Juan Pérez</h2>
-
-                        <p id="profile-info">
-                            Guardia de Seguridad • Activo
-                        </p>
-
-                    </div>
-
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                    <span style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">🖐️ Huella SecuGen</span>
+                    <h4 id="f360-huella-status" style="margin: 4px 0 0 0; font-size: 14px; color: #0f172a;">--</h4>
                 </div>
-
-                <div class="profile-grid">
-
-                    <div class="profile-item">
-                        <label>ID</label>
-                        <strong id="profile-rut">12.345.678-9</strong>
-                    </div>
-
-                    <div class="profile-item">
-                        <label>Rol</label>
-                        <strong id="profile-role">Guardia</strong>
-                    </div>
-
-                    <div class="profile-item">
-                        <label>Último acceso</label>
-                        <strong id="profile-access">09:45</strong>
-                    </div>
-
-                    <div class="profile-item">
-                        <label>Precisión IA</label>
-                        <strong>98.7%</strong>
-                    </div>
-
-                </div>
-
             </div>
 
-            <!-- BIOMETRIC -->
-            <div class="biometric-panel">
-
-                <div class="panel-title">
-                    Biometría Facial
+            <!-- HISTORIAL DE ÚLTIMOS ACCESOS -->
+            <div>
+                <span style="font-size: 12px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 8px;">📋 Últimos Intentos de Acceso Registrados:</span>
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                    <table style="margin: 0; font-size: 12px;">
+                        <thead>
+                            <tr style="background: #f1f5f9;">
+                                <th>Fecha</th>
+                                <th>Cámara</th>
+                                <th>Resultado</th>
+                                <th>Precisión</th>
+                            </tr>
+                        </thead>
+                        <tbody id="f360-accesos-body">
+                            <tr><td colspan="4" style="text-align: center; padding: 10px; color: #64748b;">Cargando historial...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
-
-                <div class="face-preview">
-                    <img
-
-                        id="profile-face"
-
-                        src=""
-
-                        alt="Biometría Facial"
-
-                    >
-                </div>
-
-                <div class="bio-grid">
-
-                    <div class="bio-item">
-                        <label>Estado</label>
-                        <strong id="profile-status">Registrada</strong>
-                    </div>
-
-                    <div class="bio-item">
-                        <label>Precisión IA</label>
-                        <strong>98.7%</strong>
-                    </div>
-
-                    <div class="bio-item">
-                        <label>Calidad facial</label>
-                        <strong>Alta</strong>
-                    </div>
-
-                    <div class="bio-item">
-                        <label>Última actualización</label>
-                        <strong>Hoy</strong>
-                    </div>
-
-                </div>
-
-
             </div>
 
-        </section>
+            <!-- BOTONES DE ACCIÓN DIRECTA -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                {% if request.user.perfilusuario.rol == 'ADMIN' %}
+                    <button type="button" id="btn-toggle-bloqueo" class="btn" onclick="toggleBloqueoUsuario()" style="padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none;">
+                        🔒 Cambiar Estado
+                    </button>
+                    <a id="link-reenrolar" href="#" class="btn" style="background: #3b82f6; color: #fff; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 700;">
+                        📸 Reenrolar Rostro
+                    </a>
+                    <a id="link-huella" href="#" class="btn" style="background: #10b981; color: #fff; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 700;">
+                        🖐️ Enrolar Huella
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 
-        <script>
+<script>
+let tabActiva = 'gendarmes';
+let usuario360Id = null;
 
-/* =========================
-   BUSQUEDA DINAMICA (FILTRADO)
-========================= */
+function cambiarTab(nombreTab, btn) {
+    tabActiva = nombreTab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
 
-function setupTableFilter(inputId, tbodyId) {
-    const input = document.getElementById(inputId);
-    const tbody = document.getElementById(tbodyId);
-    if (!input || !tbody) return;
+    document.querySelectorAll('.tab-content-panel').forEach(p => p.style.display = 'none');
+    const panel = document.getElementById(`tab-${nombreTab}`);
+    if (panel) panel.style.display = 'block';
 
-    const normalize = (str) =>
-        (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    filtrarUsuariosEnVivo();
+}
 
-    input.addEventListener('input', () => {
-        const query = normalize(input.value);
-        const rows = tbody.querySelectorAll('tr.user-row');
+function filtrarUsuariosEnVivo() {
+    const query = document.getElementById('live-user-search').value.toLowerCase().trim();
+    const statusFilter = document.getElementById('filter-status-select').value;
 
-        rows.forEach(row => {
-            const text = normalize(row.innerText);
-            row.style.display = text.includes(query) ? '' : 'none';
-        });
+    const currentTbody = document.getElementById(`tbody-${tabActiva}`);
+    if (!currentTbody) return;
+
+    const rows = currentTbody.querySelectorAll('tr.user-row');
+    rows.forEach(row => {
+        const nombre = (row.dataset.nombre || '').toLowerCase();
+        const rut = (row.dataset.rut || '').toLowerCase();
+        const estado = (row.dataset.estado || '').toLowerCase();
+
+        const coincideTexto = nombre.includes(query) || rut.includes(query);
+        const coincideEstado = (statusFilter === 'todos') || (estado === statusFilter);
+
+        row.style.display = (coincideTexto && coincideEstado) ? '' : 'none';
     });
 }
 
-setupTableFilter('search-gendarmes', 'tbody-gendarmes');
-setupTableFilter('search-internos', 'tbody-internos');
-setupTableFilter('search-externos', 'tbody-externos');
+async function abrirFicha360(personaId) {
+    usuario360Id = personaId;
+    const modal = document.getElementById('modal-ficha-360');
+    modal.style.display = 'flex';
 
-/* =========================
-   PERFIL DINAMICO
-========================= */
+    document.getElementById('f360-nombre').textContent = 'Cargando...';
+    document.getElementById('f360-rut').textContent = 'RUT: --';
 
-const userRows = document.querySelectorAll('.user-row');
+    try {
+        const res = await fetch(`/usuarios/perfil-ajax/${personaId}/`);
+        const data = await res.json();
 
+        document.getElementById('f360-nombre').textContent = data.nombre_completo;
+        document.getElementById('f360-rut').textContent = `RUT: ${data.rut}`;
+        document.getElementById('f360-tipo').textContent = data.tipo;
+        document.getElementById('f360-foto').src = data.foto;
+        document.getElementById('f360-rostros-count').textContent = `${data.rostros_count} Muestras IA`;
+        document.getElementById('f360-huella-status').textContent = data.tiene_huella ? 'Registrada ✅' : 'Sin Huella ⚠️';
 
-const profileName = document.getElementById(
-    'profile-name'
-);
+        // Badge estado
+        const estadoBadge = document.getElementById('f360-estado-badge');
+        const btnToggle = document.getElementById('btn-toggle-bloqueo');
 
-const profileAvatar = document.getElementById(
-    'profile-avatar'
-);
-
-const profileInfo = document.getElementById(
-    'profile-info'
-);
-
-const profileRut = document.getElementById(
-    'profile-rut'
-);
-
-const profileRole = document.getElementById(
-    'profile-role'
-);
-
-const profileFace = document.getElementById(
-    'profile-face'
-);
-
-const profileAccess = document.getElementById(
-    'profile-access'
-);
-
-const profileStatus = document.getElementById(
-    'profile-status'
-);
-
-/* =========================
-   CLICK FILA
-========================= */
-
-
-userRows.forEach(row => {
-    row.addEventListener('click', () => {
-        try {
-            const nombre = row.dataset.nombre || 'Desconocido';
-            const partes = nombre.split(' ').filter(Boolean);
-            let iniciales = 'NN';
-            if (partes.length >= 2) {
-                iniciales = partes[0][0] + partes[1][0];
-            } else if (partes.length === 1 && partes[0].length > 0) {
-                iniciales = partes[0][0];
+        if (data.estado === 'activo') {
+            estadoBadge.textContent = 'ACTIVO';
+            estadoBadge.style.background = '#dcfce7';
+            estadoBadge.style.color = '#15803d';
+            if (btnToggle) {
+                btnToggle.textContent = '🔒 Bloquear Acceso';
+                btnToggle.style.background = '#dc2626';
+                btnToggle.style.color = '#ffffff';
             }
-            if (profileAvatar) profileAvatar.textContent = iniciales.toUpperCase();
+        } else {
+            estadoBadge.textContent = 'BLOQUEADO';
+            estadoBadge.style.background = '#fee2e2';
+            estadoBadge.style.color = '#dc2626';
+            if (btnToggle) {
+                btnToggle.textContent = '🔓 Desbloquear Acceso';
+                btnToggle.style.background = '#16a34a';
+                btnToggle.style.color = '#ffffff';
+            }
+        }
 
-            const rut = row.dataset.rut || '---';
-            const tipo = row.dataset.tipo || '---';
-            const estado = row.dataset.estado || '---';
-            const foto = row.dataset.foto ? row.dataset.foto.trim() : "";
-            const acceso = row.dataset.acceso ? row.dataset.acceso.trim() : "Sin registros";
+        // Links directos
+        const linkReenrolar = document.getElementById('link-reenrolar');
+        const linkHuella = document.getElementById('link-huella');
+        if (linkReenrolar) linkReenrolar.href = `/usuarios/reenrolar-rostro/${data.id}/`;
+        if (linkHuella) linkHuella.href = `/usuarios/registrar-huella/${data.id}/`;
 
-            if (profileName) profileName.textContent = nombre;
-            if (profileInfo) profileInfo.textContent = tipo + ' • ' + estado;
-            if (profileRut) profileRut.textContent = rut;
-            if (profileRole) profileRole.textContent = tipo;
-            if (profileAccess) profileAccess.textContent = acceso;
+        // Historial accesos
+        const tbodyAcc = document.getElementById('f360-accesos-body');
+        if (data.accesos.length === 0) {
+            tbodyAcc.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:10px; color:#64748b;">Sin registros de acceso</td></tr>';
+        } else {
+            tbodyAcc.innerHTML = data.accesos.map(acc => `
+                <tr>
+                    <td>${acc.fecha}</td>
+                    <td>${acc.camara}</td>
+                    <td><b>${acc.resultado}</b></td>
+                    <td>${acc.coincidencia}%</td>
+                </tr>
+            `).join('');
+        }
 
-            if (profileFace && profileStatus) {
-                if (foto) {
-                    profileFace.src = foto;
-                    profileFace.style.display = 'block';
-                    profileStatus.textContent = 'Registrada';
-                } else {
-                    profileFace.style.display = 'none';
-                    profileStatus.textContent = 'No registrada';
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function cerrarFicha360() {
+    document.getElementById('modal-ficha-360').style.display = 'none';
+}
+
+async function toggleBloqueoUsuario() {
+    if (!usuario360Id) return;
+
+    try {
+        const res = await fetch(`/usuarios/toggle-estado/${usuario360Id}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        const data = await res.json();
+        if (data.success) {
+            abrirFicha360(usuario360Id);
+            // Actualizar fila en tabla
+            const row = document.querySelector(`tr.user-row[data-id="${usuario360Id}"]`);
+            if (row) {
+                row.dataset.estado = data.nuevo_estado;
+                const badge = row.querySelector('.badge');
+                if (badge) {
+                    badge.className = data.nuevo_estado === 'activo' ? 'badge success' : 'badge danger';
+                    badge.textContent = data.nuevo_estado_display;
                 }
             }
-        } catch (e) {
-            console.error("Error updating profile panel:", e);
         }
-    });
-});
-
-
+    } catch (e) {}
+}
 </script>
 {% endblock %}
-
-       

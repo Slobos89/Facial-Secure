@@ -1,771 +1,451 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
-Dashboard
+Centro de Control y Monitoreo | Dashboard
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=1.0">
 {% endblock %}
 
 {% block content %}
-
-<section class="panel">
-
-    <div class="filter-bar">
-
-        <form method="GET">
-
-            <select
-                name="periodo"
-                onchange="this.form.submit()"
-                class="filter-select"
-            >
-
-                <option value="hoy"
-                    {% if periodo == 'hoy' %}
-                        selected
-                    {% endif %}
-                >
-                    Hoy
-                </option>
-
-                <option value="7"
-                    {% if periodo == '7' %}
-                        selected
-                    {% endif %}
-                >
-                    Últimos 7 días
-                </option>
-
-                <option value="30"
-                    {% if periodo == '30' %}
-                        selected
-                    {% endif %}
-                >
-                    Últimos 30 días
-                </option>
-
-            </select>
-
-        </form>
-
+<div class="dashboard-container">
+    <!-- BARRA SUPERIOR DE FILTROS & ACCIONES -->
+    <div class="top-controls-bar">
+        <div class="top-controls-left">
+            <span style="font-weight: 700; font-size: 14px; color: #0f172a;">📅 Período de Análisis:</span>
+            <form method="GET" id="period-form" style="margin: 0;">
+                <select name="periodo" id="select-periodo" class="select" onchange="this.form.submit()" style="height: 36px; padding: 0 12px; font-size: 12px; border-radius: 6px;">
+                    <option value="todo" {% if periodo == 'todo' %}selected{% endif %}>Historial Completo (Global)</option>
+                    <option value="hoy" {% if periodo == 'hoy' %}selected{% endif %}>Hoy (Turno Actual)</option>
+                    <option value="7" {% if periodo == '7' %}selected{% endif %}>Últimos 7 días</option>
+                    <option value="30" {% if periodo == '30' %}selected{% endif %}>Últimos 30 días</option>
+                </select>
+            </form>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <a href="{% url 'exportar_pdf' %}?periodo={{ periodo }}" class="btn-export-compact" style="background: #ef4444; color: #ffffff; text-decoration: none; height: 36px; padding: 0 14px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                📄 Reporte Ejecutivo PDF
+            </a>
+            <a href="/accesos/exportar-csv/?periodo={{ periodo }}" class="btn-export-compact" style="background: #10b981; color: #ffffff; text-decoration: none; height: 36px; padding: 0 14px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                📊 Base CSV
+            </a>
+        </div>
     </div>
 
-</section>
-
-<!-- KPIs -->
-<section class="kpis">
-
-    <div class="kpi-card1 kpi-green">
-        <small>🟢 Accesos Permitidos Hoy</small>
-        <h2 >{{ accesos_hoy }}</h2>
-        {% if periodo == 'hoy' %}
-
-            <p>
-
-                {% if porcentaje_cambio > 0 %}
-
-                    +{{ porcentaje_cambio }}%
-
-                {% else %}
-
-                    {{ porcentaje_cambio }}%
-
-                {% endif %}
-
-                respecto ayer
-
-            </p>
-
-        {% endif %}
-    </div>
-
-    <div class="kpi-card1 kpi-red">
-        <small>🚨 Alertas Críticas Hoy</small>
-        <h2>{{ denegados }}</h2>
-        <p>intentos no autorizados</p>
-    </div>
-
-    <div class="kpi-card1 kpi-blue">
-        <small>📷 Cámaras Operativas</small>
-        <h2>{{ camaras_activas }}/{{ total_camaras }}</h2>
-        <p>100% conectadas</p>
-    </div>
-
-    <div class="kpi-card1 kpi-yellow">
-        <small>🧠 Precisión IA</small>
-        <h2>{{ promedio }}%</h2>
-        
-    </div>
-
-</section>
-
-<!-- MONITOR -->
-<section class="monitor-grid">
-
-    <div class="panel">
-
-        <div class="panel-header">
-            <div class="panel-title">Monitoreo en Tiempo Real</div>
-            <div class="live">🟢 LIVE</div>
+    <!-- TARJETAS DE KPIS PRINCIPALES -->
+    <div class="dashboard-kpis">
+        <div class="kpi-box" style="border-top: 3px solid #10b981;">
+            <div class="kpi-header">
+                <span>Accesos Permitidos</span>
+                <span>✅</span>
+            </div>
+            <h2 class="kpi-value" id="kpi-permitidos" style="color: #16a34a;">{{ permitidos }}</h2>
+            <div class="kpi-footer">
+                <span>Registrados en el período</span>
+            </div>
         </div>
 
-        <div class="event-feed" id="event-feed">
-
-            {% for evento in eventos %}
-
-                <div class="event
-
-                    {% if evento.resultado == 'DENEGADO' %}
-                        red
-                    {% elif evento.coincidencia < 70 %}
-                        yellow
-                    {% endif %}
-                ">
-
-                    <h4>
-
-                        {% if evento.persona %}
-                            {{ evento.persona.nombre }}
-                            {{ evento.persona.apellido }}
-                        {% else %}
-                            Desconocido
-                        {% endif %}
-
-                    </h4>
-
-                    <span>
-
-                        {{ evento.resultado }}
-
-                        -
-
-                        {{ evento.coincidencia }}%
-
-                        -
-
-                        {{ evento.fecha_hora|time:"H:i" }}
-
-                    </span>
-
-                </div>
-
-            {% empty %}
-
-                <div class="event">
-
-                    <h4>
-                        Sin eventos
-                    </h4>
-
-                    <span>
-                        No existen accesos registrados
-                    </span>
-
-                </div>
-
-            {% endfor %}
-
-
+        <div class="kpi-box" style="border-top: 3px solid #ef4444;">
+            <div class="kpi-header">
+                <span>Alertas Críticas</span>
+                <span>🚨</span>
+            </div>
+            <h2 class="kpi-value" id="kpi-denegados" style="color: #dc2626;">{{ denegados }}</h2>
+            <div class="kpi-footer">
+                <span>Intentos no autorizados</span>
+            </div>
         </div>
 
-    </div>
-
-    <div class="panel">
-
-        <div class="panel-header">
-            <div class="panel-title">Estado Live</div>
-        </div>
-
-        <div class="live-stats">
-
-            <div class="live-stat">
-                <h3 id="live-revision">{{ revision }}</h3>
+        <div class="kpi-box" style="border-top: 3px solid #f59e0b;">
+            <div class="kpi-header">
                 <span>Validaciones Pendientes</span>
+                <span>⏳</span>
             </div>
-
-            <div class="live-stat">
-                <h3 id="live-detecciones">{{ detecciones_live }}</h3>
-                <span>Rostros Detectados</span>
+            <h2 class="kpi-value" id="live-revision" style="color: #d97706;">{{ revision }}</h2>
+            <div class="kpi-footer">
+                <a href="/validacion/" style="color: #2563eb; text-decoration: none; font-weight: 600;">Ir al Centro de Validación →</a>
             </div>
-
-            <div class="live-stat">
-                <h3>0.8s</h3>
-                <span>Tiempo IA</span>
-            </div>
-
         </div>
 
+        <div class="kpi-box" style="border-top: 3px solid #3b82f6;">
+            <div class="kpi-header">
+                <span>Precisión Promedio IA</span>
+                <span>🧠</span>
+            </div>
+            <h2 class="kpi-value" id="kpi-ia" style="color: #2563eb;">{{ promedio }}%</h2>
+            <div class="kpi-footer">
+                <span>Tasa de éxito: <b>{{ tasa_exito }}%</b></span>
+            </div>
+        </div>
     </div>
 
-</section>
-
-<!-- CAMERAS + ALERTS -->
-<section class="bottom-grid">
-
-    <!-- CAMERAS -->
-    <div class="panel">
-
-        <div class="panel-header">
-            <div class="panel-title">Cámaras Activas</div>
-        </div>
-
-        <div class="cameras-grid">
-
-            <div class="camera-card" style="width: 100%; max-width: 400px; margin: 0 auto;">
-
-                <div class="camera-header">
-                    <span>Cámara Principal (Monitoreo)</span>
-                    <span style="color:#22c55e;">🟢</span>
+    <!-- MONITOR EN VIVO Y CÁMARAS -->
+    <div class="dashboard-grid-2">
+        <!-- FEED EN TIEMPO REAL -->
+        <div class="panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                    <span>⚡ Feed de Accesos en Vivo</span>
+                    <span style="background: #dcfce7; color: #15803d; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px;">LIVE AUTO-SYNC</span>
                 </div>
-
-                <div class="camera-preview" style="padding: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #000; height: 200px;">
-                    <video id="dashboard-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
-                </div>
-
-                <div class="camera-footer">
-                    Estado: Conectada • Latencia: <span id="camera-latency">0.0</span>s
-                </div>
-
+                <small style="color: #64748b;">Clic para inspeccionar evento</small>
             </div>
-
+            <div class="feed-container" id="event-feed">
+                {% for ev in eventos %}
+                <div class="feed-card {% if ev.resultado == 'DENEGADO' or ev.resultado == 'RECHAZADO' %}feed-danger{% elif ev.resultado == 'REVISION' %}feed-warning{% else %}feed-success{% endif %}"
+                     onclick="abrirModalInspeccion(this)"
+                     data-id="{{ ev.id }}"
+                     data-nombre="{{ ev.nombre }}"
+                     data-rut="{{ ev.rut }}"
+                     data-tipo="{{ ev.tipo }}"
+                     data-resultado="{{ ev.resultado }}"
+                     data-coincidencia="{{ ev.coincidencia }}"
+                     data-camara="{{ ev.camara }}"
+                     data-fecha-hora="{{ ev.fecha }} {{ ev.hora }}"
+                     data-foto="{{ ev.foto }}">
+                    <div class="feed-avatar">
+                        <img src="{{ ev.foto }}" alt="face">
+                    </div>
+                    <div class="feed-info">
+                        <h4>{{ ev.nombre }}</h4>
+                        <span>{{ ev.tipo }} • {{ ev.camara }} • <b>{{ ev.fecha }} {{ ev.hora }}</b></span>
+                    </div>
+                    <div>
+                        <span class="feed-badge {% if ev.resultado == 'DENEGADO' or ev.resultado == 'RECHAZADO' %}badge-danger{% elif ev.resultado == 'REVISION' %}badge-warning{% else %}badge-success{% endif %}">
+                            {{ ev.resultado }} ({{ ev.coincidencia }}%)
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <div style="text-align: center; padding: 40px; color: #64748b;">
+                    <span>Sin eventos registrados en este período</span>
+                </div>
+                {% endfor %}
+            </div>
         </div>
 
+        <!-- CÁMARA PRINCIPAL LIVE -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">📷 Visor de Cámara Principal</div>
+                <span style="color: #10b981; font-size: 12px; font-weight: 700;">● CONECTADA</span>
+            </div>
+            <div style="background: #000000; border-radius: 8px; overflow: hidden; height: 220px; display: flex; align-items: center; justify-content: center;">
+                <video id="dashboard-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+            </div>
+            <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
+                <span>Canal: <b>Acceso Torniquete 01</b></span>
+                <span>Latencia: <b id="camera-latency">0.4</b>s</span>
+            </div>
+        </div>
     </div>
 
-    <!-- ALERTS -->
-    <div class="panel">
-
-        <div class="panel-header">
-            <div class="panel-title">Alertas del Sistema</div>
+    <!-- SECCIÓN DE GRÁFICOS ANALÍTICOS -->
+    <div class="charts-row-3">
+        <!-- 1. ACTIVIDAD POR HORA (PERMITIDOS VS DENEGADOS) -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">📈 Distribución Horaria de Accesos</div>
+            </div>
+            <div style="height: 260px; position: relative;">
+                <canvas id="graficoHoras"></canvas>
+            </div>
         </div>
 
-        <div class="alerts">
+        <!-- 2. DISTRIBUCIÓN POR ROL INSTITUCIONAL -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">👥 Distribución por Rol</div>
+            </div>
+            <div style="height: 260px; position: relative;">
+                <canvas id="graficoRoles"></canvas>
+            </div>
+        </div>
+    </div>
 
-        {% if alerta_texto %}
-
-            <div class="alert-card">
-
-                <div class="alert-left">
-
-                    <div class="alert-icon
-                        {% if alerta_tipo == 'critica' %}
-                            icon-critical
+    <!-- TABLA DE ACTIVIDAD RECIENTE -->
+    <section class="table-panel">
+        <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">📋 Registro Detallado de Actividad Reciente</h3>
+            <a href="{% url 'accesos' %}" style="color: #2563eb; font-size: 13px; font-weight: 600; text-decoration: none;">Ver Todos los Accesos →</a>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Tipo / Rol</th>
+                    <th>Cámara</th>
+                    <th>Fecha y Hora</th>
+                    <th>Coincidencia IA</th>
+                    <th>Resultado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acceso in recientes %}
+                <tr>
+                    <td>
+                        <strong>
+                            {% if acceso.persona %}
+                                {{ acceso.persona.nombre }} {{ acceso.persona.apellido }}
+                            {% else %}
+                                {{ acceso.nombre_detectado|default:"Desconocido" }}
+                            {% endif %}
+                        </strong>
+                    </td>
+                    <td>
+                        {% if acceso.persona %}
+                            {{ acceso.persona.get_tipo_persona_display }}
                         {% else %}
-                            icon-warning
+                            <span style="color: #dc2626;">Externo / No ID</span>
                         {% endif %}
-                    ">
-
-                        {% if alerta_tipo == 'critica' %}
-                            🚨
+                    </td>
+                    <td>{{ acceso.camara|default:"Principal" }}</td>
+                    <td>{{ acceso.fecha_hora|date:"d/m/Y H:i:s" }}</td>
+                    <td><b>{{ acceso.coincidencia|floatformat:1 }}%</b></td>
+                    <td>
+                        {% if acceso.resultado == 'PERMITIDO' or acceso.resultado == 'APROBADO_MANUAL' %}
+                            <span class="badge success">Permitido</span>
+                        {% elif acceso.resultado == 'REVISION' %}
+                            <span class="badge warning" style="background:#fef3c7; color:#b45309;">Revisión</span>
                         {% else %}
-                            ⚠
+                            <span class="badge danger">Denegado</span>
                         {% endif %}
-
-                    </div>
-
-                    <div class="alert-info">
-
-                        <h3>
-                            {{ alerta_texto }}
-                        </h3>
-
-                        <p>
-                            {{ denegados }}
-                            accesos denegados hoy
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        {% else %}
-
-            <div class="alert-card">
-
-                <div class="alert-left">
-
-                    <div class="alert-icon icon-info">
-                        ✅
-                    </div>
-
-                    <div class="alert-info">
-
-                        <h3>
-                            Sistema Operativo
-                        </h3>
-
-                        <p>
-                            No existen alertas críticas
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        {% endif %}
-
-        </div>
-
-    </div>
-
-</section>
-
-<section class="panel">
-
-<div class="charts-grid">
-
-    <!-- GRAFICO 1 -->
-    <section class="panel">
-
-        <div class="panel-header">
-
-            <h3 class="panel-title">
-                Actividad por Hora
-            </h3>
-
-        </div>
-
-        <div class="chart-container">
-
-            <canvas id="graficoAccesos"></canvas>
-
-        </div>
-
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 20px; color: #64748b;">No existen registros en el período seleccionado</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </section>
-
-
-    <!-- GRAFICO 2 -->
-    <section class="panel">
-
-        <div class="panel-header">
-
-            <h3 class="panel-title">
-                Distribución de Resultados
-            </h3>
-
-        </div>
-
-        <div class="chart-container">
-
-            <canvas id="graficoEstados"></canvas>
-
-        </div>
-
-    </section>
-
 </div>
 
-</section>
-
-<!-- TABLE -->
-<section class="table-panel">
-
-    <div class="table-header">
-
-        <h3>
-            Actividad Reciente
-        </h3>
-
-        <div class="table-actions">
-
-            <input 
-                type="text" 
-                class="search"
-                placeholder="Buscar actividad..."
-            >
-
-            <a
-                href="{% url 'exportar_pdf' %}"
-                class="btn btn-primary"
-            >
-
-                📄 Exportar PDF
-
-            </a>
-
+<!-- ========================================================
+     MODAL FLOTANTE DE INSPECCIÓN RÁPIDA DE EVENTO
+     ======================================================== -->
+<div id="modal-inspeccion" class="quick-modal-overlay" style="display: none;">
+    <div class="quick-modal-card">
+        <div class="quick-modal-header">
+            <span style="font-weight: 700; font-size: 14px;">🛡️ Detalle del Evento de Acceso</span>
+            <button type="button" onclick="cerrarModalInspeccion()" style="background: none; border: none; color: #fff; font-size: 16px; cursor: pointer;">✕</button>
         </div>
-
+        <div style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: flex; gap: 16px; align-items: center;">
+                <div style="width: 100px; height: 100px; border-radius: 8px; overflow: hidden; background: #000; flex-shrink: 0; border: 2px solid #cbd5e1;">
+                    <img id="modal-insp-foto" src="" alt="Snapshot" style="width: 100%; height: 100%; object-fit: cover;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <h3 id="modal-insp-nombre" style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;">--</h3>
+                    <span id="modal-insp-rut" style="font-size: 12px; color: #64748b; font-weight: 600;">RUT: --</span>
+                    <span id="modal-insp-tipo" style="font-size: 12px; color: #2563eb; font-weight: 700;">--</span>
+                    <span id="modal-insp-resultado" style="font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 4px; width: fit-content;">--</span>
+                </div>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+                <div>
+                    <label style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase;">Cámara:</label>
+                    <strong id="modal-insp-camara" style="display: block;">--</strong>
+                </div>
+                <div>
+                    <label style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase;">Precisión IA:</label>
+                    <strong id="modal-insp-ia" style="display: block; color: #d97706;">--</strong>
+                </div>
+                <div style="grid-column: span 2;">
+                    <label style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase;">Fecha y Hora:</label>
+                    <strong id="modal-insp-hora" style="display: block;">--</strong>
+                </div>
+            </div>
+        </div>
+        <div style="background: #f8fafc; padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="cerrarModalInspeccion()" style="padding: 6px 14px; font-size: 12px; border-radius: 6px; cursor: pointer;">Cerrar</button>
+        </div>
     </div>
-
-    <table>
-
-        <thead>
-            <tr>
-                <th>Usuario</th>
-                <th>Ubicación</th>
-                <th>Hora</th>
-                <th>Coincidencia IA</th>
-                <th>Estado</th>
-            </tr>
-        </thead>
-
-        <tbody>
-
-            {% for acceso in recientes %}
-
-            <tr>
-
-                <td>
-
-                    {% if acceso.persona %}
-
-                        {{ acceso.persona.nombre }}
-
-                        {{ acceso.persona.apellido }}
-
-                    {% else %}
-
-                        Desconocido
-
-                    {% endif %}
-
-                </td>
-
-                <td>
-
-                    {{ acceso.camara }}
-
-                </td>
-
-                <td>
-
-                    {{ acceso.fecha_hora|time:"H:i" }}
-
-                </td>
-
-                <td>
-
-                    {{ acceso.coincidencia }}%
-
-                </td>
-
-                <td>
-
-                    {% if acceso.resultado == 'PERMITIDO' or acceso.resultado == 'APROBADO_MANUAL' %}
-
-                        <span class="badge success">
-
-                            Permitido
-
-                        </span>
-
-                    {% elif acceso.resultado == 'REVISION' %}
-
-                        <span class="badge warning">
-
-                            Revisión
-
-                        </span>
-
-                    {% else %}
-
-                        <span class="badge danger">
-
-                            Denegado
-
-                        </span>
-
-                    {% endif %}
-
-                </td>
-
-            </tr>
-
-            {% endfor %}
-
-        </tbody>
-
-    </table>
-
-</section>
-
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+/* ========================================================
+   MODAL DE INSPECCIÓN RÁPIDA
+   ======================================================== */
+function abrirModalInspeccion(elem) {
+    const ds = elem.dataset;
+    document.getElementById('modal-insp-nombre').textContent = ds.nombre || 'Desconocido';
+    document.getElementById('modal-insp-rut').textContent = `RUT: ${ds.rut || '---'}`;
+    document.getElementById('modal-insp-tipo').textContent = ds.tipo || '---';
+    document.getElementById('modal-insp-camara').textContent = ds.camara || 'Principal';
+    document.getElementById('modal-insp-ia').textContent = `${ds.coincidencia || 0}%`;
+    document.getElementById('modal-insp-hora').textContent = ds.fechaHora || '--';
+    document.getElementById('modal-insp-foto').src = ds.foto || '/static/img/no-face.jpg';
 
-
-async function actualizarDashboard(){
-
-    try{
-
-        const response =
-            await fetch('/dashboard/data/');
-
-        const data =
-            await response.json();
-
-
-        /* =====================
-           KPIs
-        ===================== */
-
-        document.getElementById(
-            'kpi-permitidos'
-        ).innerText =
-            data.permitidos;
-
-
-        document.getElementById(
-            'kpi-denegados'
-        ).innerText =
-            data.denegados;
-
-
-        document.getElementById(
-            'kpi-ia'
-        ).innerText =
-            data.promedio + '%';
-
-        document.getElementById(
-            'live-revision'
-        ).textContent = data.revision
-
-        document.getElementById(
-            'live-detecciones'
-        ).textContent = data.detecciones_live
-        /* =====================
-           EVENTOS
-        ===================== */
-
-        const feed =
-            document.getElementById(
-                'event-feed'
-            );
-
-        feed.innerHTML = '';
-
-
-        data.eventos.forEach(evento => {
-
-            let clase = '';
-
-            if(
-
-                evento.resultado === 'DENEGADO'
-
-                ||
-
-                evento.resultado === 'RECHAZADO'
-
-            ){
-
-                clase = 'red';
-
-            }
-
-            else if(evento.coincidencia < 70){
-
-                clase = 'yellow';
-
-            }
-
-
-            feed.innerHTML += `
-
-                <div class="event ${clase}">
-
-                    <h4>
-                        ${evento.persona}
-                    </h4>
-
-                    <span>
-
-                        ${evento.resultado}
-
-                        -
-
-                        ${evento.coincidencia}%
-
-                        -
-
-                        ${evento.hora}
-
-                    </span>
-
-                </div>
-
-            `;
-
-        });
-
+    const resBadge = document.getElementById('modal-insp-resultado');
+    const resultado = ds.resultado || '---';
+    resBadge.textContent = resultado;
+    if (resultado === 'PERMITIDO' || resultado === 'APROBADO_MANUAL') {
+        resBadge.style.background = '#dcfce7';
+        resBadge.style.color = '#15803d';
+    } else if (resultado === 'REVISION') {
+        resBadge.style.background = '#fef3c7';
+        resBadge.style.color = '#b45309';
+    } else {
+        resBadge.style.background = '#fee2e2';
+        resBadge.style.color = '#dc2626';
     }
 
-    catch(error){
-
-        console.error(error);
-
-    }
-
+    document.getElementById('modal-inspeccion').style.display = 'flex';
 }
 
+function cerrarModalInspeccion() {
+    document.getElementById('modal-inspeccion').style.display = 'none';
+}
 
-/* =====================
-   AUTO REFRESH
-===================== */
+/* ========================================================
+   ACTUALIZACIÓN AUTOMÁTICA EN VIVO CON SOPORTE DE PERÍODO
+   ======================================================== */
+async function actualizarDashboard() {
+    try {
+        const currentPeriod = new URLSearchParams(window.location.search).get('periodo') || 'hoy';
+        const response = await fetch(`/dashboard/data/?periodo=${encodeURIComponent(currentPeriod)}`);
+        const data = await response.json();
 
-setInterval(() => {
+        document.getElementById('kpi-permitidos').innerText = data.permitidos;
+        document.getElementById('kpi-denegados').innerText = data.denegados;
+        document.getElementById('kpi-ia').innerText = data.promedio + '%';
+        document.getElementById('live-revision').innerText = data.revision;
 
-    actualizarDashboard();
+        const feed = document.getElementById('event-feed');
+        if (data.eventos && data.eventos.length > 0) {
+            feed.innerHTML = data.eventos.map(ev => {
+                let borderClass = 'feed-success';
+                let badgeClass = 'badge-success';
 
-}, 5000);
-
-
-/* Primera carga */
-
-actualizarDashboard();
-
-const ctx =
-    document.getElementById(
-        'graficoAccesos'
-    );
-
-if(ctx){
-
-    new Chart(ctx, {
-
-        type: 'line',
-
-        data: {
-
-            labels: JSON.parse(
-                '{{ horas|escapejs }}'
-            ),
-
-            datasets: [{
-
-                label: 'Accesos',
-
-                data: JSON.parse(
-                    '{{ totales|escapejs }}'
-                ),
-
-                tension: 0.4,
-
-                fill: true,
-
-                borderWidth: 3,
-
-                pointRadius: 4,
-
-            }]
-
-        },
-
-        options: {
-
-            responsive: true,
-
-            plugins: {
-
-                legend: {
-
-                    display: false
-
+                if (ev.resultado === 'DENEGADO' || ev.resultado === 'RECHAZADO') {
+                    borderClass = 'feed-danger';
+                    badgeClass = 'badge-danger';
+                } else if (ev.resultado === 'REVISION') {
+                    borderClass = 'feed-warning';
+                    badgeClass = 'badge-warning';
                 }
 
-            }
-
+                return `
+                    <div class="feed-card ${borderClass}"
+                         onclick="abrirModalInspeccion(this)"
+                         data-id="${ev.id}"
+                         data-nombre="${ev.nombre}"
+                         data-rut="${ev.rut}"
+                         data-tipo="${ev.tipo}"
+                         data-resultado="${ev.resultado}"
+                         data-coincidencia="${ev.coincidencia}"
+                         data-camara="${ev.camara}"
+                         data-fecha-hora="${ev.fecha} ${ev.hora}"
+                         data-foto="${ev.foto}">
+                        <div class="feed-avatar">
+                            <img src="${ev.foto}" alt="face">
+                        </div>
+                        <div class="feed-info">
+                            <h4>${ev.nombre}</h4>
+                            <span>${ev.tipo} • ${ev.camara} • <b>${ev.fecha} ${ev.hora}</b></span>
+                        </div>
+                        <div>
+                            <span class="feed-badge ${badgeClass}">
+                                ${ev.resultado} (${ev.coincidencia}%)
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
-
-    });
-
+    } catch(e) {}
 }
 
-const ctxEstados =
-    document.getElementById(
-        'graficoEstados'
-    );
+setInterval(actualizarDashboard, 4000);
 
-if(ctxEstados){
+/* ========================================================
+   GRÁFICOS CHART.JS
+   ======================================================== */
+// 1. Gráfico de Horas Pico (Permitidos vs Denegados)
+const ctxHoras = document.getElementById('graficoHoras');
+if (ctxHoras) {
+    new Chart(ctxHoras, {
+        type: 'bar',
+        data: {
+            labels: JSON.parse('{{ horas_labels|escapejs }}'),
+            datasets: [
+                {
+                    label: 'Permitidos',
+                    data: JSON.parse('{{ horas_permitidos|escapejs }}'),
+                    backgroundColor: '#10b981',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Denegados / Alertas',
+                    data: JSON.parse('{{ horas_denegados|escapejs }}'),
+                    backgroundColor: '#ef4444',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { grid: { display: false } },
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            },
+            plugins: {
+                legend: { position: 'top', labels: { boxWidth: 12 } }
+            }
+        }
+    });
+}
 
-    new Chart(ctxEstados, {
-
+// 2. Gráfico de Roles
+const ctxRoles = document.getElementById('graficoRoles');
+if (ctxRoles) {
+    new Chart(ctxRoles, {
         type: 'doughnut',
-
         data: {
-
-            labels: [
-
-                'Permitidos',
-
-                'Denegados',
-
-                'Revisión'
-
-            ],
-
+            labels: ['Gendarmes', 'Internos', 'Externos', 'No Identificados'],
             datasets: [{
-
-                data: JSON.parse(
-                    '{{ estados_chart|escapejs }}'
-                ),
-
-                borderWidth: 0,
-
+                data: JSON.parse('{{ roles_chart|escapejs }}'),
+                backgroundColor: ['#3b82f6', '#f59e0b', '#10b981', '#ef4444'],
+                borderWidth: 0
             }]
-
         },
-
         options: {
-
             responsive: true,
-
-            cutout: '70%',
-
+            maintainAspectRatio: false,
+            cutout: '65%',
             plugins: {
-
-                legend: {
-
-                    position: 'left',
-
-                    labels: {
-
-                        padding: 20,
-
-                        boxWidth: 14,
-
-                    }
-
-                }
-
+                legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } }
             }
-
         }
-
     });
-
 }
 
-/* =====================
-   CÁMARA DEL DASHBOARD
-===================== */
-
+/* ========================================================
+   CÁMARA WEBCAM DASHBOARD
+   ======================================================== */
 const videoDash = document.getElementById('dashboard-video');
 const latenciaSpan = document.getElementById('camera-latency');
 
-if(videoDash) {
+if (videoDash) {
     navigator.mediaDevices.getUserMedia({
         video: { width: 320, height: 240 }
     })
     .then(stream => {
         videoDash.srcObject = stream;
-        
-        // Simular cálculo de latencia de red ocasional
         setInterval(() => {
-            const baseLatency = 0.5 + (Math.random() * 0.4);
-            latenciaSpan.innerText = baseLatency.toFixed(1);
+            const baseLatency = 0.3 + (Math.random() * 0.3);
+            if (latenciaSpan) latenciaSpan.innerText = baseLatency.toFixed(1);
         }, 2000);
     })
     .catch(error => {
-        console.error('Error cámara dashboard:', error);
-        latenciaSpan.innerText = 'OFFLINE';
-        latenciaSpan.parentElement.innerHTML = 'Estado: <span style="color:#ef4444">Sin conexión</span>';
-        videoDash.parentElement.innerHTML = '<span style="color: #666;">CÁMARA DESCONECTADA</span>';
+        if (latenciaSpan) latenciaSpan.innerText = 'OFFLINE';
     });
 }
-
 </script>
-
 {% endblock %}
