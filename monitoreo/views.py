@@ -99,6 +99,57 @@ def release_camera_instance(cam_id):
             del _camera_instances[cam_id]
 
 
+def generar_frame_standby(nombre_cam, cfg=None):
+    """Genera un fotograma dinámico y profesional estilo HUD táctico mientras se conecta o si no hay señal."""
+    h, w = 360, 640
+    frame = np.full((h, w, 3), (24, 18, 12), dtype=np.uint8)
+
+    # Líneas guía HUD sutiles
+    cv2.line(frame, (20, 40), (w - 20, 40), (55, 42, 28), 1)
+    cv2.line(frame, (20, h - 35), (w - 20, h - 35), (55, 42, 28), 1)
+
+    ahora_str = time.strftime('%Y-%m-%d  %H:%M:%S')
+    cv2.putText(frame, "FACIAL SECURE // VISTA DE SEGURIDAD", (25, 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 200, 255), 1)
+    cv2.putText(frame, ahora_str, (w - 185, 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.44, (160, 160, 160), 1)
+
+    cv2.putText(frame, f"CAMARA: {str(nombre_cam).upper()}", (35, 100),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.70, (255, 255, 255), 2)
+
+    # Indicador de estado y pulsos
+    t_mod = (int(time.time() * 3) % 4)
+    puntos = "." * (t_mod + 1)
+
+    if cfg and cfg.tipo == 'ip_yoosee':
+        url_info = f"rtsp://{cfg.ip}:{cfg.puerto_rtsp}/{cfg.stream}"
+        cv2.putText(frame, f"ORIGEN: {url_info}", (35, 140),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.50, (200, 200, 200), 1)
+        cv2.putText(frame, f"Sincronizando flujo de red{puntos}", (35, 180),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.60, (0, 215, 255), 2)
+        cv2.putText(frame, "Negociando fotogramas clave H.264/H.265...", (35, 210),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (140, 160, 180), 1)
+
+        is_cloud = bool(os.environ.get('RENDER') or 'render.com' in os.environ.get('DATABASE_URL', ''))
+        if is_cloud and cfg.ip and (cfg.ip.startswith('192.168.') or cfg.ip.startswith('10.') or cfg.ip.startswith('172.')):
+            cv2.putText(frame, "AVISO CLOUD: Servidor Render en la nube no puede rutear IPs privadas LAN.", (35, 265),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 140, 255), 1)
+            cv2.putText(frame, "Para Render usa la camara del navegador (Iriun) o corre local: python manage.py runserver", (35, 290),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.38, (180, 180, 180), 1)
+    else:
+        cv2.putText(frame, f"Conectando sensor de video local{puntos}", (35, 155),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.60, (0, 215, 255), 2)
+        cv2.putText(frame, "Esperando captura DirectShow / USB...", (35, 190),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.46, (140, 160, 180), 1)
+
+    cv2.putText(frame, "[ESTADO: CONECTANDO STREAM]", (25, h - 14),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.40, (0, 200, 255), 1)
+    cv2.putText(frame, "MODO: TIEMPO REAL", (w - 165, h - 14),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.40, (100, 220, 100), 1)
+
+    return frame
+
+
 def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
     """Generador continuo no-bloqueante con Inferencia Deep Learning SFace + YuNet."""
     engine = DeepFaceEngine.get_instance()
@@ -117,12 +168,6 @@ def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
         nombre_cam_registrado = nombre_cam
     cam_pk = cfg.id if cfg else 0
 
-    # Imagen de respaldo en caso de que la cámara no esté accesible (ej. en la nube o apagada)
-    fallback_img = None
-    fallback_path = os.path.join(settings.BASE_DIR, 'camara_yoosee_live.jpg')
-    if os.path.exists(fallback_path):
-        fallback_img = cv2.imread(fallback_path)
-
     while True:
         cam = get_shared_ip_camera(cam_id=cam_pk)
         ret, frame = (False, None)
@@ -130,23 +175,11 @@ def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
             ret, frame = cam.get_latest_frame()
 
         if not ret or frame is None:
-            # Enviar frame de espera/simulación informativo para no congelar el navegador
-            if fallback_img is not None:
-                frame = fallback_img.copy()
-                cv2.putText(frame, f"[CONECTANDO: {nombre_cam}]", (15, 35),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 200, 255), 2)
-                cv2.putText(frame, "Esperando flujo de video en red...", (15, 65),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (220, 220, 220), 1)
-            else:
-                frame = np.zeros((480, 640, 3), dtype=np.uint8)
-                cv2.putText(frame, f"CAMARA: {nombre_cam}", (30, 220),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                cv2.putText(frame, "Sin senal de video activa", (30, 260),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 165, 255), 2)
-
+            # Enviar frame de espera dinámico y táctico para informar al usuario en tiempo real
+            frame = generar_frame_standby(nombre_cam, cfg)
             _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+            yield (b'--frame\\r\\n'
+                   b'Content-Type: image/jpeg\\r\\n\\r\\n' + jpeg.tobytes() + b'\\r\\n')
             time.sleep(0.08)
             continue
 
@@ -507,10 +540,15 @@ def probar_conexion_camara_ajax(request):
     return JsonResponse({'success': False, 'message': 'Método no permitido'})
 
 
+@login_required
 def escanear_camaras_ajax(request):
     """Escanea la red local y dispositivos físicos retornando todas las cámaras encontradas y las ya asignadas."""
     try:
-        resultado = scan_all_cameras()
+        escanear_red = request.GET.get('escanear', '0') == '1'
+        if escanear_red:
+            resultado = scan_all_cameras()
+        else:
+            resultado = {'success': True, 'ip_cameras': [], 'webcams': []}
         # Obtener todas las cámaras ya registradas en la base de datos
         camaras_bd = list(ConfiguracionCamara.objects.all().order_by('id').values(
             'id', 'nombre', 'tipo', 'ip', 'puerto_onvif', 'puerto_rtsp', 

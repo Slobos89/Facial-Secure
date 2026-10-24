@@ -125,11 +125,11 @@ class YooseeIPCamera:
                         print(f"[YooseeIPCamera] Error en captura RTSP: {stream_err}")
                         consecutive_failures += 1
                     
-                    if consecutive_failures > 35:
-                        print("[YooseeIPCamera] Pérdida de señal RTSP. Reconectando...")
+                    if consecutive_failures > 250:
+                        print("[YooseeIPCamera] Pérdida de señal RTSP prolongada (>4s sin frames). Reconectando...")
                         break
                     
-                    time.sleep(0.015)
+                    time.sleep(0.018)
             except (cv2.error, Exception) as e:
                 print(f"[YooseeIPCamera] Excepción en conexión IP: {e}")
             finally:

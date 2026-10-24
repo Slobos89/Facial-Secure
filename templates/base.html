@@ -327,11 +327,25 @@ document.addEventListener('click', function(event){
     }
 });
 
-function abrirModalEscanerCamaras(){
+function abrirModalEscanerCamaras(tab = 'escanear', autoEscanear = true){
     document.getElementById('userDropdown')?.classList.remove('show');
-    document.getElementById('modal-escaner-camaras').style.display = 'flex';
-    cambiarTabModalCamaras('asignadas');
-    cargarCamarasServidor(false);
+    const modal = document.getElementById('modal-escaner-camaras');
+    if(!modal) return;
+    modal.style.display = 'flex';
+
+    // Mostrar aviso cloud si no estamos en localhost
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const cloudNotice = document.getElementById('cloud-network-notice');
+    if(cloudNotice){
+        cloudNotice.style.display = isLocal ? 'none' : 'block';
+    }
+
+    cambiarTabModalCamaras(tab);
+    if(autoEscanear || tab === 'escanear'){
+        cargarCamarasServidor(true);
+    } else {
+        cargarCamarasServidor(false);
+    }
 }
 
 function cerrarModalEscanerCamaras(){
@@ -376,7 +390,8 @@ async function cargarCamarasServidor(ejecutarEscaneoRed = false){
     }
 
     try {
-        const res = await fetch('/monitoreo/camaras/escanear/');
+        const url = ejecutarEscaneoRed ? '/monitoreo/camaras/escanear/?escanear=1' : '/monitoreo/camaras/escanear/';
+        const res = await fetch(url);
         const data = await res.json();
         
         if(loading) loading.style.display = 'none';
@@ -500,8 +515,8 @@ function renderizarCamarasDescubiertas(ipCameras, webcams, asignadas){
                         <button type="button" class="btn-action-small btn-test-cam" onclick="probarConexionCamara('${cam.ip}', ${cam.puerto_rtsp}, 'new_user_ip_${idx}', 'new_pass_ip_${idx}', 'new_stream_ip_${idx}', 'feedback_ip_${idx}')">
                             🧪 Probar Conexión
                         </button>
-                        <button type="button" class="btn-action-small btn-save-name" onclick="asignarNuevaCamaraIP('${cam.ip}', ${cam.puerto_onvif}, ${cam.puerto_rtsp}, 'new_name_ip_${idx}', 'new_user_ip_${idx}', 'new_pass_ip_${idx}', 'new_stream_ip_${idx}')">
-                            ${yaAsignada ? '🔄 Actualizar' : '➕ Asignar y Guardar'}
+                        <button type="button" class="btn-action-small" style="background: #10b981; color: white; font-weight: 700; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="conectarYUsarCamaraIP(${idx}, '${cam.ip}', ${cam.puerto_onvif}, ${cam.puerto_rtsp})">
+                            🟢 Conectar y Usar Ahora
                         </button>
                     </div>
                 </div>
@@ -533,8 +548,8 @@ function renderizarCamarasDescubiertas(ipCameras, webcams, asignadas){
                     </div>
                 </div>
                 <div class="cam-card-right">
-                    <button type="button" class="btn-select-cam" onclick="asignarNuevaWebcam(${wc.webcam_index}, 'new_name_wc_${idx}')">
-                        ${yaAsignada ? '🔄 Actualizar' : '➕ Asignar y Guardar'}
+                    <button type="button" class="btn-select-cam" style="background: #10b981; color: white; font-weight: 700; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer;" onclick="conectarYUsarWebcam(${wc.webcam_index}, 'new_name_wc_${idx}')">
+                        🟢 Conectar y Usar Ahora
                     </button>
                 </div>
             </div>`;
@@ -700,6 +715,91 @@ async function guardarCamaraManual(){
     });
 }
 
+
+async function conectarYUsarCamaraIP(idx, ip, puertoOnvif, puertoRtsp){
+    const nombre = document.getElementById(`new_name_ip_${idx}`)?.value?.trim() || `Cámara Wi-Fi (${ip})`;
+    const user = document.getElementById(`new_user_ip_${idx}`)?.value?.trim() || 'admin';
+    const pass = document.getElementById(`new_pass_ip_${idx}`)?.value || 'admin12345';
+    const stream = document.getElementById(`new_stream_ip_${idx}`)?.value?.trim() || 'onvif2';
+
+    try {
+        const res = await fetch('/monitoreo/camaras/asignar/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                tipo: 'ip_yoosee',
+                nombre: nombre,
+                ip: ip,
+                puerto_onvif: puertoOnvif || 5000,
+                puerto_rtsp: puertoRtsp || 554,
+                usuario: user,
+                password: pass,
+                stream: stream
+            })
+        });
+        const data = await res.json();
+        if(data.success && data.camara){
+            const camId = data.camara.id;
+            cerrarModalEscanerCamaras();
+            actualizarSelectoresEnPagina();
+
+            // 1. Si estamos en la vista de monitoreo:
+            const selMon = document.getElementById('selector-camara-hud');
+            if(selMon){
+                localStorage.setItem('monitoreo_camara_ingreso_modo', `server:${camId}`);
+                localStorage.setItem('monitoreo_camara_modo', `server:${camId}`);
+                localStorage.setItem('monitoreo_camara_nombre', nombre);
+                selMon.value = `server:${camId}`;
+                if(typeof cambiarModoCamara === 'function'){
+                    cambiarModoCamara(`server:${camId}`, true);
+                } else if(typeof iniciarStreamServidor === 'function'){
+                    iniciarStreamServidor(camId);
+                }
+            }
+
+            // 2. Si estamos en Dashboard:
+            const selDash = document.getElementById('dash-cam-select-ingreso');
+            if(selDash && typeof cambiarCamaraDashDual === 'function'){
+                selDash.value = `server:${camId}`;
+                cambiarCamaraDashDual('ingreso', `server:${camId}`, true);
+            }
+        } else {
+            alert('Error al asignar cámara: ' + (data.error || 'Respuesta inválida'));
+        }
+    } catch(err) {
+        alert('Error de red al conectar cámara: ' + err.message);
+    }
+}
+
+async function conectarYUsarWebcam(webcamIndex, nameElemId){
+    const nombre = document.getElementById(nameElemId)?.value?.trim() || `Webcam #${webcamIndex}`;
+    try {
+        const res = await fetch('/monitoreo/camaras/asignar/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                tipo: 'webcam',
+                nombre: nombre,
+                webcam_index: webcamIndex
+            })
+        });
+        const data = await res.json();
+        if(data.success && data.camara){
+            const camId = data.camara.id;
+            cerrarModalEscanerCamaras();
+            actualizarSelectoresEnPagina();
+
+            const selMon = document.getElementById('selector-camara-hud');
+            if(selMon){
+                selMon.value = `server:${camId}`;
+                if(typeof cambiarModoCamara === 'function'){
+                    cambiarModoCamara(`server:${camId}`, true);
+                }
+            }
+        }
+    } catch(err){}
+}
+
 async function asignarNuevaCamaraIP(ip, puertoOnvif, puertoRtsp, nameElemId, userElemId, passElemId, streamElemId){
     const nombre = document.getElementById(nameElemId)?.value || `Cámara Wi-Fi (${ip})`;
     const user = document.getElementById(userElemId)?.value || 'admin';
@@ -806,21 +906,26 @@ async function eliminarCamaraAsignada(camId, nombre){
 
 function verEnMonitoreo(camId, nombre){
     cerrarModalEscanerCamaras();
-    localStorage.setItem('monitoreo_camara_modo', `server:${camId}`);
+    localStorage.setItem('monitoreo_camara_modo', server:);
     localStorage.setItem('monitoreo_camara_nombre', nombre);
     const sel = document.getElementById('selector-camara-hud');
     if(sel){
-        sel.value = `server:${camId}`;
+        sel.value = server:;
         if(typeof cambiarModoCamara === 'function'){
-            cambiarModoCamara(`server:${camId}`);
+            cambiarModoCamara(server:);
         } else if(typeof cambiarCamaraStream === 'function'){
             cambiarCamaraStream(camId);
         }
     } else {
-        window.location.href = `/monitoreo/?cam_id=${camId}`;
+        const selDash = document.getElementById('dash-cam-select-ingreso');
+        if(selDash && typeof cambiarCamaraDashDual === 'function'){
+            selDash.value = server:;
+            cambiarCamaraDashDual('ingreso', server:, true);
+        } else {
+            window.location.href = /monitoreo/?cam_id=;
+        }
     }
 }
-
 function actualizarSelectoresEnPagina(){
     fetch('/monitoreo/camaras/escanear/')
     .then(r => r.json())

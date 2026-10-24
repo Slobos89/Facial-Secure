@@ -132,7 +132,10 @@ Centro de Control y Monitoreo | Dashboard
                 <div class="panel-title" style="display: flex; align-items: center; gap: 6px;">
                     <span>📹 Monitoreo Dual en Vivo</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" onclick="abrirModalEscanerCamaras('escanear', true)" style="background: rgba(37, 99, 235, 0.15); color: #3b82f6; border: 1px solid #3b82f6; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        🔍 Escanear Red y Conectar
+                    </button>
                     <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;">
                         2 CANALES LIVE
                     </span>
@@ -498,65 +501,67 @@ if (ctxRoles) {
 }
 
 /* ========================================================
-   CÁMARA VISOR DASHBOARD (SINCRONIZADO CON MONITOREO)
+   CÁMARAS DUALES DASHBOARD (INGRESOS Y EGRESOS)
    ======================================================== */
-let dashClientStream = null;
+let dashClientStreamIngreso = null;
+let dashClientStreamEgreso = null;
 
 async function listarCamarasNavegadorDashboard() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
-        const optgroup = document.getElementById('dash-optgroup-browser');
-        const sel = document.getElementById('dashboard-cam-select');
-        if (!optgroup || !sel) return;
+        
+        ['ingreso', 'egreso'].forEach(flujo => {
+            const optgroup = document.querySelector(`#dash-cam-select-${flujo} .dash-opt-browser`);
+            const sel = document.getElementById(`dash-cam-select-${flujo}`);
+            if (!optgroup || !sel) return;
 
-        if (videoDevices.length > 0) {
-            const currentVal = sel.value;
-            optgroup.innerHTML = videoDevices.map((d, idx) => {
-                const label = d.label || `Cámara Local #${idx + 1}`;
-                return `<option value="browser:${d.deviceId}">📹 ${label}</option>`;
-            }).join('');
-            if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
-                sel.value = currentVal;
+            if (videoDevices.length > 0) {
+                const currentVal = sel.value;
+                optgroup.innerHTML = videoDevices.map((d, idx) => {
+                    const label = d.label || `Cámara Local #${idx + 1}`;
+                    return `<option value="browser:${d.deviceId}">📹 ${label}</option>`;
+                }).join('');
+                if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
+                    sel.value = currentVal;
+                }
             }
-        }
+        });
     } catch(e) {}
 }
 
-function detenerStreamClienteDashboard() {
-    if (dashClientStream) {
-        try {
-            dashClientStream.getTracks().forEach(t => t.stop());
-        } catch(e) {}
-        dashClientStream = null;
-    }
-}
-
-async function cambiarCamaraDashboard(valor, guardar = true) {
+async function cambiarCamaraDashDual(flujo, valor, guardar = true) {
     if (!valor) return;
     if (guardar) {
-        localStorage.setItem('monitoreo_camara_modo', valor);
+        localStorage.setItem(`monitoreo_camara_${flujo}_modo`, valor);
     }
 
-    const sel = document.getElementById('dashboard-cam-select');
+    const sel = document.getElementById(`dash-cam-select-${flujo}`);
     const selectedText = sel?.options[sel.selectedIndex]?.text || '';
     const cleanName = selectedText.replace(/^[📹💻📡\s]+/, '').split('(')[0].trim();
     if (guardar && cleanName) {
-        localStorage.setItem('monitoreo_camara_nombre', cleanName);
+        localStorage.setItem(`monitoreo_camara_${flujo}_nombre`, cleanName);
     }
 
-    const nameSpan = document.getElementById('dashboard-cam-name');
+    const nameSpan = document.getElementById(`dash-name-${flujo}`);
     if (nameSpan && cleanName) {
         nameSpan.innerText = cleanName;
     }
 
-    const videoDash = document.getElementById('dashboard-video');
-    const clientVid = document.getElementById('dashboard-client-video');
-    const badge = document.getElementById('dashboard-cam-badge');
+    const videoDash = document.getElementById(`dash-video-${flujo}`);
+    const clientVid = document.getElementById(`dash-client-video-${flujo}`);
+    const badge = document.getElementById(`dash-badge-${flujo}`);
 
     if (valor.startsWith('browser:')) {
-        detenerStreamClienteDashboard();
+        if (flujo === 'ingreso' && dashClientStreamIngreso) {
+            dashClientStreamIngreso.getTracks().forEach(t => t.stop());
+            dashClientStreamIngreso = null;
+        } else if (flujo === 'egreso' && dashClientStreamEgreso) {
+            dashClientStreamEgreso.getTracks().forEach(t => t.stop());
+            dashClientStreamEgreso = null;
+        }
+
         if (videoDash) videoDash.style.display = 'none';
 
         const deviceId = valor.replace('browser:', '');
@@ -566,9 +571,12 @@ async function cambiarCamaraDashboard(valor, guardar = true) {
         };
 
         try {
-            dashClientStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            if (flujo === 'ingreso') dashClientStreamIngreso = stream;
+            else dashClientStreamEgreso = stream;
+
             if (clientVid) {
-                clientVid.srcObject = dashClientStream;
+                clientVid.srcObject = stream;
                 clientVid.style.display = 'block';
                 await clientVid.play();
             }
@@ -576,35 +584,32 @@ async function cambiarCamaraDashboard(valor, guardar = true) {
                 badge.innerText = '● EN VIVO';
                 badge.style.color = '#10b981';
             }
-            await listarCamarasNavegadorDashboard();
         } catch(err) {
-            console.warn('No se pudo abrir cámara cliente en dashboard:', err);
+            console.warn(`No se pudo abrir cámara ${flujo} en dashboard:`, err);
             if (badge) {
                 badge.innerText = '● SIN SEÑAL';
                 badge.style.color = '#ef4444';
             }
         }
     } else if (valor.startsWith('server:')) {
-        detenerStreamClienteDashboard();
+        if (flujo === 'ingreso' && dashClientStreamIngreso) {
+            dashClientStreamIngreso.getTracks().forEach(t => t.stop());
+            dashClientStreamIngreso = null;
+        } else if (flujo === 'egreso' && dashClientStreamEgreso) {
+            dashClientStreamEgreso.getTracks().forEach(t => t.stop());
+            dashClientStreamEgreso = null;
+        }
+
         if (clientVid) clientVid.style.display = 'none';
 
         const camId = valor.replace('server:', '');
         if (videoDash) {
             videoDash.style.display = 'block';
-            videoDash.src = "{% url 'video_feed' %}?cam_id=" + camId + "&t=" + Date.now();
+            videoDash.src = "{% url 'video_feed' %}?cam_id=" + camId + "&flujo=" + flujo + "&t=" + Date.now();
         }
         if (badge) {
-            badge.innerText = '● EN VIVO';
-            badge.style.color = '#10b981';
-        }
-
-        // Sincronizar también con la base de datos para persistir como activa
-        if (guardar) {
-            fetch('/monitoreo/camaras/seleccionar/', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({id: camId})
-            }).catch(() => {});
+            badge.innerText = '● CONECTADA';
+            badge.style.color = flujo === 'ingreso' ? '#10b981' : '#ef4444';
         }
     }
 }
@@ -613,15 +618,17 @@ async function cambiarCamaraDashboard(valor, guardar = true) {
 document.addEventListener('DOMContentLoaded', async () => {
     await listarCamarasNavegadorDashboard();
 
-    const sel = document.getElementById('dashboard-cam-select');
-    const modoGuardado = localStorage.getItem('monitoreo_camara_modo');
+    ['ingreso', 'egreso'].forEach(flujo => {
+        const sel = document.getElementById(`dash-cam-select-${flujo}`);
+        const modoGuardado = localStorage.getItem(`monitoreo_camara_${flujo}_modo`);
 
-    if (modoGuardado && sel && Array.from(sel.options).some(o => o.value === modoGuardado)) {
-        sel.value = modoGuardado;
-        cambiarCamaraDashboard(modoGuardado, false);
-    } else if (sel && sel.value) {
-        cambiarCamaraDashboard(sel.value, false);
-    }
+        if (modoGuardado && sel && Array.from(sel.options).some(o => o.value === modoGuardado)) {
+            sel.value = modoGuardado;
+            cambiarCamaraDashDual(flujo, modoGuardado, false);
+        } else if (sel && sel.value) {
+            cambiarCamaraDashDual(flujo, sel.value, false);
+        }
+    });
 });
 </script>
 {% endblock %}
