@@ -230,12 +230,26 @@ function cambiarModoCamara(valor) {
     if (!valor) return;
     localStorage.setItem('monitoreo_camara_modo', valor);
 
+    const sel = document.getElementById('selector-camara-hud');
+    const selectedText = sel?.options[sel.selectedIndex]?.text || '';
+    const cleanName = selectedText.replace(/^[📹💻📡\s]+/, '').split('(')[0].trim();
+    if (cleanName) {
+        localStorage.setItem('monitoreo_camara_nombre', cleanName);
+    }
+
     if (valor.startsWith('browser:')) {
         const deviceId = valor.replace('browser:', '');
         iniciarCamaraNavegador(deviceId === 'default' ? null : deviceId);
     } else if (valor.startsWith('server:')) {
         const camId = valor.replace('server:', '');
         iniciarStreamServidor(camId);
+
+        // Notificar al backend para que sea la cámara activa en la BD (y se refleje en el Dashboard)
+        fetch('/monitoreo/camaras/seleccionar/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({id: camId})
+        }).catch(() => {});
     }
 }
 

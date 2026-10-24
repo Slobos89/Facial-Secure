@@ -434,7 +434,7 @@ function renderizarCamarasDescubiertas(ipCameras, webcams, asignadas){
                         <span class="cam-details">DirectShow • Dispositivo #${wc.webcam_index}</span>
                         <div class="cam-rename-form">
                             <label style="font-size: 11px;">Nombre / Ubicación:</label>
-                            <input type="text" id="new_name_wc_${idx}" value="Webcam Local #${wc.webcam_index}" class="cam-rename-input">
+                            <input type="text" id="new_name_wc_${idx}" value="${wc.nombre}" class="cam-rename-input">
                         </div>
                     </div>
                 </div>
@@ -490,6 +490,10 @@ async function ejecutarAsignacionCamara(payload){
         const data = await res.json();
 
         if(data.success){
+            if(data.camara){
+                localStorage.setItem('monitoreo_camara_modo', `server:${data.camara.id}`);
+                localStorage.setItem('monitoreo_camara_nombre', data.camara.nombre);
+            }
             alert(`✅ ${data.message}`);
             cambiarTabModalCamaras('asignadas');
             cargarCamarasServidor(false);
@@ -554,10 +558,14 @@ async function eliminarCamaraAsignada(camId, nombre){
 
 function verEnMonitoreo(camId, nombre){
     cerrarModalEscanerCamaras();
+    localStorage.setItem('monitoreo_camara_modo', `server:${camId}`);
+    localStorage.setItem('monitoreo_camara_nombre', nombre);
     const sel = document.getElementById('selector-camara-hud');
     if(sel){
-        sel.value = camId;
-        if(typeof cambiarCamaraStream === 'function'){
+        sel.value = `server:${camId}`;
+        if(typeof cambiarModoCamara === 'function'){
+            cambiarModoCamara(`server:${camId}`);
+        } else if(typeof cambiarCamaraStream === 'function'){
             cambiarCamaraStream(camId);
         }
     } else {
@@ -566,16 +574,30 @@ function verEnMonitoreo(camId, nombre){
 }
 
 function actualizarSelectoresEnPagina(){
-    const sel = document.getElementById('selector-camara-hud');
-    if(!sel) return;
-
     fetch('/monitoreo/camaras/escanear/')
     .then(r => r.json())
     .then(data => {
-        if(data.asignadas){
-            const currentVal = sel.value;
-            sel.innerHTML = data.asignadas.map(c => `
-                <option value="${c.id}" ${c.id == currentVal ? 'selected' : ''}>
+        if(!data.asignadas) return;
+
+        // 1. Selector en Monitoreo
+        const selMon = document.getElementById('selector-camara-hud');
+        const optServMon = document.getElementById('optgroup-servidor');
+        if(optServMon){
+            const cur = selMon.value;
+            optServMon.innerHTML = data.asignadas.map(c => `
+                <option value="server:${c.id}" ${('server:' + c.id) == cur ? 'selected' : ''}>
+                    ${c.nombre} (${c.tipo === 'ip_yoosee' ? 'IP ' + c.ip : 'Webcam #' + c.webcam_index})
+                </option>
+            `).join('');
+        }
+
+        // 2. Selector en Dashboard
+        const selDash = document.getElementById('dashboard-cam-select');
+        const optServDash = document.getElementById('dash-optgroup-server');
+        if(optServDash){
+            const cur = selDash.value;
+            optServDash.innerHTML = data.asignadas.map(c => `
+                <option value="server:${c.id}" ${('server:' + c.id) == cur ? 'selected' : ''}>
                     ${c.nombre} (${c.tipo === 'ip_yoosee' ? 'IP ' + c.ip : 'Webcam #' + c.webcam_index})
                 </option>
             `).join('');

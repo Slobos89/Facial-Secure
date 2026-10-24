@@ -18,7 +18,7 @@ from reportlab.platypus import (
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import letter
-from usuarios.models import Persona, Acceso
+from usuarios.models import Persona, Acceso, ConfiguracionCamara
 from django.contrib.auth.decorators import login_required
 
 
@@ -147,6 +147,12 @@ def dashboard(request):
         acceso_stats['no_id_acc'],
     ]
 
+    # 7. Cámaras asignadas y activa
+    camaras = ConfiguracionCamara.objects.filter(activa=True).order_by('id')
+    total_camaras = ConfiguracionCamara.objects.count()
+    camaras_activas_count = camaras.count()
+    camara_activa = camaras.first() if camaras.exists() else ConfiguracionCamara.get_activa()
+
     contexto = {
         'total_personas': total_personas,
         'internos': internos,
@@ -170,8 +176,10 @@ def dashboard(request):
         'periodo': periodo,
         'alerta_texto': alerta_texto,
         'alerta_tipo': alerta_tipo,
-        'camaras_activas': 1,
-        'total_camaras': 1,
+        'camaras': camaras,
+        'camara_activa': camara_activa,
+        'camaras_activas': camaras_activas_count if camaras_activas_count > 0 else 1,
+        'total_camaras': total_camaras if total_camaras > 0 else 1,
     }
 
     return render(

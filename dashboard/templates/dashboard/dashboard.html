@@ -128,16 +128,38 @@ Centro de Control y Monitoreo | Dashboard
 
         <!-- CÁMARA PRINCIPAL LIVE -->
         <div class="panel">
-            <div class="panel-header">
-                <div class="panel-title">📷 Visor de Cámara Principal</div>
-                <span style="color: #10b981; font-size: 12px; font-weight: 700;">● CONECTADA</span>
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div class="panel-title" style="display: flex; align-items: center; gap: 6px;">
+                    <span>📷 Visor de Monitoreo en Vivo</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <select id="dashboard-cam-select" onchange="cambiarCamaraDashboard(this.value)" style="background: #0f172a; color: #f8fafc; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px; border: 1px solid #334155; max-width: 220px;">
+                        <optgroup label="💻 Navegador / Iriun" id="dash-optgroup-browser">
+                            <option value="browser:default">📹 Cámara del Navegador</option>
+                        </optgroup>
+                        <optgroup label="📡 Servidor / Red" id="dash-optgroup-server">
+                            {% for c in camaras %}
+                                <option value="server:{{ c.id }}" {% if c.id == camara_activa.id %}selected{% endif %}>
+                                    {{ c.nombre }} ({% if c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
+                                </option>
+                            {% empty %}
+                                <option value="" disabled>(Sin cámaras asignadas)</option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                    <span id="dashboard-cam-badge" style="color: #10b981; font-size: 11px; font-weight: 700;">● EN VIVO</span>
+                </div>
             </div>
-            <div style="background: #000000; border-radius: 8px; overflow: hidden; height: 220px; display: flex; align-items: center; justify-content: center;">
-                <img id="dashboard-video" src="{% url 'video_feed' %}" alt="Cámara Principal" style="width: 100%; height: 100%; object-fit: cover;">
+            <div style="background: #000000; border-radius: 8px; overflow: hidden; height: 220px; display: flex; align-items: center; justify-content: center; position: relative;">
+                <img id="dashboard-video" 
+                     src="{% if camara_activa %}{% url 'video_feed' %}?cam_id={{ camara_activa.id }}{% else %}about:blank{% endif %}" 
+                     alt="Cámara de Monitoreo" 
+                     style="width: 100%; height: 100%; object-fit: cover;">
+                <video id="dashboard-client-video" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
             </div>
             <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
-                <span>Canal: <b>Acceso Torniquete 01</b></span>
-                <span>Latencia: <b id="camera-latency">0.4</b>s</span>
+                <span>Canal Activo: <b id="dashboard-cam-name" style="color: #0f172a;">{{ camara_activa.nombre|default:'Cámara Principal' }}</b></span>
+                <span>Latencia: <b id="camera-latency">0.2</b>s</span>
             </div>
         </div>
     </div>
@@ -427,27 +449,130 @@ if (ctxRoles) {
 }
 
 /* ========================================================
-   CÁMARA VISOR DASHBOARD (STREAM SERVIDOR / IP)
+   CÁMARA VISOR DASHBOARD (SINCRONIZADO CON MONITOREO)
    ======================================================== */
-const videoDash = document.getElementById('dashboard-video');
-const latenciaSpan = document.getElementById('camera-latency');
+let dashClientStream = null;
 
-if (videoDash) {
-    videoDash.onload = () => {
-        if (latenciaSpan) {
-            const baseLatency = 0.2 + (Math.random() * 0.2);
-            latenciaSpan.innerText = baseLatency.toFixed(1);
+async function listarCamarasNavegadorDashboard() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        const optgroup = document.getElementById('dash-optgroup-browser');
+        const sel = document.getElementById('dashboard-cam-select');
+        if (!optgroup || !sel) return;
+
+        if (videoDevices.length > 0) {
+            const currentVal = sel.value;
+            optgroup.innerHTML = videoDevices.map((d, idx) => {
+                const label = d.label || `Cámara Local #${idx + 1}`;
+                return `<option value="browser:${d.deviceId}">📹 ${label}</option>`;
+            }).join('');
+            if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
+                sel.value = currentVal;
+            }
         }
-    };
-    videoDash.onerror = () => {
-        if (latenciaSpan) latenciaSpan.innerText = 'OFFLINE';
-    };
-    setInterval(() => {
-        if (latenciaSpan && latenciaSpan.innerText !== 'OFFLINE') {
-            const baseLatency = 0.2 + (Math.random() * 0.2);
-            latenciaSpan.innerText = baseLatency.toFixed(1);
-        }
-    }, 3000);
+    } catch(e) {}
 }
+
+function detenerStreamClienteDashboard() {
+    if (dashClientStream) {
+        try {
+            dashClientStream.getTracks().forEach(t => t.stop());
+        } catch(e) {}
+        dashClientStream = null;
+    }
+}
+
+async function cambiarCamaraDashboard(valor, guardar = true) {
+    if (!valor) return;
+    if (guardar) {
+        localStorage.setItem('monitoreo_camara_modo', valor);
+    }
+
+    const sel = document.getElementById('dashboard-cam-select');
+    const selectedText = sel?.options[sel.selectedIndex]?.text || '';
+    const cleanName = selectedText.replace(/^[📹💻📡\s]+/, '').split('(')[0].trim();
+    if (guardar && cleanName) {
+        localStorage.setItem('monitoreo_camara_nombre', cleanName);
+    }
+
+    const nameSpan = document.getElementById('dashboard-cam-name');
+    if (nameSpan && cleanName) {
+        nameSpan.innerText = cleanName;
+    }
+
+    const videoDash = document.getElementById('dashboard-video');
+    const clientVid = document.getElementById('dashboard-client-video');
+    const badge = document.getElementById('dashboard-cam-badge');
+
+    if (valor.startsWith('browser:')) {
+        detenerStreamClienteDashboard();
+        if (videoDash) videoDash.style.display = 'none';
+
+        const deviceId = valor.replace('browser:', '');
+        const constraints = {
+            video: (deviceId && deviceId !== 'default') ? { deviceId: { exact: deviceId } } : true,
+            audio: false
+        };
+
+        try {
+            dashClientStream = await navigator.mediaDevices.getUserMedia(constraints);
+            if (clientVid) {
+                clientVid.srcObject = dashClientStream;
+                clientVid.style.display = 'block';
+                await clientVid.play();
+            }
+            if (badge) {
+                badge.innerText = '● EN VIVO';
+                badge.style.color = '#10b981';
+            }
+            await listarCamarasNavegadorDashboard();
+        } catch(err) {
+            console.warn('No se pudo abrir cámara cliente en dashboard:', err);
+            if (badge) {
+                badge.innerText = '● SIN SEÑAL';
+                badge.style.color = '#ef4444';
+            }
+        }
+    } else if (valor.startsWith('server:')) {
+        detenerStreamClienteDashboard();
+        if (clientVid) clientVid.style.display = 'none';
+
+        const camId = valor.replace('server:', '');
+        if (videoDash) {
+            videoDash.style.display = 'block';
+            videoDash.src = "{% url 'video_feed' %}?cam_id=" + camId + "&t=" + Date.now();
+        }
+        if (badge) {
+            badge.innerText = '● EN VIVO';
+            badge.style.color = '#10b981';
+        }
+
+        // Sincronizar también con la base de datos para persistir como activa
+        if (guardar) {
+            fetch('/monitoreo/camaras/seleccionar/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: camId})
+            }).catch(() => {});
+        }
+    }
+}
+
+// Inicializar y sincronizar con la selección de Monitoreo
+document.addEventListener('DOMContentLoaded', async () => {
+    await listarCamarasNavegadorDashboard();
+
+    const sel = document.getElementById('dashboard-cam-select');
+    const modoGuardado = localStorage.getItem('monitoreo_camara_modo');
+
+    if (modoGuardado && sel && Array.from(sel.options).some(o => o.value === modoGuardado)) {
+        sel.value = modoGuardado;
+        cambiarCamaraDashboard(modoGuardado, false);
+    } else if (sel && sel.value) {
+        cambiarCamaraDashboard(sel.value, false);
+    }
+});
 </script>
 {% endblock %}
