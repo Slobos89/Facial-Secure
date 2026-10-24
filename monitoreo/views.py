@@ -15,7 +15,7 @@ from usuarios.models import Acceso, Persona, ConfiguracionCamara
 from django.contrib.auth.decorators import login_required
 from usuarios.utils.security import encrypt_bytes
 from usuarios.utils.deep_learning import DeepFaceEngine
-from usuarios.utils.camera_discovery import scan_all_cameras
+from usuarios.utils.camera_discovery import scan_all_cameras, test_camera_connection
 from facial_secure.ip_camera import YooseeIPCamera
 
 # ==========================================
@@ -461,7 +461,52 @@ def ultimas_detecciones_ajax(request):
     return JsonResponse({'success': True, 'flujo': flujo, 'detecciones': items})
 
 
+@csrf_exempt
 @login_required
+def probar_conexion_camara_ajax(request):
+    """Prueba en tiempo real la conexión y credenciales de una cámara IP por RTSP antes o después de asignarla."""
+    if request.method == 'POST':
+        try:
+            import json
+            try:
+                data = json.loads(request.body)
+            except Exception:
+                data = request.POST
+
+            cam_id = data.get('cam_id')
+            if cam_id:
+                cfg = ConfiguracionCamara.objects.filter(id=cam_id).first()
+                if cfg:
+                    if cfg.tipo == 'webcam':
+                        return JsonResponse({'success': True, 'status': 200, 'message': f'Webcam USB #{cfg.webcam_index} configurada en el servidor.'})
+                    ip = cfg.ip
+                    puerto_rtsp = cfg.puerto_rtsp
+                    usuario = cfg.usuario
+                    password = cfg.password
+                    stream = cfg.stream
+                else:
+                    return JsonResponse({'success': False, 'status': 404, 'message': 'Cámara no encontrada en la base de datos.'})
+            else:
+                ip = (data.get('ip') or '').strip()
+                puerto_rtsp = int(data.get('puerto_rtsp') or 554)
+                usuario = (data.get('usuario') or 'admin').strip()
+                password = data.get('password', '')
+                stream = (data.get('stream') or 'onvif2').strip()
+
+            resultado = test_camera_connection(
+                ip=ip,
+                port=puerto_rtsp,
+                user=usuario,
+                password=password,
+                stream=stream
+            )
+            return JsonResponse(resultado)
+        except Exception as e:
+            return JsonResponse({'success': False, 'status': -1, 'message': f'Error en prueba: {str(e)}'})
+
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
+
+
 def escanear_camaras_ajax(request):
     """Escanea la red local y dispositivos físicos retornando todas las cámaras encontradas y las ya asignadas."""
     try:

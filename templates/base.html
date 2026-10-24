@@ -187,7 +187,7 @@
 </div>
 
 <!-- ========================================================
-     MODAL GLOBAL: GESTIÓN MULTI-CÁMARA (RED LOCAL Y USB)
+     MODAL GLOBAL: GESTIÓN MULTI-CÁMARA (RED LOCAL, WI-FI Y USB)
      ======================================================== -->
 <div id="modal-escaner-camaras" class="modal-camaras-overlay" style="display: none;">
     <div class="modal-camaras-card">
@@ -205,14 +205,17 @@
                     📋 Cámaras Asignadas (<span id="count-camaras-asignadas">0</span>)
                 </button>
                 <button type="button" class="tab-btn" id="tab-btn-escanear" onclick="cambiarTabModalCamaras('escanear')">
-                    🔍 Escanear Red y PC
+                    🔍 Escanear Red Wi-Fi y PC
+                </button>
+                <button type="button" class="tab-btn" id="tab-btn-manual" onclick="cambiarTabModalCamaras('manual')">
+                    ➕ Conexión Manual por IP
                 </button>
             </div>
 
             <!-- VISTA 1: CÁMARAS ASIGNADAS (GUARDADAS) -->
             <div id="tab-content-asignadas" class="tab-panel">
                 <div class="section-notice">
-                    📌 <strong>Cámaras fijas configuradas:</strong> Estas cámaras están guardadas de forma permanente en la base de datos. Puedes asignarles nombres de torniquetes o ubicaciones (ej: "Torniquete Entrada", "Guardia") y nunca se desasignarán.
+                    📌 <strong>Cámaras fijas configuradas:</strong> Estas cámaras están guardadas de forma permanente en la base de datos PostgreSQL. Puedes verificar su estado en tiempo real, renombrarlas o desasignarlas en cualquier momento.
                 </div>
                 <div id="lista-camaras-asignadas" class="scanner-camera-list">
                     <div class="empty-state">Cargando cámaras asignadas...</div>
@@ -223,8 +226,8 @@
             <div id="tab-content-escanear" class="tab-panel" style="display: none;">
                 <div class="scanner-top-bar">
                     <div>
-                        <strong style="font-size: 13px; color: #0f172a; display: block;">Detectar Nuevas Cámaras</strong>
-                        <span style="font-size: 11px; color: #64748b;">Protocolo ONVIF WS-Discovery (LAN) y DirectShow (USB)</span>
+                        <strong style="font-size: 13px; color: #0f172a; display: block;">Detectar Nuevas Cámaras en Red y PC</strong>
+                        <span style="font-size: 11px; color: #64748b;">Protocolo Híbrido: Detección Automática Subred LAN/Wi-Fi (RTSP 554/ONVIF) y DirectShow USB</span>
                     </div>
                     <button type="button" class="btn-rescan" id="btn-rescan" onclick="escanearNuevasCamaras()">
                         🔄 Escanear Ahora
@@ -234,12 +237,64 @@
                 <!-- SPINNER DE CARGA -->
                 <div id="scanner-loading" class="scanner-loading" style="display: none;">
                     <div class="scanner-spinner"></div>
-                    <span>Sondeando red local (ONVIF) y puertos USB de la máquina...</span>
+                    <span>Sondeando red Wi-Fi/LAN (RTSP/ONVIF) y dispositivos locales de la máquina...</span>
                 </div>
 
                 <!-- CONTENEDOR DE CÁMARAS DESCUBIERTAS -->
                 <div id="lista-camaras-descubiertas" class="scanner-camera-list" style="margin-top: 10px;">
-                    <div class="empty-state">Haz clic en "Escanear Ahora" para buscar cámaras disponibles en la red o USB.</div>
+                    <div class="empty-state">Haz clic en "Escanear Ahora" para buscar cámaras Wi-Fi, IP o USB disponibles.</div>
+                </div>
+            </div>
+
+            <!-- VISTA 3: CONEXIÓN MANUAL POR IP -->
+            <div id="tab-content-manual" class="tab-panel" style="display: none;">
+                <div class="section-notice">
+                    🌐 <strong>Conectar Cámara Wi-Fi / IP Directamente:</strong> Si conoces la dirección IP asignada a tu cámara (ej: <code>192.168.100.34</code>), puedes configurarla aquí. Prueba la clave en tiempo real antes de guardar para asegurar la transmisión.
+                </div>
+
+                <div class="camera-card" style="flex-direction: column; align-items: stretch;">
+                    <div class="form-manual-grid">
+                        <div class="form-group-manual">
+                            <label>Nombre / Ubicación:</label>
+                            <input type="text" id="manual_cam_nombre" class="form-input-manual" value="Cámara Wi-Fi Entrada" placeholder="Ej: Torniquete Acceso">
+                        </div>
+                        <div class="form-group-manual">
+                            <label>Dirección IP:</label>
+                            <input type="text" id="manual_cam_ip" class="form-input-manual" value="192.168.100.34" placeholder="192.168.100.34">
+                        </div>
+                        <div class="form-group-manual">
+                            <label>Puerto RTSP:</label>
+                            <input type="number" id="manual_cam_puerto_rtsp" class="form-input-manual" value="554">
+                        </div>
+                        <div class="form-group-manual">
+                            <label>Puerto ONVIF:</label>
+                            <input type="number" id="manual_cam_puerto_onvif" class="form-input-manual" value="5000">
+                        </div>
+                        <div class="form-group-manual">
+                            <label>Usuario Cámara:</label>
+                            <input type="text" id="manual_cam_usuario" class="form-input-manual" value="admin">
+                        </div>
+                        <div class="form-group-manual">
+                            <label>Contraseña Cámara:</label>
+                            <input type="password" id="manual_cam_password" class="form-input-manual" value="admin12345" placeholder="Clave configurada">
+                        </div>
+                        <div class="form-group-manual" style="grid-column: span 2;">
+                            <label>Canal / Ruta de Flujo (Stream):</label>
+                            <input type="text" id="manual_cam_stream" class="form-input-manual" value="onvif2" placeholder="onvif2">
+                            <small style="color: #64748b; font-size: 11px;">Rutas frecuentes: <code>onvif2</code> (Yoosee / sub-flujo fluido), <code>onvif1</code> (alta definición), <code>ch0_0.264</code>, <code>live/ch0</code></small>
+                        </div>
+                    </div>
+
+                    <div id="manual-test-feedback" class="cam-test-feedback" style="display: none; margin-top: 12px;"></div>
+
+                    <div class="manual-actions-bar">
+                        <button type="button" class="btn-action-test" id="btn-manual-test" onclick="probarConexionManual()">
+                            🧪 Probar Conexión
+                        </button>
+                        <button type="button" class="btn-action-save" id="btn-manual-save" onclick="guardarCamaraManual()">
+                            ➕ Guardar y Asignar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -286,19 +341,28 @@ function cerrarModalEscanerCamaras(){
 function cambiarTabModalCamaras(tab){
     const btnAsignadas = document.getElementById('tab-btn-asignadas');
     const btnEscanear = document.getElementById('tab-btn-escanear');
+    const btnManual = document.getElementById('tab-btn-manual');
     const panelAsignadas = document.getElementById('tab-content-asignadas');
     const panelEscanear = document.getElementById('tab-content-escanear');
+    const panelManual = document.getElementById('tab-content-manual');
+
+    // Desactivar todos
+    btnAsignadas?.classList.remove('active');
+    btnEscanear?.classList.remove('active');
+    btnManual?.classList.remove('active');
+    if(panelAsignadas) panelAsignadas.style.display = 'none';
+    if(panelEscanear) panelEscanear.style.display = 'none';
+    if(panelManual) panelManual.style.display = 'none';
 
     if(tab === 'asignadas'){
-        btnAsignadas.classList.add('active');
-        btnEscanear.classList.remove('active');
-        panelAsignadas.style.display = 'block';
-        panelEscanear.style.display = 'none';
-    } else {
-        btnEscanear.classList.add('active');
-        btnAsignadas.classList.remove('active');
-        panelEscanear.style.display = 'block';
-        panelAsignadas.style.display = 'none';
+        btnAsignadas?.classList.add('active');
+        if(panelAsignadas) panelAsignadas.style.display = 'block';
+    } else if(tab === 'escanear'){
+        btnEscanear?.classList.add('active');
+        if(panelEscanear) panelEscanear.style.display = 'block';
+    } else if(tab === 'manual'){
+        btnManual?.classList.add('active');
+        if(panelManual) panelManual.style.display = 'block';
     }
 }
 
@@ -307,16 +371,16 @@ async function cargarCamarasServidor(ejecutarEscaneoRed = false){
     const btnRescan = document.getElementById('btn-rescan');
 
     if(ejecutarEscaneoRed){
-        loading.style.display = 'flex';
-        btnRescan.disabled = true;
+        if(loading) loading.style.display = 'flex';
+        if(btnRescan) btnRescan.disabled = true;
     }
 
     try {
         const res = await fetch('/monitoreo/camaras/escanear/');
         const data = await res.json();
         
-        loading.style.display = 'none';
-        btnRescan.disabled = false;
+        if(loading) loading.style.display = 'none';
+        if(btnRescan) btnRescan.disabled = false;
 
         if(!data.success && data.error){
             console.error('Error escaneo:', data.error);
@@ -329,8 +393,8 @@ async function cargarCamarasServidor(ejecutarEscaneoRed = false){
             renderizarCamarasDescubiertas(data.ip_cameras || [], data.webcams || [], data.asignadas || []);
         }
     } catch(err) {
-        loading.style.display = 'none';
-        btnRescan.disabled = false;
+        if(loading) loading.style.display = 'none';
+        if(btnRescan) btnRescan.disabled = false;
         console.error('Error cargando cámaras:', err);
     }
 }
@@ -342,10 +406,10 @@ function escanearNuevasCamaras(){
 function renderizarCamarasAsignadas(asignadas, activaId){
     const container = document.getElementById('lista-camaras-asignadas');
     const countBadge = document.getElementById('count-camaras-asignadas');
-    countBadge.innerText = asignadas.length;
+    if(countBadge) countBadge.innerText = asignadas.length;
 
     if(!asignadas || asignadas.length === 0){
-        container.innerHTML = `<div class="empty-state">No hay cámaras asignadas todavía. Ve a la pestaña "Escanear Red y PC" para agregar tus cámaras.</div>`;
+        container.innerHTML = `<div class="empty-state">No hay cámaras asignadas todavía. Ve a la pestaña "Escanear Red y PC" o "Conexión Manual" para agregar tus cámaras.</div>`;
         return;
     }
 
@@ -353,24 +417,30 @@ function renderizarCamarasAsignadas(asignadas, activaId){
     asignadas.forEach(cam => {
         const esIp = (cam.tipo === 'ip_yoosee');
         const icono = esIp ? '📡' : '💻';
-        const detalle = esIp ? `IP: <b>${cam.ip}</b> • RTSP: ${cam.puerto_rtsp} • ONVIF: ${cam.puerto_onvif}` : `Dispositivo USB DirectShow #${cam.webcam_index}`;
+        const detalle = esIp 
+            ? `IP: <b>${cam.ip}</b> • RTSP: ${cam.puerto_rtsp} • ONVIF: ${cam.puerto_onvif} • Canal: <code>${cam.stream || 'onvif2'}</code>` 
+            : `Dispositivo DirectShow USB #${cam.webcam_index}`;
         
         html += `
-        <div class="camera-card" id="card_asignada_${cam.id}">
-            <div class="cam-card-left">
-                <div class="cam-icon">${icono}</div>
-                <div class="cam-info">
-                    <div class="cam-name-row">
-                        <input type="text" class="cam-rename-input" id="name_input_${cam.id}" value="${cam.nombre}" placeholder="Nombre / Ubicación">
-                        <button type="button" class="btn-action-small btn-save-name" onclick="guardarNombreCamara(${cam.id})">💾 Guardar Nombre</button>
+        <div class="camera-card" id="card_asignada_${cam.id}" style="flex-direction: column; align-items: stretch; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <div class="cam-card-left">
+                    <div class="cam-icon">${icono}</div>
+                    <div class="cam-info">
+                        <div class="cam-name-row">
+                            <input type="text" class="cam-rename-input" id="name_input_${cam.id}" value="${cam.nombre}" placeholder="Nombre / Ubicación">
+                            <button type="button" class="btn-action-small btn-save-name" onclick="guardarNombreCamara(${cam.id})">💾 Guardar Nombre</button>
+                        </div>
+                        <span class="cam-details">${detalle}</span>
                     </div>
-                    <span class="cam-details">${detalle}</span>
+                </div>
+                <div class="cam-card-right" style="display: flex; gap: 6px; align-items: center;">
+                    ${esIp ? `<button type="button" class="btn-action-small btn-test-cam" onclick="probarCamaraAsignada(${cam.id})">🧪 Probar</button>` : ''}
+                    <button type="button" class="btn-action-small btn-monitor-cam" onclick="verEnMonitoreo(${cam.id}, '${cam.nombre}')">👁️ Ver en Vivo</button>
+                    <button type="button" class="btn-action-small btn-delete-cam" onclick="eliminarCamaraAsignada(${cam.id}, '${cam.nombre}')">🗑️ Quitar</button>
                 </div>
             </div>
-            <div class="cam-card-right" style="display: flex; gap: 6px; align-items: center;">
-                <button type="button" class="btn-action-small btn-monitor-cam" onclick="verEnMonitoreo(${cam.id}, '${cam.nombre}')">👁️ Ver en Vivo</button>
-                <button type="button" class="btn-action-small btn-delete-cam" onclick="eliminarCamaraAsignada(${cam.id}, '${cam.nombre}')">🗑️ Quitar</button>
-            </div>
+            <div id="status_test_asignada_${cam.id}" class="cam-test-feedback" style="display: none;"></div>
         </div>`;
     });
 
@@ -385,41 +455,65 @@ function renderizarCamarasDescubiertas(ipCameras, webcams, asignadas){
     const ipsAsignadas = new Set(asignadas.filter(a => a.tipo === 'ip_yoosee').map(a => a.ip));
     const webcamsAsignadas = new Set(asignadas.filter(a => a.tipo === 'webcam').map(a => parseInt(a.webcam_index)));
 
-    // 1. Cámaras IP encontradas
+    // 1. Cámaras IP encontradas en la red Wi-Fi / LAN
     if(ipCameras && ipCameras.length > 0){
-        html += `<div class="section-divider">📡 Cámaras IP Descubiertas en Red Local</div>`;
+        html += `<div class="section-divider">📡 Cámaras IP / Wi-Fi Descubiertas en Red Local (${ipCameras.length})</div>`;
         ipCameras.forEach((cam, idx) => {
             const yaAsignada = ipsAsignadas.has(cam.ip);
+            const metodoDesc = cam.metodo_descubrimiento || 'Sondeo Red Local';
+            const portsDesc = cam.puertos_detectados ? cam.puertos_detectados.join(', ') : `${cam.puerto_rtsp}, ${cam.puerto_onvif}`;
+
             html += `
-            <div class="camera-card ${yaAsignada ? 'card-active' : ''}">
-                <div class="cam-card-left">
-                    <div class="cam-icon">📡</div>
-                    <div class="cam-info" style="flex: 1;">
-                        <div class="cam-name-row">
-                            <strong>Cámara IP (${cam.ip})</strong>
-                            ${yaAsignada ? '<span class="badge-active">YA ASIGNADA</span>' : '<span class="badge-avail">DISPONIBLE</span>'}
-                        </div>
-                        <span class="cam-details">IP: <b>${cam.ip}</b> • Puerto ONVIF: ${cam.puerto_onvif} • RTSP: 554</span>
-                        <div class="cam-rename-form">
-                            <label style="font-size: 11px;">Nombre / Ubicación:</label>
-                            <input type="text" id="new_name_ip_${idx}" value="Torniquete IP ${cam.ip}" class="cam-rename-input">
-                            <label style="font-size: 11px;">Clave RTSP:</label>
-                            <input type="password" id="new_pass_ip_${idx}" value="admin12345" placeholder="admin12345" class="cam-pass-input">
+            <div class="camera-card ${yaAsignada ? 'card-active' : ''}" style="flex-direction: column; align-items: stretch; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <div class="cam-card-left">
+                        <div class="cam-icon">📡</div>
+                        <div class="cam-info" style="flex: 1;">
+                            <div class="cam-name-row">
+                                <strong>Cámara Wi-Fi / IP (${cam.ip})</strong>
+                                ${yaAsignada ? '<span class="badge-active">YA ASIGNADA</span>' : '<span class="badge-avail">DISPONIBLE</span>'}
+                            </div>
+                            <span class="cam-details">IP: <b>${cam.ip}</b> • RTSP: ${cam.puerto_rtsp} • ONVIF: ${cam.puerto_onvif} • Puertos detectados: [${portsDesc}]</span>
+                            <span style="font-size: 10.5px; color: #0284c7; font-weight: 600;">⚡ Método: ${metodoDesc}</span>
                         </div>
                     </div>
                 </div>
-                <div class="cam-card-right">
-                    <button type="button" class="btn-select-cam" onclick="asignarNuevaCamaraIP('${cam.ip}', ${cam.puerto_onvif}, 'new_name_ip_${idx}', 'new_pass_ip_${idx}')">
-                        ${yaAsignada ? '🔄 Actualizar' : '➕ Asignar y Guardar'}
-                    </button>
+
+                <div class="cam-rename-form" style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                    <div>
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; display: block;">Nombre / Ubicación:</label>
+                        <input type="text" id="new_name_ip_${idx}" value="Torniquete Wi-Fi ${cam.ip}" class="cam-rename-input" style="width: 170px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; display: block;">Usuario:</label>
+                        <input type="text" id="new_user_ip_${idx}" value="admin" class="cam-pass-input" style="width: 70px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; display: block;">Clave RTSP:</label>
+                        <input type="password" id="new_pass_ip_${idx}" value="admin12345" placeholder="admin12345" class="cam-pass-input" style="width: 100px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; display: block;">Canal Stream:</label>
+                        <input type="text" id="new_stream_ip_${idx}" value="${cam.stream || 'onvif2'}" class="cam-pass-input" style="width: 80px;">
+                    </div>
+                    <div style="display: flex; gap: 6px; align-self: flex-end; margin-left: auto;">
+                        <button type="button" class="btn-action-small btn-test-cam" onclick="probarConexionCamara('${cam.ip}', ${cam.puerto_rtsp}, 'new_user_ip_${idx}', 'new_pass_ip_${idx}', 'new_stream_ip_${idx}', 'feedback_ip_${idx}')">
+                            🧪 Probar Conexión
+                        </button>
+                        <button type="button" class="btn-action-small btn-save-name" onclick="asignarNuevaCamaraIP('${cam.ip}', ${cam.puerto_onvif}, ${cam.puerto_rtsp}, 'new_name_ip_${idx}', 'new_user_ip_${idx}', 'new_pass_ip_${idx}', 'new_stream_ip_${idx}')">
+                            ${yaAsignada ? '🔄 Actualizar' : '➕ Asignar y Guardar'}
+                        </button>
+                    </div>
                 </div>
+
+                <div id="feedback_ip_${idx}" class="cam-test-feedback" style="display: none;"></div>
             </div>`;
         });
     }
 
-    // 2. Webcams Locales USB
+    // 2. Webcams Locales USB / Iriun
     if(webcams && webcams.length > 0){
-        html += `<div class="section-divider">💻 Webcams Locales USB / Integradas</div>`;
+        html += `<div class="section-divider" style="margin-top: 14px;">💻 Webcams Locales USB / Iriun Webcam (${webcams.length})</div>`;
         webcams.forEach((wc, idx) => {
             const yaAsignada = webcamsAsignadas.has(parseInt(wc.webcam_index));
             html += `
@@ -448,25 +542,179 @@ function renderizarCamarasDescubiertas(ipCameras, webcams, asignadas){
     }
 
     if(!ipCameras?.length && !webcams?.length){
-        html = `<div class="empty-state">No se detectaron nuevos dispositivos de video en la red ni USB.</div>`;
+        html = `<div class="empty-state">No se detectaron dispositivos de video en la red local ni webcams USB. Puedes usar la pestaña "➕ Conexión Manual por IP" para conectarla directamente.</div>`;
     }
 
     container.innerHTML = html;
 }
 
-async function asignarNuevaCamaraIP(ip, puertoOnvif, nameElemId, passElemId){
-    const nombre = document.getElementById(nameElemId)?.value || `Cámara IP (${ip})`;
-    const pass = document.getElementById(passElemId)?.value || 'admin12345';
+async function probarConexionCamara(ip, puertoRtsp, userElemId, passElemId, streamElemId, feedbackElemId){
+    const user = document.getElementById(userElemId)?.value || 'admin';
+    const pass = document.getElementById(passElemId)?.value || '';
+    const stream = document.getElementById(streamElemId)?.value || 'onvif2';
+    const fb = document.getElementById(feedbackElemId);
+
+    if(fb){
+        fb.style.display = 'block';
+        fb.className = 'cam-test-feedback feedback-loading';
+        fb.innerHTML = `<span>⏳ Verificando conexión RTSP y credenciales con ${ip}:${puertoRtsp}/${stream}...</span>`;
+    }
+
+    try {
+        const res = await fetch('/monitoreo/camaras/probar/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                ip: ip,
+                puerto_rtsp: puertoRtsp,
+                usuario: user,
+                password: pass,
+                stream: stream
+            })
+        });
+        const data = await res.json();
+
+        if(fb){
+            if(data.success){
+                fb.className = 'cam-test-feedback feedback-success';
+                fb.innerHTML = `<span>✅ ${data.message}</span>`;
+            } else {
+                fb.className = 'cam-test-feedback feedback-error';
+                fb.innerHTML = `<span>❌ ${data.message}</span>`;
+            }
+        }
+    } catch(err){
+        if(fb){
+            fb.className = 'cam-test-feedback feedback-error';
+            fb.innerHTML = `<span>❌ Error de red al probar conexión: ${err.message}</span>`;
+        }
+    }
+}
+
+async function probarCamaraAsignada(camId){
+    const fb = document.getElementById(`status_test_asignada_${camId}`);
+    if(fb){
+        fb.style.display = 'block';
+        fb.className = 'cam-test-feedback feedback-loading';
+        fb.innerHTML = `<span>⏳ Verificando enlace con cámara en red...</span>`;
+    }
+
+    try {
+        const res = await fetch('/monitoreo/camaras/probar/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({cam_id: camId})
+        });
+        const data = await res.json();
+
+        if(fb){
+            if(data.success){
+                fb.className = 'cam-test-feedback feedback-success';
+                fb.innerHTML = `<span>✅ Cámara Operativa: ${data.message}</span>`;
+            } else {
+                fb.className = 'cam-test-feedback feedback-error';
+                fb.innerHTML = `<span>❌ ${data.message}</span>`;
+            }
+        }
+    } catch(err){
+        if(fb){
+            fb.className = 'cam-test-feedback feedback-error';
+            fb.innerHTML = `<span>❌ Error conectando con la cámara: ${err.message}</span>`;
+        }
+    }
+}
+
+async function probarConexionManual(){
+    const ip = document.getElementById('manual_cam_ip')?.value?.trim();
+    const puertoRtsp = parseInt(document.getElementById('manual_cam_puerto_rtsp')?.value || 554);
+    const user = document.getElementById('manual_cam_usuario')?.value?.trim() || 'admin';
+    const pass = document.getElementById('manual_cam_password')?.value || '';
+    const stream = document.getElementById('manual_cam_stream')?.value?.trim() || 'onvif2';
+    const fb = document.getElementById('manual-test-feedback');
+
+    if(!ip){
+        alert('Por favor ingresa la dirección IP de la cámara.');
+        return;
+    }
+
+    if(fb){
+        fb.style.display = 'block';
+        fb.className = 'cam-test-feedback feedback-loading';
+        fb.innerHTML = `<span>⏳ Verificando conexión RTSP con ${ip}:${puertoRtsp}/${stream}...</span>`;
+    }
+
+    try {
+        const res = await fetch('/monitoreo/camaras/probar/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                ip: ip,
+                puerto_rtsp: puertoRtsp,
+                usuario: user,
+                password: pass,
+                stream: stream
+            })
+        });
+        const data = await res.json();
+
+        if(fb){
+            if(data.success){
+                fb.className = 'cam-test-feedback feedback-success';
+                fb.innerHTML = `<span>✅ ${data.message}</span>`;
+            } else {
+                fb.className = 'cam-test-feedback feedback-error';
+                fb.innerHTML = `<span>❌ ${data.message}</span>`;
+            }
+        }
+    } catch(err){
+        if(fb){
+            fb.className = 'cam-test-feedback feedback-error';
+            fb.innerHTML = `<span>❌ Error de red al probar conexión: ${err.message}</span>`;
+        }
+    }
+}
+
+async function guardarCamaraManual(){
+    const nombre = document.getElementById('manual_cam_nombre')?.value?.trim() || 'Cámara Wi-Fi';
+    const ip = document.getElementById('manual_cam_ip')?.value?.trim();
+    const puertoRtsp = parseInt(document.getElementById('manual_cam_puerto_rtsp')?.value || 554);
+    const puertoOnvif = parseInt(document.getElementById('manual_cam_puerto_onvif')?.value || 5000);
+    const user = document.getElementById('manual_cam_usuario')?.value?.trim() || 'admin';
+    const pass = document.getElementById('manual_cam_password')?.value || '';
+    const stream = document.getElementById('manual_cam_stream')?.value?.trim() || 'onvif2';
+
+    if(!ip){
+        alert('Por favor ingresa la dirección IP de la cámara.');
+        return;
+    }
 
     await ejecutarAsignacionCamara({
         tipo: 'ip_yoosee',
         nombre: nombre,
         ip: ip,
         puerto_onvif: puertoOnvif,
-        puerto_rtsp: 554,
-        usuario: 'admin',
+        puerto_rtsp: puertoRtsp,
+        usuario: user,
         password: pass,
-        stream: 'onvif2'
+        stream: stream
+    });
+}
+
+async function asignarNuevaCamaraIP(ip, puertoOnvif, puertoRtsp, nameElemId, userElemId, passElemId, streamElemId){
+    const nombre = document.getElementById(nameElemId)?.value || `Cámara Wi-Fi (${ip})`;
+    const user = document.getElementById(userElemId)?.value || 'admin';
+    const pass = document.getElementById(passElemId)?.value || 'admin12345';
+    const stream = document.getElementById(streamElemId)?.value || 'onvif2';
+
+    await ejecutarAsignacionCamara({
+        tipo: 'ip_yoosee',
+        nombre: nombre,
+        ip: ip,
+        puerto_onvif: puertoOnvif || 5000,
+        puerto_rtsp: puertoRtsp || 554,
+        usuario: user,
+        password: pass,
+        stream: stream
     });
 }
 
@@ -583,7 +831,7 @@ function actualizarSelectoresEnPagina(){
         const selMon = document.getElementById('selector-camara-hud');
         const optServMon = document.getElementById('optgroup-servidor');
         if(optServMon){
-            const cur = selMon.value;
+            const cur = selMon ? selMon.value : '';
             optServMon.innerHTML = data.asignadas.map(c => `
                 <option value="server:${c.id}" ${('server:' + c.id) == cur ? 'selected' : ''}>
                     ${c.nombre} (${c.tipo === 'ip_yoosee' ? 'IP ' + c.ip : 'Webcam #' + c.webcam_index})
@@ -591,17 +839,16 @@ function actualizarSelectoresEnPagina(){
             `).join('');
         }
 
-        // 2. Selector en Dashboard
-        const selDash = document.getElementById('dashboard-cam-select');
-        const optServDash = document.getElementById('dash-optgroup-server');
-        if(optServDash){
-            const cur = selDash.value;
-            optServDash.innerHTML = data.asignadas.map(c => `
-                <option value="server:${c.id}" ${('server:' + c.id) == cur ? 'selected' : ''}>
+        // 2. Selectores en Dashboard (Dual Monitoreo: Ingreso y Egreso)
+        document.querySelectorAll('.dash-opt-server').forEach(optGroup => {
+            const selectElem = optGroup.closest('select');
+            const curVal = selectElem ? selectElem.value : '';
+            optGroup.innerHTML = data.asignadas.map(c => `
+                <option value="server:${c.id}" ${('server:' + c.id) == curVal ? 'selected' : ''}>
                     ${c.nombre} (${c.tipo === 'ip_yoosee' ? 'IP ' + c.ip : 'Webcam #' + c.webcam_index})
                 </option>
             `).join('');
-        }
+        });
     }).catch(() => {});
 }
 </script>
