@@ -5,3 +5,4 @@ __pycache__/
 modelo/
 db.sqlite3
 *.sql
+*.exe
