@@ -4,3 +4,4 @@ __pycache__/
 .env
 modelo/
 db.sqlite3
+*.sql
