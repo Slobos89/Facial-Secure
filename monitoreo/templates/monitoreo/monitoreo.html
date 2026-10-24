@@ -6,24 +6,30 @@ Monitoreo Biométrico en Tiempo Real
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/monitoreo.css' %}?v=1.0">
+<link rel="stylesheet" href="{% static 'css/monitoreo.css' %}?v=1.1">
 {% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="monitoreo-grid">
     <!-- PANEL DE CÁMARA & HUD TÁCTICO -->
     <div class="hud-panel">
         <div class="hud-header">
-            <div class="hud-title" style="display: flex; align-items: center; gap: 10px;">
+            <div class="hud-title" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <span>🛡️ Control de Acceso:</span>
-                <select id="selector-camara-hud" class="hud-camera-select" onchange="cambiarCamaraStream(this.value)">
-                    {% for c in camaras %}
-                        <option value="{{ c.id }}" {% if c.id == camara_activa.id %}selected{% endif %}>
-                            {{ c.nombre }} ({% if c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
-                        </option>
-                    {% empty %}
-                        <option value="">(Sin cámaras asignadas)</option>
-                    {% endfor %}
+                <select id="selector-camara-hud" class="hud-camera-select" onchange="cambiarModoCamara(this.value)">
+                    <optgroup label="💻 Cámaras de este Navegador (Local / Iriun)" id="optgroup-browser">
+                        <option value="browser:default">📹 Cámara de este Navegador (Por Defecto)</option>
+                    </optgroup>
+                    <optgroup label="📡 Cámaras del Servidor / Red" id="optgroup-servidor">
+                        {% for c in camaras %}
+                            <option value="server:{{ c.id }}" {% if c.id == camara_activa.id %}selected{% endif %}>
+                                {{ c.nombre }} ({% if c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
+                            </option>
+                        {% empty %}
+                            <option value="" disabled>(Sin cámaras de red / servidor)</option>
+                        {% endfor %}
+                    </optgroup>
                 </select>
             </div>
             <div class="hud-controls">
@@ -34,30 +40,42 @@ Monitoreo Biométrico en Tiempo Real
                     🔊 Sonido: ON
                 </button>
                 <div class="hud-badge-live" id="hud-badge-cam-info">
-                    <span class="pulse-dot"></span> <span id="hud-cam-name">{{ camara_activa.nombre|default:'Cámara' }}</span> EN VIVO
+                    <span class="pulse-dot"></span> <span id="hud-cam-name">{{ camara_activa.nombre|default:'Cámara del Navegador' }}</span> EN VIVO
                 </div>
             </div>
         </div>
 
-        <div class="camera-viewport" style="position: relative; background: #000; border-radius: 12px; overflow: hidden; height: 480px; display: flex; align-items: center; justify-content: center;">
+        <div class="camera-viewport" id="camera-viewport-container" style="position: relative; background: #000; border-radius: 12px; overflow: hidden; height: 480px; display: flex; align-items: center; justify-content: center;">
+            <!-- Stream Servidor (OpenCV / RTSP) -->
             <img id="camera-stream" 
-                 src="{% url 'video_feed' %}?cam_id={{ camara_activa.id }}" 
+                 src="{% if camara_activa %}{% url 'video_feed' %}?cam_id={{ camara_activa.id }}{% else %}about:blank{% endif %}" 
                  alt="Transmisión en Vivo Cámara IP" 
-                 style="width: 100%; height: 100%; object-fit: cover;">
+                 style="width: 100%; height: 100%; object-fit: cover; display: {% if camara_activa %}block{% else %}none{% endif %};">
+
+            <!-- Stream Cliente (Navegador / Iriun / WebRTC) -->
+            <video id="client-video" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
+            <canvas id="overlay-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none;"></canvas>
+
+            <!-- Loader / Feedback para inicialización de cámara -->
+            <div id="client-cam-loader" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); flex-direction: column; align-items: center; justify-content: center; color: #f8fafc; gap: 10px; z-index: 5;">
+                <div class="pulse-dot" style="width: 16px; height: 16px; background: #38bdf8;"></div>
+                <span style="font-size: 13px; font-weight: 600;" id="client-cam-loader-txt">Iniciando cámara del navegador...</span>
+                <small style="color: #94a3b8; font-size: 11px;">Permite el acceso a la cámara en tu navegador</small>
+            </div>
         </div>
 
         <div class="hud-telemetry-bar">
             <div class="telemetry-item">
-                <span>TIPO SENSOR:</span> <span class="telemetry-val" id="telemetry-sensor">{{ camara_activa.get_tipo_display|default:'Yoosee / USB' }}</span>
+                <span>TIPO SENSOR:</span> <span class="telemetry-val" id="telemetry-sensor">{{ camara_activa.get_tipo_display|default:'Navegador Web' }}</span>
             </div>
             <div class="telemetry-item">
-                <span>PROTOCOLO:</span> <span class="telemetry-val" id="telemetry-proto">{% if camara_activa.tipo == 'ip_yoosee' %}RTSP / ONVIF TCP{% else %}DirectShow / MSMF USB{% endif %}</span>
+                <span>PROTOCOLO:</span> <span class="telemetry-val" id="telemetry-proto">{% if camara_activa.tipo == 'ip_yoosee' %}RTSP / ONVIF TCP{% elif camara_activa %}DirectShow / MSMF USB{% else %}HTML5 MediaStream / WebRTC{% endif %}</span>
             </div>
             <div class="telemetry-item">
                 <span>MOTOR IA:</span> <span class="telemetry-val">Deep Learning SFace + YuNet</span>
             </div>
             <div class="telemetry-item">
-                <span>ESTADO:</span> <span class="telemetry-val" style="color: #4ade80;">OPERATIVO</span>
+                <span>ESTADO:</span> <span class="telemetry-val" id="telemetry-status" style="color: #4ade80;">OPERATIVO</span>
             </div>
         </div>
     </div>
@@ -97,6 +115,14 @@ Monitoreo Biométrico en Tiempo Real
 <script>
 let audioHabilitado = true;
 let audioCtx = null;
+let clientStream = null;
+let clientDetectionRunning = false;
+let clientDetectionLoopTimer = null;
+let clientFrameBusy = false;
+let currentCameraNombre = "{{ camara_activa.nombre|default:'Cámara del Navegador' }}";
+
+const captureCanvas = document.createElement('canvas');
+const captureCtx = captureCanvas.getContext('2d');
 
 function initAudio() {
     if (!audioCtx) {
@@ -117,27 +143,474 @@ function toggleAudio() {
     }
 }
 
-function cambiarCamaraStream(camId) {
-    if (!camId) return;
-    const streamImg = document.getElementById('camera-stream');
-    streamImg.src = "{% url 'video_feed' %}?cam_id=" + camId + "&t=" + Date.now();
-    
-    const sel = document.getElementById('selector-camara-hud');
-    const selectedText = sel.options[sel.selectedIndex]?.text || '';
-    const badgeName = document.getElementById('hud-cam-name');
-    if (badgeName) {
-        badgeName.innerText = selectedText.split('(')[0].trim();
+function reproducirTono(tipo) {
+    if (!audioHabilitado) return;
+    initAudio();
+    if (!audioCtx) return;
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+        if (tipo === 'PERMITIDO') {
+            // Chime agradable doble tono ascendente (880Hz -> 1320Hz)
+            osc.frequency.setValueAtTime(880, now);
+            osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+            osc.start(now);
+            osc.stop(now + 0.25);
+        } else {
+            // Tono de alerta táctico grave
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(240, now);
+            osc.frequency.setValueAtTime(180, now + 0.15);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+            osc.start(now);
+            osc.stop(now + 0.35);
+        }
+    } catch(e) {
+        console.warn('Audio tone error:', e);
     }
 }
 
-// Auto-refresh del listado de detecciones cada 3 segundos
-setInterval(() => {
-    fetch('/accesos/ajax/?periodo=hoy')
-    .then(r => r.json())
-    .then(data => {
-        // Actualizar feed si está disponible
-    })
-    .catch(() => {});
-}, 3000);
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+/* ========================================================
+   LISTAR CÁMARAS DEL NAVEGADOR (Iriun, USB, Frontal, etc.)
+   ======================================================== */
+async function listarCamarasNavegador() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        const optgroup = document.getElementById('optgroup-browser');
+        const sel = document.getElementById('selector-camara-hud');
+        if (!optgroup || !sel) return;
+
+        if (videoDevices.length > 0) {
+            const currentVal = sel.value;
+            optgroup.innerHTML = videoDevices.map((d, idx) => {
+                const label = d.label || `Cámara Local #${idx + 1}`;
+                return `<option value="browser:${d.deviceId}">📹 ${label}</option>`;
+            }).join('');
+
+            // Mantener valor previo si existe
+            if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
+                sel.value = currentVal;
+            }
+        } else {
+            optgroup.innerHTML = '<option value="browser:default">📹 Cámara de este Navegador (Por Defecto)</option>';
+        }
+    } catch (e) {
+        console.warn('Error listando cámaras locales:', e);
+    }
+}
+
+/* ========================================================
+   CAMBIO DE CÁMARA (SERVIDOR VS NAVEGADOR)
+   ======================================================== */
+function cambiarModoCamara(valor) {
+    if (!valor) return;
+    localStorage.setItem('monitoreo_camara_modo', valor);
+
+    if (valor.startsWith('browser:')) {
+        const deviceId = valor.replace('browser:', '');
+        iniciarCamaraNavegador(deviceId === 'default' ? null : deviceId);
+    } else if (valor.startsWith('server:')) {
+        const camId = valor.replace('server:', '');
+        iniciarStreamServidor(camId);
+    }
+}
+
+function iniciarStreamServidor(camId) {
+    detenerCamaraNavegador();
+
+    const streamImg = document.getElementById('camera-stream');
+    const clientVideo = document.getElementById('client-video');
+    const overlay = document.getElementById('overlay-canvas');
+    const loader = document.getElementById('client-cam-loader');
+
+    if (clientVideo) clientVideo.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+    if (loader) loader.style.display = 'none';
+
+    if (streamImg) {
+        streamImg.style.display = 'block';
+        streamImg.src = "{% url 'video_feed' %}?cam_id=" + camId + "&t=" + Date.now();
+    }
+
+    const sel = document.getElementById('selector-camara-hud');
+    const selectedText = sel.options[sel.selectedIndex]?.text || 'Cámara Servidor';
+    currentCameraNombre = selectedText.split('(')[0].trim().replace(/^[📹💻📡\s]+/, '');
+
+    document.getElementById('hud-cam-name').innerText = currentCameraNombre;
+    document.getElementById('telemetry-sensor').innerText = 'Sensor Servidor / IP';
+    document.getElementById('telemetry-proto').innerText = 'RTSP / DirectShow TCP';
+    document.getElementById('telemetry-status').innerText = 'OPERATIVO';
+    document.getElementById('telemetry-status').style.color = '#4ade80';
+}
+
+function detenerCamaraNavegador() {
+    clientDetectionRunning = false;
+    if (clientDetectionLoopTimer) {
+        clearTimeout(clientDetectionLoopTimer);
+        clientDetectionLoopTimer = null;
+    }
+    if (clientStream) {
+        try {
+            clientStream.getTracks().forEach(t => t.stop());
+        } catch(e) {}
+        clientStream = null;
+    }
+}
+
+async function iniciarCamaraNavegador(deviceId) {
+    detenerCamaraNavegador();
+
+    const streamImg = document.getElementById('camera-stream');
+    const clientVideo = document.getElementById('client-video');
+    const overlay = document.getElementById('overlay-canvas');
+    const loader = document.getElementById('client-cam-loader');
+
+    if (streamImg) {
+        streamImg.style.display = 'none';
+        streamImg.src = 'about:blank';
+    }
+
+    if (loader) loader.style.display = 'flex';
+
+    try {
+        const constraints = {
+            video: deviceId ? { deviceId: { exact: deviceId } } : { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
+        };
+
+        clientStream = await navigator.mediaDevices.getUserMedia(constraints);
+        clientVideo.srcObject = clientStream;
+        await clientVideo.play();
+
+        clientVideo.style.display = 'block';
+        overlay.style.display = 'block';
+        if (loader) loader.style.display = 'none';
+
+        // Actualizar nombres amigables si recién se otorgó permiso
+        await listarCamarasNavegador();
+
+        const sel = document.getElementById('selector-camara-hud');
+        const selectedText = sel.options[sel.selectedIndex]?.text || 'Cámara del Navegador';
+        currentCameraNombre = selectedText.replace(/^[📹💻📡\s]+/, '').trim();
+
+        document.getElementById('hud-cam-name').innerText = currentCameraNombre;
+        document.getElementById('telemetry-sensor').innerText = `Navegador Web (${currentCameraNombre})`;
+        document.getElementById('telemetry-proto').innerText = 'HTML5 MediaStream / WebRTC';
+        document.getElementById('telemetry-status').innerText = 'OPERATIVO';
+        document.getElementById('telemetry-status').style.color = '#4ade80';
+
+        // Iniciar loop de inferencia facial Deep Learning
+        clientDetectionRunning = true;
+        procesarFrameCliente();
+
+    } catch (err) {
+        console.error('Error accediendo a la cámara local:', err);
+        if (loader) {
+            document.getElementById('client-cam-loader-txt').innerText = 'No se pudo acceder a la cámara seleccionada';
+        }
+        document.getElementById('telemetry-status').innerText = 'ERROR ACCESO';
+        document.getElementById('telemetry-status').style.color = '#ef4444';
+    }
+}
+
+/* ========================================================
+   PROCESAMIENTO DE FOTOGRAMAS CLIENTE (DEEP LEARNING)
+   ======================================================== */
+async function procesarFrameCliente() {
+    if (!clientDetectionRunning) return;
+
+    const clientVideo = document.getElementById('client-video');
+    if (!clientVideo || clientVideo.readyState < 2 || clientVideo.videoWidth === 0) {
+        clientDetectionLoopTimer = setTimeout(procesarFrameCliente, 200);
+        return;
+    }
+
+    if (!clientFrameBusy) {
+        clientFrameBusy = true;
+        try {
+            // Escalar a 640x480 para transmisión ligera y óptimo rendimiento Deep Learning
+            const targetW = 640;
+            const targetH = Math.round((clientVideo.videoHeight / clientVideo.videoWidth) * targetW) || 480;
+            captureCanvas.width = targetW;
+            captureCanvas.height = targetH;
+            captureCtx.drawImage(clientVideo, 0, 0, targetW, targetH);
+
+            const base64Data = captureCanvas.toDataURL('image/jpeg', 0.72);
+
+            const formData = new FormData();
+            formData.append('foto_base64', base64Data);
+            formData.append('camara_nombre', currentCameraNombre);
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken') || '';
+            const res = await fetch("{% url 'detectar_rostros' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                dibujarOverlaysCliente(data.rostros || [], targetW, targetH);
+            }
+        } catch(e) {
+            console.warn('Error en frame cliente:', e);
+        } finally {
+            clientFrameBusy = false;
+        }
+    }
+
+    if (clientDetectionRunning) {
+        clientDetectionLoopTimer = setTimeout(procesarFrameCliente, 320);
+    }
+}
+
+/* ========================================================
+   DIBUJO DE HUD TÁCTICO SOBRE EL VIDEO EN VIVO
+   ======================================================== */
+function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
+    const overlay = document.getElementById('overlay-canvas');
+    const clientVideo = document.getElementById('client-video');
+    if (!overlay || !clientVideo) return;
+
+    overlay.width = clientVideo.clientWidth;
+    overlay.height = clientVideo.clientHeight;
+    const ctx = overlay.getContext('2d');
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+    if (!rostros || rostros.length === 0) return;
+
+    const scaleX = overlay.width / sourceW;
+    const scaleY = overlay.height / sourceH;
+
+    rostros.forEach(r => {
+        const x = r.x * scaleX;
+        const y = r.y * scaleY;
+        const w = r.w * scaleX;
+        const h = r.h * scaleY;
+
+        let strokeColor = '#f59e0b'; // Ámbar
+        if (r.estado === 'PERMITIDO') strokeColor = '#10b981'; // Verde
+        else if (r.estado === 'DENEGADO') strokeColor = '#ef4444'; // Rojo
+
+        // 1. Marco del rostro con esquinas tácticas reforzadas
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+
+        const bracket = Math.min(18, w * 0.25, h * 0.25);
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        // Superior Izquierda
+        ctx.moveTo(x, y + bracket); ctx.lineTo(x, y); ctx.lineTo(x + bracket, y);
+        // Superior Derecha
+        ctx.moveTo(x + w - bracket, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + bracket);
+        // Inferior Izquierda
+        ctx.moveTo(x, y + h - bracket); ctx.lineTo(x, y + h); ctx.lineTo(x + bracket, y + h);
+        // Inferior Derecha
+        ctx.moveTo(x + w - bracket, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - bracket);
+        ctx.stroke();
+
+        // 2. Puntos biométricos (ojos, nariz, comisuras)
+        if (r.landmarks && r.landmarks.length > 0) {
+            ctx.fillStyle = strokeColor;
+            r.landmarks.forEach(pt => {
+                const px = pt[0] * scaleX;
+                const py = pt[1] * scaleY;
+                ctx.beginPath();
+                ctx.arc(px, py, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+
+        // 3. Badge táctico con nombre y coincidencia
+        const labelText = `${r.nombre} (${Math.round(r.coincidencia)}%)`;
+        ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
+        const textWidth = ctx.measureText(labelText).width;
+        const pillW = textWidth + 24;
+        const pillH = 26;
+        const pillX = Math.max(10, Math.min(x, overlay.width - pillW - 10));
+        const pillY = Math.max(pillH + 4, y - 8);
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(pillX, pillY - pillH, pillW, pillH, 6);
+        } else {
+            ctx.rect(pillX, pillY - pillH, pillW, pillH);
+        }
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(labelText, pillX + 12, pillY - 8);
+
+        // Si se generó un nuevo registro en la base de datos
+        if (r.nuevo_registro) {
+            reproducirTono(r.estado);
+            agregarDeteccionEnVivo(r);
+        }
+    });
+}
+
+function agregarDeteccionEnVivo(r) {
+    const list = document.getElementById('detections-list');
+    if (!list) return;
+
+    const noMsg = document.getElementById('no-detections-msg');
+    if (noMsg) noMsg.remove();
+
+    let itemClass = 'item-warning';
+    let badgeClass = 'badge-warning';
+    if (r.estado === 'PERMITIDO') {
+        itemClass = 'item-approved';
+        badgeClass = 'badge-success';
+    } else if (r.estado === 'DENEGADO') {
+        itemClass = 'item-denied';
+        badgeClass = 'badge-danger';
+    }
+
+    const item = document.createElement('div');
+    item.className = `detection-item ${itemClass}`;
+    item.innerHTML = `
+        <div class="det-avatar">
+            <img src="${r.avatar_url || '/static/img/no-face.jpg'}" alt="face">
+        </div>
+        <div class="det-info">
+            <h4>${r.nombre}</h4>
+            <span>${r.tipo} • ${r.hora}</span>
+            <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${currentCameraNombre}</small>
+        </div>
+        <div class="det-badge">
+            <span class="badge ${badgeClass}">
+                ${Math.round(r.coincidencia)}%
+            </span>
+        </div>
+    `;
+
+    list.insertBefore(item, list.firstChild);
+    while (list.children.length > 20) {
+        list.removeChild(list.lastChild);
+    }
+}
+
+/* ========================================================
+   FEED EN VIVO: POLLING DE DETECCIONES
+   ======================================================== */
+async function actualizarFeedDetecciones() {
+    try {
+        const res = await fetch("{% url 'ultimas_detecciones' %}");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.success && data.detecciones) {
+            renderizarListadoDetecciones(data.detecciones);
+        }
+    } catch(e) {}
+}
+
+function renderizarListadoDetecciones(items) {
+    const list = document.getElementById('detections-list');
+    if (!list) return;
+
+    if (!items || items.length === 0) {
+        if (!list.querySelector('.detection-item')) {
+            list.innerHTML = `
+                <div id="no-detections-msg" style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 40px;">
+                    📡 Esperando presencia de rostros frente a la cámara...
+                </div>
+            `;
+        }
+        return;
+    }
+
+    const html = items.map(acc => {
+        let itemClass = 'item-warning';
+        let badgeClass = 'badge-warning';
+        if (acc.resultado === 'PERMITIDO') {
+            itemClass = 'item-approved';
+            badgeClass = 'badge-success';
+        } else if (acc.resultado === 'DENEGADO') {
+            itemClass = 'item-denied';
+            badgeClass = 'badge-danger';
+        }
+
+        return `
+            <div class="detection-item ${itemClass}">
+                <div class="det-avatar">
+                    <img src="${acc.foto_url || '/static/img/no-face.jpg'}" alt="face">
+                </div>
+                <div class="det-info">
+                    <h4>${acc.nombre}</h4>
+                    <span>${acc.tipo} • ${acc.hora}</span>
+                    <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${acc.camara}</small>
+                </div>
+                <div class="det-badge">
+                    <span class="badge ${badgeClass}">
+                        ${acc.coincidencia}%
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    list.innerHTML = html;
+}
+
+// Polling cada 3 segundos para sincronizar detecciones del servidor
+setInterval(actualizarFeedDetecciones, 3000);
+
+/* ========================================================
+   INICIALIZACIÓN AL CARGAR LA PÁGINA
+   ======================================================== */
+document.addEventListener('DOMContentLoaded', async () => {
+    await listarCamarasNavegador();
+
+    const sel = document.getElementById('selector-camara-hud');
+    const savedMode = localStorage.getItem('monitoreo_camara_modo');
+
+    if (savedMode && Array.from(sel.options).some(o => o.value === savedMode)) {
+        sel.value = savedMode;
+        cambiarModoCamara(savedMode);
+    } else {
+        // Si no hay preferencia guardada, verificar el valor seleccionado
+        if (sel.value) {
+            cambiarModoCamara(sel.value);
+        } else {
+            // Por defecto, usar la primera opción disponible
+            const firstOpt = sel.options[0]?.value;
+            if (firstOpt) {
+                sel.value = firstOpt;
+                cambiarModoCamara(firstOpt);
+            }
+        }
+    }
+});
 </script>
 {% endblock %}

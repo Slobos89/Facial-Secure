@@ -280,12 +280,16 @@ def monitoreo(request):
     )
 
 
+_browser_cooldowns = {}
+_browser_cooldown_lock = threading.Lock()
+
 @csrf_exempt
 @login_required
 def detectar_rostros(request):
     """Endpoint para detección e inferencia Deep Learning sobre fotogramas base64."""
     if request.method == 'POST':
         foto_base64 = request.POST.get('foto_base64')
+        camara_nombre = request.POST.get('camara_nombre', 'Cámara del Navegador').strip() or 'Cámara del Navegador'
         if not foto_base64:
             return JsonResponse({'rostros': []})
 
@@ -298,6 +302,7 @@ def detectar_rostros(request):
             engine = DeepFaceEngine.get_instance()
             faces = engine.detect_faces(frame)
             matrix, personas_list = get_cached_embeddings()
+            ahora = time.time()
 
             resultados = []
 
@@ -308,7 +313,7 @@ def detectar_rostros(request):
                 x2 = min(frame.shape[1], fx + fw)
                 y2 = min(frame.shape[0], fy + fh)
 
-                nombre = 'Desconocido'
+                nombre = 'Sujeto Desconocido'
                 coincidencia = 0.0
                 estado = 'REVISION'
                 persona = None
@@ -334,23 +339,50 @@ def detectar_rostros(request):
                 except Exception as e:
                     print("Error en inferencia webcam:", e)
 
-                rostro_color = frame[y1:y2, x1:x2]
-                if rostro_color.size > 0:
-                    _, buffer = cv2.imencode('.jpg', rostro_color)
-                    enc_bytes = encrypt_bytes(buffer.tobytes())
+                # Cooldown de 5 segundos por sujeto para no duplicar registros en la BD
+                user_id = request.user.id if request.user.is_authenticated else 'anon'
+                registro_key = f"{persona.id if persona else 'desconocido'}_{user_id}"
+                nuevo_registro = False
+                with _browser_cooldown_lock:
+                    if registro_key not in _browser_cooldowns or (ahora - _browser_cooldowns[registro_key]) > 5.0:
+                        _browser_cooldowns[registro_key] = ahora
+                        nuevo_registro = True
 
-                    acceso = Acceso.objects.create(
-                        persona=persona,
-                        nombre_detectado=nombre,
-                        coincidencia=coincidencia,
-                        resultado=estado,
-                        camara='Camara Principal'
-                    )
-                    acceso.foto_validacion.save(
-                        f"{uuid.uuid4()}.jpg",
-                        ContentFile(enc_bytes),
-                        save=True
-                    )
+                avatar_url = f"/media/secure/{persona.foto.name}" if (persona and persona.foto) else "/static/img/no-face.jpg"
+
+                rostro_color = frame[y1:y2, x1:x2]
+                if nuevo_registro and rostro_color.size > 0:
+                    try:
+                        _, buffer = cv2.imencode('.jpg', rostro_color)
+                        enc_bytes = encrypt_bytes(buffer.tobytes())
+
+                        acceso = Acceso.objects.create(
+                            persona=persona,
+                            nombre_detectado=nombre,
+                            coincidencia=coincidencia,
+                            resultado=estado,
+                            camara=camara_nombre
+                        )
+                        foto_name = f"{uuid.uuid4()}.jpg"
+                        acceso.foto_validacion.save(
+                            foto_name,
+                            ContentFile(enc_bytes),
+                            save=True
+                        )
+                        avatar_url = f"/media/secure/{acceso.foto_validacion.name}"
+                    except Exception as e:
+                        print("Error guardando acceso desde navegador:", e)
+
+                # 5 puntos faciales para HUD táctico
+                landmarks = []
+                if len(face) >= 14:
+                    landmarks = [
+                        [int(face[4]), int(face[5])],
+                        [int(face[6]), int(face[7])],
+                        [int(face[8]), int(face[9])],
+                        [int(face[10]), int(face[11])],
+                        [int(face[12]), int(face[13])]
+                    ]
 
                 resultados.append({
                     'id': f'{fx}-{fy}-{fw}-{fh}',
@@ -358,12 +390,15 @@ def detectar_rostros(request):
                     'y': int(fy),
                     'w': int(fw),
                     'h': int(fh),
+                    'landmarks': landmarks,
                     'estado': estado,
-                    'coincidencia': coincidencia,
+                    'coincidencia': float(round(coincidencia, 1)),
                     'nombre': nombre,
                     'tipo': persona.get_tipo_persona_display() if persona else 'Desconocido',
                     'rut': persona.rut if persona else '---',
-                    'hora': time.strftime('%H:%M:%S')
+                    'hora': time.strftime('%H:%M:%S'),
+                    'avatar_url': avatar_url,
+                    'nuevo_registro': nuevo_registro
                 })
 
             return JsonResponse({'rostros': resultados})
@@ -371,6 +406,32 @@ def detectar_rostros(request):
             return JsonResponse({'rostros': [], 'error': str(e)})
 
     return JsonResponse({'rostros': []})
+
+
+@login_required
+def ultimas_detecciones_ajax(request):
+    """Retorna las últimas 15 detecciones en formato JSON para actualizar el panel lateral en vivo."""
+    accesos = Acceso.objects.select_related('persona').order_by('-fecha_hora')[:15]
+    items = []
+    for acc in accesos:
+        if acc.foto_validacion:
+            foto_url = f"/media/secure/{acc.foto_validacion.name}"
+        elif acc.persona and acc.persona.foto:
+            foto_url = f"/media/secure/{acc.persona.foto.name}"
+        else:
+            foto_url = "/static/img/no-face.jpg"
+
+        items.append({
+            'id': acc.id,
+            'nombre': f"{acc.persona.nombre} {acc.persona.apellido}" if acc.persona else (acc.nombre_detectado or "Sujeto Desconocido"),
+            'tipo': acc.persona.get_tipo_persona_display() if acc.persona else "Externo",
+            'hora': acc.fecha_hora.strftime('%H:%M:%S') if acc.fecha_hora else "",
+            'camara': acc.camara or "Cámara",
+            'resultado': acc.resultado,
+            'coincidencia': round(acc.coincidencia, 0) if acc.coincidencia else 0,
+            'foto_url': foto_url
+        })
+    return JsonResponse({'success': True, 'detecciones': items})
 
 
 @login_required
