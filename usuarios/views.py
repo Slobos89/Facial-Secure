@@ -1,5 +1,6 @@
 import tempfile
 import os
+import time
 import base64
 import json
 import uuid
@@ -657,87 +658,93 @@ def reenrolar_rostro(request, persona_id):
 
     contador = 0
 
+    primer_rostro_bytes = None
+
     for foto_data in capturas:
-
         try:
-
-            format, imgstr = foto_data.split(
-                ';base64,'
-            )
-
-            image_data = base64.b64decode(
-                imgstr
-            )
-
-            image_pil = Image.open(
-                BytesIO(image_data)
-            )
-
-            rostro = detectar_y_recortar_rostro(
-                image_pil
-            )
+            format, imgstr = foto_data.split(';base64,')
+            image_data = base64.b64decode(imgstr)
+            image_pil = Image.open(BytesIO(image_data))
+            rostro = detectar_y_recortar_rostro(image_pil)
 
             if rostro is None:
                 continue
 
             if rostro.mode == 'RGBA':
-
-                rostro = rostro.convert(
-                    'RGB'
-                )
+                rostro = rostro.convert('RGB')
 
             rostro_io = BytesIO()
+            rostro.save(rostro_io, format='JPEG')
+            raw_bytes = rostro_io.getvalue()
 
-            rostro.save(
-                rostro_io,
-                format='JPEG'
-            )
+            if primer_rostro_bytes is None:
+                primer_rostro_bytes = raw_bytes
 
-            rostro_db = RostroCapturado(
-                persona=persona
-            )
-
+            rostro_db = RostroCapturado(persona=persona)
             rostro_db.imagen.save(
-
-                f'{persona.rut}_reenrolado_{contador}.jpg',
-
-                ContentFile(
-                    rostro_io.getvalue()
-                ),
-
+                f'{persona.rut}_temp_{contador}_{uuid.uuid4().hex[:4]}.jpg',
+                ContentFile(raw_bytes),
                 save=True
-
             )
-
             contador += 1
-
         except Exception as e:
+            print('ERROR REENROLAMIENTO:', e)
 
-            print(
-                'ERROR REENROLAMIENTO:',
-                e
-            )
+    if contador > 0:
+        if primer_rostro_bytes:
+            from usuarios.utils.security import encrypt_bytes
+            if persona.foto and hasattr(persona.foto, 'path') and os.path.exists(persona.foto.path):
+                try:
+                    os.remove(persona.foto.path)
+                except Exception:
+                    pass
+            filename = f"perfil_{persona.id}_{uuid.uuid4().hex[:6]}.jpg"
+            persona.foto.save(filename, ContentFile(encrypt_bytes(primer_rostro_bytes)), save=True)
+            persona.foto_rostro.save(filename, ContentFile(encrypt_bytes(primer_rostro_bytes)), save=True)
 
-    # Opcional
+        persona.biometria_facial = True
+        persona.save()
 
-    try:
+        try:
+            entrenar_modelo()
+        except Exception as e:
+            print('ERROR ENTRENANDO:', e)
 
-        entrenar_modelo()
+        persona.refresh_from_db()
+        foto_url = f"/media/secure/{persona.foto.name}" if persona.foto else ""
 
-    except Exception as e:
+        return JsonResponse({
+            'success': True,
+            'capturas': contador,
+            'foto_url': foto_url
+        })
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'No se pudo procesar ningún fotograma facial de la cámara IP.'
+        })
 
-        print(
-            'ERROR ENTRENANDO:',
-            e
-        )
 
-    return JsonResponse({
+@login_required
+def capturar_frame_ip(request):
+    """Obtiene el último frame capturado de la cámara IP Yoosee en tiempo real."""
+    import cv2
+    from monitoreo.views import get_shared_ip_camera
+    cam = get_shared_ip_camera()
+    
+    ret, frame = False, None
+    for _ in range(50):
+        ret, frame = cam.get_latest_frame(max_age_seconds=4.0)
+        if ret and frame is not None:
+            break
+        time.sleep(0.1)
 
-        'success': True,
-
-        'capturas': contador
-
-    })
+    if not ret or frame is None:
+        return JsonResponse({'success': False, 'error': 'No se pudo obtener imagen de la cámara IP'})
+    
+    _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    b64 = 'data:image/jpeg;base64,' + base64.b64encode(jpeg.tobytes()).decode('utf-8')
+    return JsonResponse({'success': True, 'image': b64})
 
 @csrf_exempt
 @login_required

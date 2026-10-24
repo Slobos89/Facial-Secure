@@ -1,6 +1,14 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block title %}
+Editar Usuario - {{ persona.nombre }} {{ persona.apellido }} | facIAL Secure
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/editar_usuario.css' %}?v=1.0">
+{% endblock %}
+
 {% block content %}
 
 <div class="edit-container">
@@ -136,14 +144,15 @@
 
                     </div>
 
-                        {% if persona.foto %}
-                        <div class="edit-face-preview">
-                            <img
-                                src="/media/secure/{{ persona.foto.name }}"
-                                alt="Rostro"
-                            >
+                        <div class="edit-face-preview" id="edit-face-preview-box">
+                            {% if persona.foto %}
+                                <img id="user-thumbnail" src="/media/secure/{{ persona.foto.name }}?v={% now 'U' %}" alt="Rostro">
+                            {% elif primer_rostro and primer_rostro.imagen %}
+                                <img id="user-thumbnail" src="/media/secure/{{ primer_rostro.imagen.name }}?v={% now 'U' %}" alt="Rostro">
+                            {% else %}
+                                <img id="user-thumbnail" src="{% static 'img/no-face.jpg' %}" alt="Sin Rostro">
+                            {% endif %}
                         </div>
-                        {% endif %}
 
                 </section>
 
@@ -152,45 +161,46 @@
             <section class="panel">
 
                 <div class="panel-header">
-
                     <h3 class="panel-title">
-                        Enrolamiento Biométrico
+                        Enrolamiento Biométrico Facial (Cámara Principal IP)
                     </h3>
-
                 </div>
 
-                <div class="camera-container">
+                <div class="camera-container" id="camera-box">
+                    <div id="camera-placeholder" class="camera-placeholder">
+                        <div class="camera-icon">📷</div>
+                        <span style="font-weight: 700; font-size: 15px; color: #0f172a;">Cámara Principal IP Yoosee</span>
+                        <small style="color: #64748b; font-size: 12px;">IP: 192.168.100.34 • Protocolo RTSP / ONVIF</small>
+                        <button type="button" class="btn btn-primary" style="margin-top: 10px;" onclick="iniciarCamaraIP()">
+                            ▶ Iniciar Transmisión
+                        </button>
+                    </div>
 
-                    <video
-                        id="video"
-                        autoplay
-                        playsinline
-                    ></video>
+                    <img id="camera-stream" src="" alt="Transmisión Cámara IP" style="display: none; width: 100%; height: 100%; object-fit: cover;">
 
-                    <canvas
-                        id="canvas"
-                    ></canvas>
-
+                    <div id="camera-live-badge" class="camera-live-badge" style="display: none;">
+                        <span class="pulse-dot"></span> IP 192.168.100.34 EN VIVO
+                    </div>
                 </div>
 
                 <div class="edit-bio-actions">
-
                     <button
                         type="button"
                         class="btn btn-primary"
-                        onclick="iniciarCamara()"
+                        id="btn-toggle-camara"
+                        onclick="toggleCamaraIP()"
                     >
-                        Iniciar Cámara
+                        📷 Conectar Cámara IP
                     </button>
 
                     <button
                         type="button"
                         class="btn btn-success"
                         id="capturar-btn"
+                        disabled
                     >
-                        Reenrolar Rostro
+                        ⚡ Iniciar Reenrolamiento IA
                     </button>
-
                 </div>
 
                 <input
@@ -200,50 +210,37 @@
                 >
 
                 <div class="edit-bio-progress">
-
                     <div class="progress-bar">
-
                         <div
                             id="progress-fill"
                             class="progress-fill"
                         ></div>
-
                     </div>
 
                     <p id="capture-status">
-
-                        Esperando reenrolamiento...
-
+                        Conecta la cámara IP para iniciar el reenrolamiento facial...
                     </p>
-
                 </div>
 
                 <hr class="edit-bio-divider">
 
                 <div class="edit-fingerprint-card">
-
                     <div class="edit-fingerprint-icon">
-
                         🖐️
-
                     </div>
 
                     <div class="edit-fingerprint-info">
-
                         <h4>
                             Huella Dactilar (SecuGen)
                         </h4>
 
                         <p id="fingerprint-status">
-
                             {% if huella %}
                                 <span style="color: #22c55e; font-weight: 500;">✓ Huella registrada</span> (Formato: {{ huella.formato }}{% if huella.calidad %}, Calidad: {{ huella.calidad }}%{% endif %})
                             {% else %}
                                 <span style="color: #eab308; font-weight: 500;">⚠️ Pendiente de registro</span>
                             {% endif %}
-
                         </p>
-
                     </div>
 
                     <button
@@ -251,22 +248,17 @@
                         class="btn btn-primary"
                         id="registrar-huella"
                     >
-
                         {% if huella %}
                             🖐️ Re-enrolar Huella
                         {% else %}
                             🖐️ Registrar Huella
                         {% endif %}
-
                     </button>
-
-
                 </div>
 
             </section>
 
             <div class="actions">
-
                 <button
                     type="submit"
                     class="btn-save"
@@ -280,7 +272,6 @@
                 >
                     Cancelar
                 </a>
-
             </div>
 
         </form>
@@ -291,336 +282,202 @@
 
 <script src="{% static 'js/secugen.js' %}"></script>
 <script>
+const cameraBox = document.getElementById('camera-box');
+const cameraPlaceholder = document.getElementById('camera-placeholder');
+const cameraStream = document.getElementById('camera-stream');
+const cameraBadge = document.getElementById('camera-live-badge');
+const btnToggleCamara = document.getElementById('btn-toggle-camara');
+const capturarBtn = document.getElementById('capturar-btn');
+const progressFill = document.getElementById('progress-fill');
+const captureStatus = document.getElementById('capture-status');
+const capturasInput = document.getElementById('capturas');
 
-
-const video = document.getElementById('video');
-
-const canvas = document.getElementById('canvas');
-
-const progressFill =
-    document.getElementById(
-        'progress-fill'
-    );
-
-const captureStatus =
-    document.getElementById(
-        'capture-status'
-    );
-
-const capturarBtn =
-    document.getElementById(
-        'capturar-btn'
-    );
-
-const capturasInput =
-    document.getElementById(
-        'capturas'
-    );
-
+let camaraActiva = false;
 let capturas = [];
-
 let capturando = false;
+const streamUrl = "{% url 'video_feed' %}";
+const capturarFrameUrl = "{% url 'capturar_frame_ip' %}";
+const reenrolarUrl = "/usuarios/reenrolar-rostro/{{ persona.id }}/";
 
-const reenrolarUrl =
-    "/usuarios/reenrolar-rostro/{{ persona.id }}/";
-
-
-/* =========================
-   INICIAR CÁMARA
-========================= */
-
-async function iniciarCamara(){
-
-    try{
-
-        const stream =
-            await navigator
-                .mediaDevices
-                .getUserMedia({
-
-                    video:true,
-
-                    audio:false
-
-                });
-
-        video.srcObject = stream;
-
-    }catch(error){
-
-        alert(
-            'No se pudo acceder a la cámara'
-        );
-
-        console.error(error);
-
+function iniciarCamaraIP() {
+    if (!camaraActiva) {
+        toggleCamaraIP();
     }
-
 }
 
+function toggleCamaraIP() {
+    camaraActiva = !camaraActiva;
+    if (camaraActiva) {
+        cameraStream.src = streamUrl + '?t=' + Date.now();
+        cameraStream.style.display = 'block';
+        cameraPlaceholder.style.display = 'none';
+        cameraBadge.style.display = 'flex';
+        btnToggleCamara.textContent = '⏹ Detener Cámara';
+        btnToggleCamara.style.background = '#64748b';
+        capturarBtn.disabled = false;
+        captureStatus.innerText = 'Cámara IP conectada. Haz clic en "Iniciar Reenrolamiento IA"';
+    } else {
+        cameraStream.src = '';
+        cameraStream.style.display = 'none';
+        cameraPlaceholder.style.display = 'flex';
+        cameraBadge.style.display = 'none';
+        btnToggleCamara.textContent = '📷 Conectar Cámara IP';
+        btnToggleCamara.style.background = '#2563eb';
+        capturarBtn.disabled = true;
+        captureStatus.innerText = 'Cámara detenida. Conecta la cámara para reenrolar.';
+    }
+}
 
 /* =========================
-   BOTON REENROLAR
+   REENROLAMIENTO CON CÁMARA IP
 ========================= */
+capturarBtn.addEventListener('click', async () => {
+    if (capturando || !camaraActiva) return;
 
-capturarBtn.addEventListener(
+    capturas = [];
+    capturando = true;
+    capturarBtn.disabled = true;
+    btnToggleCamara.disabled = true;
+    captureStatus.innerText = 'Iniciando captura de fotogramas desde la Cámara IP...';
+    progressFill.style.width = '0%';
+    progressFill.style.background = 'linear-gradient(90deg, #3b82f6, #10b981)';
 
-    'click',
+    let contador = 0;
+    const totalCapturas = 10;
 
-    () => {
+    const intervalo = setInterval(async () => {
+        try {
+            const resp = await fetch(capturarFrameUrl);
+            const data = await resp.json();
+            if (data.success && data.image) {
+                capturas.push(data.image);
+                contador++;
+                const porcentaje = (contador / totalCapturas) * 100;
+                progressFill.style.width = porcentaje + '%';
+                captureStatus.innerText = `Capturando rostro: ${contador}/${totalCapturas} fotogramas procesados`;
 
-        if(capturando){
+                if (contador >= totalCapturas) {
+                    clearInterval(intervalo);
+                    captureStatus.innerText = 'Procesando biometría y reentrenando modelo de IA...';
+                    capturasInput.value = JSON.stringify(capturas);
+                    await enviarReenrolamiento();
+                }
+            }
+        } catch (err) {
+            console.error('Error al capturar frame IP:', err);
+        }
+    }, 400);
+});
+
+async function enviarReenrolamiento() {
+    try {
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const resp = await fetch(reenrolarUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrf,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'capturas=' + encodeURIComponent(JSON.stringify(capturas))
+        });
+        const data = await resp.json();
+        if (data.success) {
+            captureStatus.innerHTML = '✅ <b style="color:#16a34a;">¡Rostro reenrolado y modelo de IA actualizado con éxito!</b>';
+            progressFill.style.background = '#16a34a';
+
+            if (data.foto_url) {
+                const thumb = document.getElementById('user-thumbnail');
+                if (thumb) {
+                    thumb.src = data.foto_url + '?t=' + Date.now();
+                }
+            }
+
+            setTimeout(() => {
+                location.reload();
+            }, 1200);
+        } else {
+            alert('Error en reenrolamiento: ' + (data.error || 'No se detectó rostro nítido en las tomas'));
+            capturando = false;
+            capturarBtn.disabled = false;
+            btnToggleCamara.disabled = false;
+            captureStatus.innerText = 'Intenta nuevamente posicionando el rostro frente a la cámara IP.';
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al comunicarse con el servidor');
+        capturando = false;
+        capturarBtn.disabled = false;
+        btnToggleCamara.disabled = false;
+    }
+}
+
+/* =========================
+   SECUGEN HUELLA DACTILAR
+========================= */
+const btnHuella = document.getElementById('registrar-huella');
+const fingerprintStatus = document.getElementById('fingerprint-status');
+
+btnHuella.addEventListener('click', async () => {
+    btnHuella.disabled = true;
+    const textoOriginal = btnHuella.innerHTML;
+    btnHuella.innerHTML = '🖐️ Coloque dedo en sensor SecuGen...';
+
+    if (fingerprintStatus) {
+        fingerprintStatus.innerHTML = '<span style="color: #eab308;">Escaneando con SecuGen Hamster Plus...</span>';
+    }
+
+    try {
+        const captureResult = await secugenCapture({
+            timeout: 10000,
+            quality: 40,
+            templateFormat: 'ANSI378'
+        });
+
+        if (!captureResult.success) {
+            alert(captureResult.error || 'Error al capturar huella con SecuGen');
+            if (fingerprintStatus) {
+                fingerprintStatus.innerHTML = `<span style="color: #ef4444;">${captureResult.error || 'Error de captura'}</span>`;
+            }
+            btnHuella.disabled = false;
+            btnHuella.innerHTML = textoOriginal;
             return;
         }
 
-        capturas = [];
-
-        capturando = true;
-
-        iniciarCapturaAutomatica();
-
-    }
-
-);
-
-
-/* =========================
-   CAPTURA AUTOMÁTICA
-========================= */
-
-function iniciarCapturaAutomatica(){
-
-    let contador = 0;
-
-    const intervalo = setInterval(() => {
-
-        const context =
-            canvas.getContext('2d');
-
-        canvas.width = 640;
-
-        canvas.height = 480;
-
-        context.drawImage(
-
-            video,
-
-            0,
-
-            0,
-
-            canvas.width,
-
-            canvas.height
-
+        const response = await fetch(
+            "/usuarios/registrar-huella/{{ persona.id }}/",
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    template: captureResult.template,
+                    calidad: captureResult.quality,
+                    formato: 'ANSI378',
+                    imagen_muestra: captureResult.bmpBase64
+                })
+            }
         );
 
-        const imagen =
-            canvas.toDataURL(
-                'image/jpeg'
-            );
+        const data = await response.json();
 
-        capturas.push(
-            imagen
-        );
-
-        contador++;
-
-        const porcentaje =
-            (contador / 10) * 100;
-
-        progressFill.style.width =
-            porcentaje + '%';
-
-        captureStatus.innerText =
-            `Captura ${contador}/10`;
-
-        if(contador >= 10){
-
-            clearInterval(
-                intervalo
-            );
-
-            capturando = false;
-
-            capturasInput.value =
-
-                JSON.stringify(
-                    capturas
-                );
-
-            enviarReenrolamiento();
-
-        }
-
-    }, 2000);
-
-}
-
-
-/* =========================
-   REENROLAR
-========================= */
-
-function enviarReenrolamiento(){
-
-    fetch(
-
-        reenrolarUrl,
-
-        {
-
-            method:'POST',
-
-            headers:{
-
-                'X-CSRFToken':
-
-                    document
-                        .querySelector(
-                            '[name=csrfmiddlewaretoken]'
-                        )
-                        .value,
-
-                'Content-Type':
-
-                    'application/x-www-form-urlencoded'
-
-            },
-
-            body:
-
-                'capturas=' +
-
-                encodeURIComponent(
-
-                    JSON.stringify(
-                        capturas
-                    )
-
-                )
-
-        }
-
-    )
-
-    .then(response => response.json())
-
-    .then(data => {
-
-        if(data.success){
-
-            alert(
-                'Rostro reenrolado correctamente'
-            );
-
+        if (data.success) {
+            alert(`Huella dactilar registrada exitosamente (Calidad: ${data.calidad || captureResult.quality}%)`);
             location.reload();
-
-        }else{
-
-            alert(
-                'Error reenrolando rostro'
-            );
-
-        }
-
-    })
-
-    .catch(error => {
-
-        console.error(error);
-
-        alert(
-            'Error procesando solicitud'
-        );
-
-    });
-
-}
-
-const btnHuella =
-    document.getElementById(
-        'registrar-huella'
-    );
-
-const fingerprintStatus =
-    document.getElementById(
-        'fingerprint-status'
-    );
-
-btnHuella.addEventListener(
-    'click',
-    async () => {
-
-        btnHuella.disabled = true;
-        const textoOriginal = btnHuella.innerHTML;
-        btnHuella.innerHTML = '🖐️ Coloque dedo en sensor SecuGen...';
-
-        if(fingerprintStatus){
-            fingerprintStatus.innerHTML = '<span style="color: #eab308;">Escaneando con SecuGen Hamster Plus...</span>';
-        }
-
-        try {
-            const captureResult = await secugenCapture({
-                timeout: 10000,
-                quality: 40,
-                templateFormat: 'ANSI378'
-            });
-
-            if(!captureResult.success){
-                alert(captureResult.error || 'Error al capturar huella con SecuGen');
-                if(fingerprintStatus){
-                    fingerprintStatus.innerHTML = `<span style="color: #ef4444;">${captureResult.error || 'Error de captura'}</span>`;
-                }
-                btnHuella.disabled = false;
-                btnHuella.innerHTML = textoOriginal;
-                return;
-            }
-
-            const response = await fetch(
-                "/usuarios/registrar-huella/{{ persona.id }}/",
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken':
-                            document
-                                .querySelector(
-                                    '[name=csrfmiddlewaretoken]'
-                                )
-                                .value
-                    },
-                    body: JSON.stringify({
-                        template: captureResult.template,
-                        calidad: captureResult.quality,
-                        formato: 'ANSI378',
-                        imagen_muestra: captureResult.bmpBase64
-                    })
-                }
-            );
-
-            const data = await response.json();
-
-            if(data.success){
-                alert(`Huella dactilar registrada exitosamente (Calidad: ${data.calidad || captureResult.quality}%)`);
-                location.reload();
-            } else {
-                alert(data.error || 'Error al guardar huella en el servidor');
-                btnHuella.disabled = false;
-                btnHuella.innerHTML = textoOriginal;
-            }
-
-        } catch(err){
-            console.error("Error SecuGen:", err);
-            alert('Error de comunicación con el servicio SecuGen o con el servidor.');
+        } else {
+            alert(data.error || 'Error al guardar huella en el servidor');
             btnHuella.disabled = false;
             btnHuella.innerHTML = textoOriginal;
         }
+
+    } catch (err) {
+        console.error("Error SecuGen:", err);
+        alert('Error de comunicación con el servicio SecuGen o con el servidor.');
+        btnHuella.disabled = false;
+        btnHuella.innerHTML = textoOriginal;
     }
-);
-
-
+});
 </script>
-
 
 {% endblock %}

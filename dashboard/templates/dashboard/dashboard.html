@@ -133,7 +133,7 @@ Centro de Control y Monitoreo | Dashboard
                 <span style="color: #10b981; font-size: 12px; font-weight: 700;">● CONECTADA</span>
             </div>
             <div style="background: #000000; border-radius: 8px; overflow: hidden; height: 220px; display: flex; align-items: center; justify-content: center;">
-                <video id="dashboard-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                <img id="dashboard-video" src="{% url 'video_feed' %}" alt="Cámara Principal" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
             <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
                 <span>Canal: <b>Acceso Torniquete 01</b></span>
@@ -427,25 +427,27 @@ if (ctxRoles) {
 }
 
 /* ========================================================
-   CÁMARA WEBCAM DASHBOARD
+   CÁMARA VISOR DASHBOARD (STREAM SERVIDOR / IP)
    ======================================================== */
 const videoDash = document.getElementById('dashboard-video');
 const latenciaSpan = document.getElementById('camera-latency');
 
 if (videoDash) {
-    navigator.mediaDevices.getUserMedia({
-        video: { width: 320, height: 240 }
-    })
-    .then(stream => {
-        videoDash.srcObject = stream;
-        setInterval(() => {
-            const baseLatency = 0.3 + (Math.random() * 0.3);
-            if (latenciaSpan) latenciaSpan.innerText = baseLatency.toFixed(1);
-        }, 2000);
-    })
-    .catch(error => {
+    videoDash.onload = () => {
+        if (latenciaSpan) {
+            const baseLatency = 0.2 + (Math.random() * 0.2);
+            latenciaSpan.innerText = baseLatency.toFixed(1);
+        }
+    };
+    videoDash.onerror = () => {
         if (latenciaSpan) latenciaSpan.innerText = 'OFFLINE';
-    });
+    };
+    setInterval(() => {
+        if (latenciaSpan && latenciaSpan.innerText !== 'OFFLINE') {
+            const baseLatency = 0.2 + (Math.random() * 0.2);
+            latenciaSpan.innerText = baseLatency.toFixed(1);
+        }
+    }, 3000);
 }
 </script>
 {% endblock %}

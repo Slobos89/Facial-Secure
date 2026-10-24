@@ -1,4 +1,13 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+Registrar Gendarme | facIAL Secure
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/registrar_gendarme.css' %}?v=1.0">
+{% endblock %}
 
 {% block content %}
 <div class="gendarme-wrapper">

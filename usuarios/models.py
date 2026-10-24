@@ -58,6 +58,12 @@ class Persona(models.Model):
         help_text="Indica si el modelo de IA ya fue entrenado con este rostro"
     )
 
+    embedding_facial = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Vector matemático de características faciales Deep Learning (128-d)"
+    )
+
     fecha_registro = models.DateTimeField(
         auto_now_add=True
     )
@@ -272,8 +278,44 @@ class HuellaDactilar(models.Model):
     )
 
     def __str__(self):
+        return f"Huella de {self.persona}"
 
-        return (
-            f'Huella ({self.formato}) - '
-            f'{self.persona.nombre}'
-        )
+
+class ConfiguracionCamara(models.Model):
+    TIPOS = [
+        ('ip_yoosee', 'Cámara IP (ONVIF / RTSP)'),
+        ('webcam', 'Webcam Local (USB / Integrada)'),
+    ]
+
+    nombre = models.CharField(max_length=120, default="Cámara Principal (IP Yoosee)")
+    tipo = models.CharField(max_length=20, choices=TIPOS, default='ip_yoosee')
+    ip = models.CharField(max_length=50, default='192.168.100.34', blank=True, null=True)
+    puerto_onvif = models.IntegerField(default=5000)
+    puerto_rtsp = models.IntegerField(default=554)
+    usuario = models.CharField(max_length=50, default='admin', blank=True)
+    password = models.CharField(max_length=100, default='admin12345', blank=True)
+    stream = models.CharField(max_length=50, default='onvif2', blank=True)
+    webcam_index = models.IntegerField(default=0)
+    activa = models.BooleanField(default=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de Cámara"
+        verbose_name_plural = "Configuraciones de Cámara"
+
+    def __str__(self):
+        if self.tipo == 'ip_yoosee':
+            return f"{self.nombre} [{self.ip}]"
+        return f"{self.nombre} [Dispositivo #{self.webcam_index}]"
+
+    @classmethod
+    def get_activa(cls):
+        cam = cls.objects.filter(activa=True).order_by('-fecha_actualizacion').first()
+        if not cam:
+            cam = cls.objects.create(
+                nombre="Webcam Local #0",
+                tipo="webcam",
+                webcam_index=0,
+                activa=True
+            )
+        return cam

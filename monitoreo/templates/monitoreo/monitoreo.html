@@ -10,38 +10,39 @@ Monitoreo Biométrico en Tiempo Real
 {% endblock %}
 
 {% block content %}
-
 <div class="monitoreo-grid">
     <!-- PANEL DE CÁMARA & HUD TÁCTICO -->
     <div class="hud-panel">
         <div class="hud-header">
             <div class="hud-title">
-                <span>🛡️ Control de Acceso Perimetral</span>
+                <span>🛡️ Control de Acceso Perimetral • Cámara Principal IP</span>
             </div>
             <div class="hud-controls">
                 <button type="button" id="btn-audio" class="btn-audio-toggle" onclick="toggleAudio()">
                     🔊 Sonido: ON
                 </button>
                 <div class="hud-badge-live">
-                    <span class="pulse-dot"></span> EN VIVO
+                    <span class="pulse-dot"></span> IP 192.168.100.34 EN VIVO
                 </div>
             </div>
         </div>
 
-        <div class="camera-viewport">
-            <video id="video" autoplay playsinline muted></video>
-            <canvas id="canvas-monitor"></canvas>
+        <div class="camera-viewport" style="position: relative; background: #000; border-radius: 12px; overflow: hidden; height: 480px; display: flex; align-items: center; justify-content: center;">
+            <img id="camera-stream" 
+                 src="{% url 'video_feed' %}" 
+                 alt="Transmisión en Vivo Cámara IP" 
+                 style="width: 100%; height: 100%; object-fit: cover;">
         </div>
 
         <div class="hud-telemetry-bar">
             <div class="telemetry-item">
-                <span>FPS:</span> <span id="tel-fps" class="telemetry-val">30</span>
+                <span>SENSOR:</span> <span class="telemetry-val">Yoosee JTZ-160BW (1080p)</span>
             </div>
             <div class="telemetry-item">
-                <span>LATENCIA IA:</span> <span id="tel-latencia" class="telemetry-val">-- ms</span>
+                <span>PROTOCOLO:</span> <span class="telemetry-val">RTSP / ONVIF TCP</span>
             </div>
             <div class="telemetry-item">
-                <span>MOTOR:</span> <span class="telemetry-val">OpenCV LBPH Edge</span>
+                <span>MOTOR IA:</span> <span class="telemetry-val">OpenCV LBPH Edge</span>
             </div>
             <div class="telemetry-item">
                 <span>CANAL:</span> <span class="telemetry-val">CAM-01 Principal</span>
@@ -53,20 +54,34 @@ Monitoreo Biométrico en Tiempo Real
     <div class="detections-panel">
         <div class="detections-header">
             <h3>Últimas Detecciones</h3>
-            <span id="detection-count" style="font-size: 11px; font-weight: 600; color: #64748b;">0 Registros</span>
+            <span id="detection-count" style="font-size: 11px; font-weight: 600; color: #64748b;">Feed en Tiempo Real</span>
         </div>
         <div class="detections-list" id="detections-list">
+            {% for acc in accesos %}
+            <div class="detection-item {% if acc.resultado == 'PERMITIDO' %}item-approved{% elif acc.resultado == 'DENEGADO' %}item-denied{% else %}item-warning{% endif %}">
+                <div class="det-avatar">
+                    <img src="{% if acc.foto_validacion %}/media/secure/{{ acc.foto_validacion.name }}{% elif acc.persona and acc.persona.foto %}/media/secure/{{ acc.persona.foto.name }}{% else %}{% static 'img/no-face.jpg' %}{% endif %}" alt="face">
+                </div>
+                <div class="det-info">
+                    <h4>{% if acc.persona %}{{ acc.persona.nombre }} {{ acc.persona.apellido }}{% else %}{{ acc.nombre_detectado|default:'Sujeto Desconocido' }}{% endif %}</h4>
+                    <span>{% if acc.persona %}{{ acc.persona.get_tipo_persona_display }}{% else %}Externo{% endif %} • {{ acc.fecha_hora|date:'H:i:s' }}</span>
+                </div>
+                <div class="det-badge">
+                    <span class="badge {% if acc.resultado == 'PERMITIDO' %}badge-success{% elif acc.resultado == 'DENEGADO' %}badge-danger{% else %}badge-warning{% endif %}">
+                        {{ acc.coincidencia|floatformat:0 }}%
+                    </span>
+                </div>
+            </div>
+            {% empty %}
             <div id="no-detections-msg" style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 40px;">
                 📡 Esperando presencia de rostros frente a la cámara...
             </div>
+            {% endfor %}
         </div>
     </div>
 </div>
 
 <script>
-/* ========================================================
-   SISTEMA DE AUDIO BIOMÉTRICO (WEB AUDIO API SYNTHESIZER)
-   ======================================================== */
 let audioHabilitado = true;
 let audioCtx = null;
 
@@ -89,358 +104,14 @@ function toggleAudio() {
     }
 }
 
-function reproducirSonido(tipo) {
-    if (!audioHabilitado) return;
-    try {
-        initAudio();
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
-        const now = audioCtx.currentTime;
-
-        if (tipo === 'PERMITIDO') {
-            // Tono positivo doble (880Hz -> 1320Hz)
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, now);
-            osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
-            gain.gain.setValueAtTime(0.15, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-            osc.start(now);
-            osc.stop(now + 0.25);
-        } else if (tipo === 'DENEGADO') {
-            // Tono de alarma grave (320Hz -> 180Hz)
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(320, now);
-            osc.frequency.linearRampToValueAtTime(180, now + 0.35);
-            gain.gain.setValueAtTime(0.2, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-            osc.start(now);
-            osc.stop(now + 0.35);
-        } else {
-            // Notificación de revisión (550Hz suave)
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(550, now);
-            gain.gain.setValueAtTime(0.1, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
-            osc.start(now);
-            osc.stop(now + 0.18);
-        }
-    } catch (e) {
-        console.warn('Audio no inicializado:', e);
-    }
-}
-
-/* ========================================================
-   VARIABLES DE CÁMARA Y HUD
-   ======================================================== */
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas-monitor');
-const ctx = canvas.getContext('2d');
-const detectionsList = document.getElementById('detections-list');
-const noDetectionsMsg = document.getElementById('no-detections-msg');
-const telFps = document.getElementById('tel-fps');
-const telLatencia = document.getElementById('tel-latencia');
-
-const deteccionesRecientes = {};
-let activeFaces = [];
-let scanBeamY = 0;
-let scanDirection = 1;
-let frameCount = 0;
-let fpsTimer = performance.now();
-
-/* ========================================================
-   INICIAR CÁMARA WEB
-   ======================================================== */
-navigator.mediaDevices.getUserMedia({
-    video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: 'user'
-    }
-})
-.then(stream => {
-    video.srcObject = stream;
-})
-.catch(err => {
-    console.error('Error accediendo a cámara:', err);
-    alert('No se pudo acceder a la cámara web. Verifica los permisos del navegador.');
-});
-
-video.addEventListener('loadedmetadata', () => {
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    requestAnimationFrame(renderHUDLoop);
-    iniciarLoopReconocimiento();
-});
-
-/* ========================================================
-   LOOP DE DIBUJADO HUD (60 FPS FLUIDOS)
-   ======================================================== */
-function renderHUDLoop(nowTime) {
-    // Cálculo de FPS
-    frameCount++;
-    if (nowTime - fpsTimer >= 1000) {
-        telFps.textContent = frameCount;
-        frameCount = 0;
-        fpsTimer = nowTime;
-    }
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 1. Línea láser de escaneo táctico continuo
-    scanBeamY += scanDirection * 3;
-    if (scanBeamY > canvas.height) { scanBeamY = canvas.height; scanDirection = -1; }
-    if (scanBeamY < 0) { scanBeamY = 0; scanDirection = 1; }
-
-    const gradient = ctx.createLinearGradient(0, scanBeamY - 15, 0, scanBeamY + 15);
-    gradient.addColorStop(0, 'rgba(56, 189, 248, 0)');
-    gradient.addColorStop(0.5, 'rgba(56, 189, 248, 0.25)');
-    gradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, scanBeamY - 15, canvas.width, 30);
-
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, scanBeamY);
-    ctx.lineTo(canvas.width, scanBeamY);
-    ctx.stroke();
-
-    // 2. Retícula de esquinas de la cámara (HUD Corners)
-    drawCameraCorners();
-
-    // 3. Dibujar Bounding Boxes y Nombres de Rostros Detectados
-    const now = Date.now();
-    activeFaces = activeFaces.filter(face => (now - face.timestamp) < 1800);
-
-    activeFaces.forEach(face => {
-        const x = face.x;
-        const y = face.y;
-        const w = face.w;
-        const h = face.h;
-
-        let primaryColor = '#10B981'; // Verde Permitido
-        let statusText = 'AUTORIZADO';
-
-        if (face.estado === 'REVISION') {
-            primaryColor = '#F59E0B'; // Ámbar
-            statusText = 'EN REVISIÓN';
-        } else if (face.estado === 'DENEGADO') {
-            primaryColor = '#EF4444'; // Rojo
-            statusText = 'DENEGADO';
-        }
-
-        // Sombra de caja
-        ctx.fillStyle = `${primaryColor}18`;
-        ctx.fillRect(x, y, w, h);
-
-        // Esquinas tácticas (Corner Brackets)
-        ctx.strokeStyle = primaryColor;
-        ctx.lineWidth = 3;
-        const cornerSize = Math.min(w, h) * 0.25;
-
-        // Top-Left
-        ctx.beginPath();
-        ctx.moveTo(x, y + cornerSize); ctx.lineTo(x, y); ctx.lineTo(x + cornerSize, y);
-        ctx.stroke();
-
-        // Top-Right
-        ctx.beginPath();
-        ctx.moveTo(x + w - cornerSize, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + cornerSize);
-        ctx.stroke();
-
-        // Bottom-Left
-        ctx.beginPath();
-        ctx.moveTo(x, y + h - cornerSize); ctx.lineTo(x, y + h); ctx.lineTo(x + cornerSize, y + h);
-        ctx.stroke();
-
-        // Bottom-Right
-        ctx.beginPath();
-        ctx.moveTo(x + w - cornerSize, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - cornerSize);
-        ctx.stroke();
-
-        // Banner de Datos sobre la Cabeza
-        const bannerHeight = 24;
-        ctx.fillStyle = primaryColor;
-        ctx.fillRect(x, Math.max(0, y - bannerHeight), w, bannerHeight);
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 11px system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${face.nombre} (${face.coincidencia}%)`, x + 6, Math.max(16, y - 7));
-
-        // Subtítulo inferior con Rol / Estado
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-        ctx.fillRect(x, y + h, w, 20);
-
-        ctx.fillStyle = primaryColor;
-        ctx.font = 'bold 9px system-ui, sans-serif';
-        ctx.fillText(`[ ${face.tipo.toUpperCase()} ] • ${statusText}`, x + 6, y + h + 14);
-    });
-
-    requestAnimationFrame(renderHUDLoop);
-}
-
-function drawCameraCorners() {
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
-    ctx.lineWidth = 2;
-    const len = 20;
-    const pad = 12;
-
-    // Top-Left
-    ctx.beginPath();
-    ctx.moveTo(pad, pad + len); ctx.lineTo(pad, pad); ctx.lineTo(pad + len, pad);
-    ctx.stroke();
-
-    // Top-Right
-    ctx.beginPath();
-    ctx.moveTo(canvas.width - pad - len, pad); ctx.lineTo(canvas.width - pad, pad); ctx.lineTo(canvas.width - pad, pad + len);
-    ctx.stroke();
-
-    // Bottom-Left
-    ctx.beginPath();
-    ctx.moveTo(pad, canvas.height - pad - len); ctx.lineTo(pad, canvas.height - pad); ctx.lineTo(pad + len, canvas.height - pad);
-    ctx.stroke();
-
-    // Bottom-Right
-    ctx.beginPath();
-    ctx.moveTo(canvas.width - pad - len, canvas.height - pad); ctx.lineTo(canvas.width - pad, canvas.height - pad); ctx.lineTo(canvas.width - pad, canvas.height - pad - len);
-    ctx.stroke();
-}
-
-/* ========================================================
-   LOOP DE DETECCIÓN Y RECONOCIMIENTO CON DJANGO BACKEND
-   ======================================================== */
-let monitoreoActivo = true;
-
-async function iniciarLoopReconocimiento() {
-    while (monitoreoActivo) {
-        await procesarFrame();
-        await new Promise(r => setTimeout(r, 600)); // Escaneo optimizado a 600ms
-    }
-}
-
-async function procesarFrame() {
-    if (document.hidden || video.readyState < 2) return;
-
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = 640;
-    tempCanvas.height = 480;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(video, 0, 0, 640, 480);
-    const imagenBase64 = tempCanvas.toDataURL('image/jpeg', 0.85);
-
-    const startTime = performance.now();
-
-    try {
-        const response = await fetch('/monitoreo/detectar/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'foto_base64=' + encodeURIComponent(imagenBase64)
-        });
-
-        const data = await response.json();
-        const latency = Math.round(performance.now() - startTime);
-        telLatencia.textContent = `${latency} ms`;
-
-        if (data.rostros && data.rostros.length > 0) {
-            const now = Date.now();
-            activeFaces = data.rostros.map(r => ({
-                ...r,
-                timestamp: now
-            }));
-
-            data.rostros.forEach(rostro => {
-                const idKey = `${rostro.nombre}_${rostro.estado}`;
-                if (deteccionesRecientes[idKey] && (now - deteccionesRecientes[idKey]) < 8000) {
-                    return; // Evita duplicar la tarjeta lateral si es la misma persona en menos de 8s
-                }
-                deteccionesRecientes[idKey] = now;
-
-                // Sonido de alerta
-                reproducirSonido(rostro.estado);
-
-                // Capturar snapshot del rostro para la tarjeta
-                const snapCanvas = document.createElement('canvas');
-                snapCanvas.width = 120;
-                snapCanvas.height = 120;
-                const snapCtx = snapCanvas.getContext('2d');
-                const m = 35;
-                snapCtx.drawImage(
-                    video,
-                    Math.max(0, rostro.x - m),
-                    Math.max(0, rostro.y - m),
-                    rostro.w + (m * 2),
-                    rostro.h + (m * 2),
-                    0, 0, 120, 120
-                );
-                const snapshotUrl = snapCanvas.toDataURL('image/jpeg', 0.8);
-
-                agregarTarjetaDeteccion(rostro, snapshotUrl);
-            });
-        }
-    } catch (err) {
-        console.error('Error enviando fotograma:', err);
-    }
-}
-
-/* ========================================================
-   TARJETAS DE DETECCIÓN LATERALES
-   ======================================================== */
-function agregarTarjetaDeteccion(rostro, snapshotUrl) {
-    if (noDetectionsMsg) {
-        noDetectionsMsg.style.display = 'none';
-    }
-
-    let cardClass = 'card-success';
-    let badgeClass = 'badge-success';
-
-    if (rostro.estado === 'REVISION') {
-        cardClass = 'card-warning';
-        badgeClass = 'badge-warning';
-    } else if (rostro.estado === 'DENEGADO') {
-        cardClass = 'card-danger';
-        badgeClass = 'badge-danger';
-    }
-
-    const cardHtml = `
-        <div class="detection-card ${cardClass}">
-            <div class="detection-photo">
-                <img src="${snapshotUrl}" alt="Rostro">
-            </div>
-            <div class="detection-data">
-                <div class="detection-name">${rostro.nombre}</div>
-                <div class="detection-meta">
-                    <span><b>RUT:</b> ${rostro.rut}</span>
-                    <span>•</span>
-                    <span>${rostro.tipo}</span>
-                </div>
-                <div class="detection-footer">
-                    <span class="status-badge ${badgeClass}">${rostro.estado}</span>
-                    <span style="color: #64748b; font-weight: 600;">${rostro.coincidencia}% • ${rostro.hora || new Date().toLocaleTimeString()}</span>
-                </div>
-            </div>
-        </div>
-    `;
-
-    detectionsList.insertAdjacentHTML('afterbegin', cardHtml);
-
-    const allCards = detectionsList.querySelectorAll('.detection-card');
-    document.getElementById('detection-count').textContent = `${allCards.length} Registros`;
-
-    if (allCards.length > 20) {
-        allCards[allCards.length - 1].remove();
-    }
-}
-
-window.addEventListener('beforeunload', () => {
-    monitoreoActivo = false;
-});
+// Auto-refresh del listado de detecciones cada 3 segundos
+setInterval(() => {
+    fetch('/accesos/ajax/?periodo=hoy')
+    .then(r => r.json())
+    .then(data => {
+        // Actualizar feed si está disponible
+    })
+    .catch(() => {});
+}, 3000);
 </script>
 {% endblock %}

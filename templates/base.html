@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=4.0">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=6.0">
     {% block extra_css %}{% endblock %}
 
 </head>
@@ -150,8 +150,17 @@
                         </div>
 
                         <a
-                            href="{% url 'logout' %}"
+                            href="javascript:void(0)"
+                            onclick="abrirModalEscanerCamaras()"
                             class="dropdown-item">
+
+                            📷 Escanear y Conectar Cámara
+
+                        </a>
+
+                        <a
+                            href="{% url 'logout' %}"
+                            class="dropdown-item" style="color: #dc2626;">
 
                             🚪 Cerrar sesión
 
@@ -160,8 +169,6 @@
                     </div>
 
                 </div>
-
-               
 
             </div>
 
@@ -179,32 +186,221 @@
 
 </div>
 
+<!-- ========================================================
+     MODAL GLOBAL: AUTO-DETECCIÓN Y SELECCIÓN DE CÁMARAS
+     ======================================================== -->
+<div id="modal-escaner-camaras" class="modal-camaras-overlay" style="display: none;">
+    <div class="modal-camaras-card">
+        <div class="modal-camaras-header">
+            <div class="modal-camaras-title">
+                <span>📷 Auto-Detección y Selección de Cámaras</span>
+            </div>
+            <button type="button" class="modal-camaras-close" onclick="cerrarModalEscanerCamaras()">✕</button>
+        </div>
+
+        <div class="modal-camaras-body">
+            <div class="scanner-top-bar">
+                <div>
+                    <strong style="font-size: 13px; color: #0f172a; display: block;">Dispositivos en Red Local y Webcams USB</strong>
+                    <span style="font-size: 11px; color: #64748b;">Protocolo ONVIF WS-Discovery (Puerto 3702) y DirectShow</span>
+                </div>
+                <button type="button" class="btn-rescan" id="btn-rescan" onclick="escanearCamaras()">
+                    🔄 Escanear Red
+                </button>
+            </div>
+
+            <!-- SPINNER DE CARGA -->
+            <div id="scanner-loading" class="scanner-loading" style="display: none;">
+                <div class="scanner-spinner"></div>
+                <span>Buscando cámaras IP y Webcams en la red local...</span>
+            </div>
+
+            <!-- CONTENEDOR DE LISTA DE CÁMARAS -->
+            <div id="scanner-camera-list" class="scanner-camera-list">
+                <!-- Se llena dinámicamente -->
+            </div>
+        </div>
+
+        <div class="modal-camaras-footer">
+            <span style="font-size: 11px; color: #64748b;">🔒 La selección se guarda en la base de datos y se mantiene activa de forma permanente.</span>
+            <button type="button" class="btn-modal-close" onclick="cerrarModalEscanerCamaras()">Cerrar</button>
+        </div>
+    </div>
+</div>
+
 </body>
 
 <script>
-
 function toggleUserMenu(){
-
-    document
-        .getElementById('userDropdown')
-        .classList.toggle('show');
-
+    document.getElementById('userDropdown').classList.toggle('show');
 }
 
 document.addEventListener('click', function(event){
-
-    const menu =
-        document.querySelector('.user-menu');
-
+    const menu = document.querySelector('.user-menu');
     if(menu && !menu.contains(event.target)){
-
-        document
-            .getElementById('userDropdown')
-            ?.classList.remove('show');
-
+        document.getElementById('userDropdown')?.classList.remove('show');
     }
-
 });
 
+function abrirModalEscanerCamaras(){
+    document.getElementById('userDropdown')?.classList.remove('show');
+    document.getElementById('modal-escaner-camaras').style.display = 'flex';
+    escanearCamaras();
+}
+
+function cerrarModalEscanerCamaras(){
+    document.getElementById('modal-escaner-camaras').style.display = 'none';
+}
+
+async function escanearCamaras(){
+    const loading = document.getElementById('scanner-loading');
+    const list = document.getElementById('scanner-camera-list');
+    const btnRescan = document.getElementById('btn-rescan');
+
+    loading.style.display = 'flex';
+    list.innerHTML = '';
+    btnRescan.disabled = true;
+
+    try {
+        const res = await fetch('/monitoreo/camaras/escanear/');
+        const data = await res.json();
+        loading.style.display = 'none';
+        btnRescan.disabled = false;
+
+        if (!data.success) {
+            list.innerHTML = `<div class="empty-state">Error al escanear: ${data.error || 'Desconocido'}</div>`;
+            return;
+        }
+
+        const activa = data.activa || {};
+        let html = '';
+
+        // 1. Cámaras IP encontradas
+        if (data.ip_cameras && data.ip_cameras.length > 0) {
+            html += `<div class="section-divider">📡 Cámaras IP en Red Local (ONVIF)</div>`;
+            data.ip_cameras.forEach(cam => {
+                const esActiva = (activa.tipo === 'ip_yoosee' && activa.ip === cam.ip);
+                html += `
+                <div class="camera-card ${esActiva ? 'card-active' : ''}" id="cam_${cam.id}">
+                    <div class="cam-card-left">
+                        <div class="cam-icon">📡</div>
+                        <div class="cam-info">
+                            <div class="cam-name-row">
+                                <strong>${cam.nombre}</strong>
+                                ${esActiva ? '<span class="badge-active">🟢 ACTIVA ACTUALMENTE</span>' : '<span class="badge-avail">DISPONIBLE</span>'}
+                            </div>
+                            <span class="cam-details">IP: <b>${cam.ip}</b> • Puerto ONVIF: ${cam.puerto_onvif} • RTSP: 554 • Stream: onvif2</span>
+                            <div class="cam-inputs-row">
+                                <label>Clave RTSP:</label>
+                                <input type="password" id="pass_${cam.id}" value="${esActiva ? (activa.password || 'admin12345') : 'admin12345'}" placeholder="admin12345" class="cam-pass-input">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cam-card-right">
+                        ${esActiva ? 
+                            `<button type="button" class="btn-select-cam btn-disabled" disabled>✓ Seleccionada</button>` : 
+                            `<button type="button" class="btn-select-cam" onclick="seleccionarCamaraIP('${cam.ip}', ${cam.puerto_onvif}, 'pass_${cam.id}', '${cam.nombre}')">⚡ Conectar y Activar</button>`
+                        }
+                    </div>
+                </div>`;
+            });
+        }
+
+        // 2. Webcams Locales USB
+        if (data.webcams && data.webcams.length > 0) {
+            html += `<div class="section-divider">💻 Webcams Locales USB / Integradas</div>`;
+            data.webcams.forEach(wc => {
+                const esActiva = (activa.tipo === 'webcam' && parseInt(activa.webcam_index) === parseInt(wc.webcam_index));
+                html += `
+                <div class="camera-card ${esActiva ? 'card-active' : ''}" id="cam_${wc.id}">
+                    <div class="cam-card-left">
+                        <div class="cam-icon">💻</div>
+                        <div class="cam-info">
+                            <div class="cam-name-row">
+                                <strong>${wc.nombre}</strong>
+                                ${esActiva ? '<span class="badge-active">🟢 ACTIVA ACTUALMENTE</span>' : '<span class="badge-avail">DISPONIBLE</span>'}
+                            </div>
+                            <span class="cam-details">Controlador DirectShow • Índice #${wc.webcam_index}</span>
+                        </div>
+                    </div>
+                    <div class="cam-card-right">
+                        ${esActiva ? 
+                            `<button type="button" class="btn-select-cam btn-disabled" disabled>✓ Seleccionada</button>` : 
+                            `<button type="button" class="btn-select-cam" onclick="seleccionarWebcam(${wc.webcam_index}, '${wc.nombre}')">⚡ Conectar y Activar</button>`
+                        }
+                    </div>
+                </div>`;
+            });
+        }
+
+        if (!data.ip_cameras?.length && !data.webcams?.length) {
+            html = `<div class="empty-state">No se encontraron cámaras en la red ni webcams locales.</div>`;
+        }
+
+        list.innerHTML = html;
+    } catch(err) {
+        loading.style.display = 'none';
+        btnRescan.disabled = false;
+        list.innerHTML = `<div class="empty-state">Error de conexión al escanear dispositivos.</div>`;
+    }
+}
+
+async function seleccionarCamaraIP(ip, puertoOnvif, passElemId, nombre){
+    const pass = document.getElementById(passElemId)?.value || 'admin12345';
+    await guardarSeleccionCamara({
+        tipo: 'ip_yoosee',
+        nombre: nombre || `Cámara IP (${ip})`,
+        ip: ip,
+        puerto_onvif: puertoOnvif,
+        puerto_rtsp: 554,
+        usuario: 'admin',
+        password: pass,
+        stream: 'onvif2'
+    });
+}
+
+async function seleccionarWebcam(webcamIndex, nombre){
+    await guardarSeleccionCamara({
+        tipo: 'webcam',
+        nombre: nombre || `Webcam #${webcamIndex}`,
+        webcam_index: webcamIndex
+    });
+}
+
+async function guardarSeleccionCamara(payload){
+    const list = document.getElementById('scanner-camera-list');
+    list.style.opacity = '0.5';
+    list.style.pointerEvents = 'none';
+
+    try {
+        const res = await fetch('/monitoreo/camaras/seleccionar/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        list.style.opacity = '1';
+        list.style.pointerEvents = 'auto';
+
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            escanearCamaras();
+            // Refrescar cualquier visor de cámara en la página actual (Monitoreo, Dashboard)
+            setTimeout(() => {
+                const feeds = document.querySelectorAll('img[src*="video_feed"], #dashboard-video, #camera-stream');
+                feeds.forEach(img => {
+                    const baseUrl = img.src.split('?')[0];
+                    img.src = `${baseUrl}?t=${new Date().getTime()}`;
+                });
+            }, 300);
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo activar la cámara'));
+        }
+    } catch(e) {
+        list.style.opacity = '1';
+        list.style.pointerEvents = 'auto';
+        alert('Error de conexión al activar cámara.');
+    }
+}
 </script>
 </html>

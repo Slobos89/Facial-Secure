@@ -252,17 +252,56 @@ body {
     box-shadow: 0 0 8px #16a34a;
 }
 
-.user {
+.user-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.user-trigger {
     display: flex;
     align-items: center;
     gap: 12px;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 30px;
+    padding: 4px 6px 4px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+    box-shadow: var(--shadow-sm);
+    font-family: inherit;
+}
+
+.user-trigger:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-soft);
+    box-shadow: var(--shadow-md);
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+    line-height: 1.25;
+}
+
+.user-info strong {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.user-info small {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 
 .user-avatar {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: var(--blue-primary);
+    background: linear-gradient(135deg, var(--blue-primary), var(--blue-secondary));
     color: #ffffff;
     display: flex;
     justify-content: center;
@@ -270,6 +309,62 @@ body {
     font-weight: 700;
     font-size: 14px;
     box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.user-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    min-width: 210px;
+    box-shadow: var(--shadow-lg);
+    padding: 8px;
+    display: none;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+.user-dropdown.show {
+    display: flex;
+}
+
+.dropdown-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 6px;
+}
+
+.dropdown-header strong {
+    display: block;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.dropdown-header span {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.dropdown-item {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #334155;
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+
+.dropdown-item:hover {
+    background: var(--red-soft);
+    color: var(--red);
 }
 
 /* ========================================================
@@ -501,4 +596,298 @@ tbody tr:hover {
     0% { opacity: 1; }
     50% { opacity: 0.4; }
     100% { opacity: 1; }
+}
+
+/* ========================================================
+   12. MODAL DE AUTO-DETECCIÓN Y SELECCIÓN DE CÁMARAS
+   ======================================================== */
+.modal-camaras-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-camaras-card {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 92%;
+    max-width: 680px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    animation: scaleUp 0.2s ease-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-camaras-header {
+    background: #0f172a;
+    color: #ffffff;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.modal-camaras-title {
+    font-size: 15px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-camaras-close {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 18px;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.modal-camaras-close:hover {
+    color: #ffffff;
+}
+
+.modal-camaras-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.scanner-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.btn-rescan {
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-rescan:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+.scanner-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.scanner-spinner {
+    width: 22px;
+    height: 22px;
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #2563eb;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.scanner-camera-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.section-divider {
+    font-size: 11px;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 6px;
+}
+
+.camera-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.2s ease;
+}
+
+.camera-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.camera-card.card-active {
+    border-color: #16a34a;
+    background: #f0fdf4;
+}
+
+.cam-card-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex: 1;
+}
+
+.cam-icon {
+    font-size: 24px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.cam-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.cam-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cam-name-row strong {
+    font-size: 14px;
+    color: #0f172a;
+}
+
+.badge-active {
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+}
+
+.badge-avail {
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.cam-details {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.cam-inputs-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #475569;
+}
+
+.cam-pass-input {
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    font-size: 11px;
+    width: 110px;
+    outline: none;
+}
+
+.btn-select-cam {
+    background: #0f172a;
+    color: #ffffff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-select-cam:hover:not(:disabled) {
+    background: #1e293b;
+    transform: translateY(-1px);
+}
+
+.btn-select-cam.btn-disabled {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+    cursor: default;
+}
+
+.modal-camaras-footer {
+    background: #f8fafc;
+    padding: 12px 24px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-modal-close {
+    background: #e2e8f0;
+    color: #334155;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 30px;
+    color: #64748b;
+    font-size: 13px;
 }

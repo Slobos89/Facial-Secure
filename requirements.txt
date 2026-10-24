@@ -1,0 +1,11 @@
+Django>=5.0
+psycopg2-binary
+cryptography
+opencv-contrib-python-headless
+Pillow
+reportlab
+numpy
+requests
+gunicorn
+whitenoise
+dj-database-url

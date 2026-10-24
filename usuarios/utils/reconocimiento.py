@@ -1,92 +1,63 @@
-import cv2
 import os
-import uuid
+import cv2
 import numpy as np
-from django.core.files.base import ContentFile
 from usuarios.models import RostroCapturado, Persona
-from usuarios.utils.security import encrypt_bytes
+from usuarios.utils.security import decrypt_bytes
+from usuarios.utils.deep_learning import DeepFaceEngine
 
 
 def entrenar_modelo():
     """
-    Entrenamiento Incremental Zero-Knowledge:
-    1. Lee las capturas temporales recién registradas.
-    2. Actualiza el modelo LBPH existente con recognizer.update() (o train si es nuevo).
-    3. Guarda el modelo en 'modelo/modelo_lbph.yml'.
-    4. Cifra la primera foto con AES-256 para asignarla como foto de perfil oficial.
-    5. Destruye y borra todas las capturas crudas del disco y de la base de datos.
+    Entrenamiento / Actualización de Embeddings Deep Learning (Zero-Knowledge):
+    1. Carga las capturas temporales recién registradas (RostroCapturado).
+    2. Extrae y promedia los vectores Deep Learning (SFace + YuNet 5-landmarks) para cada persona.
+    3. Guarda el vector L2 normalizado de 128 dimensiones en `persona.embedding_facial`.
+    4. Destruye y borra permanentemente todas las capturas temporales crudas del disco y la BD.
     """
-    dataset = RostroCapturado.objects.all()
+    dataset = RostroCapturado.objects.select_related('persona').all()
     if not dataset.exists():
         return
 
-    recognizer = cv2.face.LBPHFaceRecognizer_create(
-        radius=2,
-        neighbors=16,
-        grid_x=8,
-        grid_y=8
-    )
-
-    rostros = []
-    labels = []
-
+    engine = DeepFaceEngine.get_instance()
+    
+    # Agrupar capturas por persona
+    capturas_por_persona = {}
     for rostro_db in dataset:
-        try:
-            ruta_imagen = rostro_db.imagen.path
-            if not os.path.exists(ruta_imagen):
-                continue
+        p_id = rostro_db.persona_id
+        if p_id not in capturas_por_persona:
+            capturas_por_persona[p_id] = []
+        capturas_por_persona[p_id].append(rostro_db)
 
-            imagen = cv2.imread(ruta_imagen, cv2.IMREAD_GRAYSCALE)
-            if imagen is None:
-                continue
+    for persona_id, capturas in capturas_por_persona.items():
+        persona = capturas[0].persona
+        features_list = []
 
-            imagen = cv2.resize(imagen, (160, 160))
-            persona_id = rostro_db.persona.id
-
-            rostros.append(imagen)
-            labels.append(persona_id)
-        except Exception as e:
-            print(f"Error procesando captura {rostro_db.id}: {e}")
-
-    if len(rostros) > 0:
-        modelo_path = 'modelo/modelo_lbph.yml'
-        os.makedirs('modelo', exist_ok=True)
-
-        if os.path.exists(modelo_path):
+        for c in capturas:
             try:
-                recognizer.read(modelo_path)
-                recognizer.update(rostros, np.array(labels))
-            except Exception:
-                recognizer.train(rostros, np.array(labels))
-        else:
-            recognizer.train(rostros, np.array(labels))
+                ruta = c.imagen.path
+                if os.path.exists(ruta):
+                    img = cv2.imread(ruta)
+                    if img is not None:
+                        _, feat = engine.extract_embedding_from_image(img)
+                        if feat is not None:
+                            features_list.append(feat)
+            except Exception as e:
+                print(f"Error procesando captura {c.id} para embedding: {e}")
 
-        recognizer.save(modelo_path)
-        print("MODELO LBPH ACTUALIZADO EXITOSAMENTE")
-
-    # Zero-Knowledge: Cifrar foto de perfil con AES-256 y destruir capturas temporales
-    personas_procesadas = set()
-    for rostro_db in dataset:
-        persona = rostro_db.persona
-        if persona.id not in personas_procesadas and not persona.foto:
-            if os.path.exists(rostro_db.imagen.path):
-                try:
-                    with open(rostro_db.imagen.path, 'rb') as f:
-                        encrypted_bytes = encrypt_bytes(f.read())
-                    filename = f"perfil_{persona.id}_{uuid.uuid4().hex[:6]}.jpg"
-                    persona.foto.save(filename, ContentFile(encrypted_bytes), save=False)
-                    personas_procesadas.add(persona.id)
-                except Exception as e:
-                    print(f"Error cifrando avatar: {e}")
-
-        if not persona.biometria_facial:
+        if len(features_list) > 0:
+            # Vector centroide promediado y re-normalizado
+            centroid = np.mean(features_list, axis=0)
+            centroid_norm = centroid / (np.linalg.norm(centroid) + 1e-7)
+            persona.embedding_facial = centroid_norm.tolist()
             persona.biometria_facial = True
-        persona.save()
+            persona.save(update_fields=['embedding_facial', 'biometria_facial'])
+            print(f"EMBEDDING DEEP LEARNING ACTUALIZADO PARA: {persona.nombre} {persona.apellido} ({len(features_list)} muestras)")
 
-        ruta = rostro_db.imagen.path
-        if os.path.exists(ruta):
+    # Zero-Knowledge: Destrucción total de capturas temporales crudas
+    for rostro_db in dataset:
+        if hasattr(rostro_db.imagen, 'path') and os.path.exists(rostro_db.imagen.path):
             try:
-                os.remove(ruta)
+                os.remove(rostro_db.imagen.path)
             except Exception:
                 pass
 
