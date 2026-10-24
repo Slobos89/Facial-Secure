@@ -309,7 +309,14 @@ class ConfiguracionCamara(models.Model):
         return f"{self.nombre} [Dispositivo #{self.webcam_index}]"
 
     @classmethod
-    def get_activa(cls):
+    def get_activa(cls, cam_id=None):
+        if cam_id:
+            try:
+                cam = cls.objects.filter(id=cam_id).first()
+                if cam:
+                    return cam
+            except Exception:
+                pass
         cam = cls.objects.filter(activa=True).order_by('-fecha_actualizacion').first()
         if not cam:
             cam = cls.objects.create(

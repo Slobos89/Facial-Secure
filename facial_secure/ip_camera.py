@@ -40,7 +40,12 @@ class YooseeIPCamera:
         try:
             self.proxy_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.proxy_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.proxy_server.bind(("127.0.0.1", self.proxy_port))
+            port_to_try = self.proxy_port if (self.proxy_port and self.proxy_port > 0) else 0
+            try:
+                self.proxy_server.bind(("127.0.0.1", port_to_try))
+            except OSError:
+                self.proxy_server.bind(("127.0.0.1", 0))
+            self.proxy_port = self.proxy_server.getsockname()[1]
             self.proxy_server.listen(5)
             threading.Thread(target=self._proxy_loop, daemon=True).start()
             time.sleep(0.3)

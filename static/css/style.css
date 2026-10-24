@@ -891,3 +891,149 @@ tbody tr:hover {
     color: #64748b;
     font-size: 13px;
 }
+
+
+/* TABS DE GESTIÓN MULTI-CÁMARA */
+.scanner-tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 4px;
+    margin-bottom: 12px;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px 8px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+}
+
+.tab-btn.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+    background: #eff6ff;
+}
+
+.section-notice {
+    background: #f8fafc;
+    border-left: 4px solid #3b82f6;
+    padding: 10px 14px;
+    font-size: 11.5px;
+    color: #334155;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.cam-rename-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+.cam-rename-input {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    width: 220px;
+    outline: none;
+    background: #f8fafc;
+}
+
+.cam-rename-input:focus {
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.btn-action-small {
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-save-name {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.btn-save-name:hover {
+    background: #1d4ed8;
+}
+
+.btn-delete-cam {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+.btn-delete-cam:hover {
+    background: #fecaca;
+}
+
+.btn-monitor-cam {
+    background: #10b981;
+    color: #ffffff;
+}
+
+.btn-monitor-cam:hover {
+    background: #059669;
+}
+
+.hud-camera-select {
+    background: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #475569;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    outline: none;
+    cursor: pointer;
+}
+
+.hud-camera-select:focus {
+    border-color: #38bdf8;
+}
+
+.btn-scan-shortcut {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-scan-shortcut:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
