@@ -274,3 +274,58 @@
     .badge-success { background: #dcfce7; color: #15803d; }
     .badge-warning { background: #fef3c7; color: #b45309; }
     .badge-danger { background: #fee2e2; color: #b91c1c; }
+
+
+/* ========================================================
+   PESTAÑAS DE FLUJO: INGRESOS Y EGRESOS
+   ======================================================== */
+.flujo-tabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.flujo-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    background: #0f172a;
+    color: #94a3b8;
+    border: 2px solid #1e293b;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.flujo-tab-btn:hover {
+    background: #1e293b;
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.flujo-tab-btn.active-ingreso {
+    background: #1e293b;
+    color: #10b981;
+    border-color: #10b981;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.25);
+}
+
+.flujo-tab-btn.active-egreso {
+    background: #1e293b;
+    color: #f87171;
+    border-color: #ef4444;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.25);
+}
+
+.flujo-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}

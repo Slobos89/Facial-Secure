@@ -126,40 +126,89 @@ Centro de Control y Monitoreo | Dashboard
             </div>
         </div>
 
-        <!-- CÁMARA PRINCIPAL LIVE -->
-        <div class="panel">
+        <!-- CÁMARAS EN VIVO DUALES (INGRESOS Y EGRESOS) -->
+        <div class="panel" style="display: flex; flex-direction: column;">
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                 <div class="panel-title" style="display: flex; align-items: center; gap: 6px;">
-                    <span>📷 Visor de Monitoreo en Vivo</span>
+                    <span>📹 Monitoreo Dual en Vivo</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <select id="dashboard-cam-select" onchange="cambiarCamaraDashboard(this.value)" style="background: #0f172a; color: #f8fafc; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px; border: 1px solid #334155; max-width: 220px;">
-                        <optgroup label="💻 Navegador / Iriun" id="dash-optgroup-browser">
-                            <option value="browser:default">📹 Cámara del Navegador</option>
-                        </optgroup>
-                        <optgroup label="📡 Servidor / Red" id="dash-optgroup-server">
-                            {% for c in camaras %}
-                                <option value="server:{{ c.id }}" {% if c.id == camara_activa.id %}selected{% endif %}>
-                                    {{ c.nombre }} ({% if c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
-                                </option>
-                            {% empty %}
-                                <option value="" disabled>(Sin cámaras asignadas)</option>
-                            {% endfor %}
-                        </optgroup>
-                    </select>
-                    <span id="dashboard-cam-badge" style="color: #10b981; font-size: 11px; font-weight: 700;">● EN VIVO</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;">
+                        2 CANALES LIVE
+                    </span>
                 </div>
             </div>
-            <div style="background: #000000; border-radius: 8px; overflow: hidden; height: 220px; display: flex; align-items: center; justify-content: center; position: relative;">
-                <img id="dashboard-video" 
-                     src="{% if camara_activa %}{% url 'video_feed' %}?cam_id={{ camara_activa.id }}{% else %}about:blank{% endif %}" 
-                     alt="Cámara de Monitoreo" 
-                     style="width: 100%; height: 100%; object-fit: cover;">
-                <video id="dashboard-client-video" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
-            </div>
-            <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
-                <span>Canal Activo: <b id="dashboard-cam-name" style="color: #0f172a;">{{ camara_activa.nombre|default:'Cámara Principal' }}</b></span>
-                <span>Latencia: <b id="camera-latency">0.2</b>s</span>
+
+            <div style="display: flex; flex-direction: column; gap: 14px; padding: 14px; flex: 1;">
+                <!-- 1. CÁMARA DE INGRESOS -->
+                <div style="background: #090d16; border-radius: 10px; padding: 10px; border: 1px solid #1e293b;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="color: #4ade80; font-size: 12px; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                            <span class="pulse-dot" style="width: 7px; height: 7px; background: #4ade80; border-radius: 50%; display: inline-block;"></span>
+                            🟢 CÁMARA DE INGRESOS
+                        </span>
+                        <select id="dash-cam-select-ingreso" onchange="cambiarCamaraDashDual('ingreso', this.value)" style="background: #1e293b; color: #f8fafc; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; border: 1px solid #334155; max-width: 175px;">
+                            <optgroup label="💻 Navegador / Iriun" class="dash-opt-browser">
+                                <option value="browser:default">📹 Cámara Navegador</option>
+                            </optgroup>
+                            <optgroup label="📡 Servidor / Red" class="dash-opt-server">
+                                {% for c in camaras %}
+                                    <option value="server:{{ c.id }}" {% if forloop.first %}selected{% endif %}>
+                                        {{ c.nombre }} ({% if c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
+                                    </option>
+                                {% empty %}
+                                    <option value="" disabled>(Sin cámaras asignadas)</option>
+                                {% endfor %}
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div style="background: #000; border-radius: 6px; overflow: hidden; height: 165px; position: relative; display: flex; align-items: center; justify-content: center;">
+                        <img id="dash-video-ingreso" 
+                             src="{% if camaras.first %}{% url 'video_feed' %}?cam_id={{ camaras.first.id }}{% else %}about:blank{% endif %}" 
+                             alt="Cámara Ingresos" 
+                             style="width: 100%; height: 100%; object-fit: cover;">
+                        <video id="dash-client-video-ingreso" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
+                    </div>
+                    <div style="margin-top: 6px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
+                        <span>Canal: <b id="dash-name-ingreso" style="color: #0f172a;">{{ camaras.first.nombre|default:'Acceso Ingresos' }}</b></span>
+                        <span id="dash-badge-ingreso" style="color: #10b981; font-weight: 700;">● CONECTADA</span>
+                    </div>
+                </div>
+
+                <!-- 2. CÁMARA DE EGRESOS -->
+                <div style="background: #090d16; border-radius: 10px; padding: 10px; border: 1px solid #1e293b;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="color: #f87171; font-size: 12px; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                            <span class="pulse-dot" style="width: 7px; height: 7px; background: #f87171; border-radius: 50%; display: inline-block;"></span>
+                            🔴 CÁMARA DE EGRESOS
+                        </span>
+                        <select id="dash-cam-select-egreso" onchange="cambiarCamaraDashDual('egreso', this.value)" style="background: #1e293b; color: #f8fafc; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; border: 1px solid #334155; max-width: 175px;">
+                            <optgroup label="💻 Navegador / Iriun" class="dash-opt-browser">
+                                <option value="browser:default">📹 Cámara Navegador</option>
+                            </optgroup>
+                            <optgroup label="📡 Servidor / Red" class="dash-opt-server">
+                                {% for c in camaras %}
+                                    <option value="server:{{ c.id }}" {% if forloop.counter == 2 or forloop.last %}selected{% endif %}>
+                                        {{ c.nombre }} ({% if c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
+                                    </option>
+                                {% empty %}
+                                    <option value="" disabled>(Sin cámaras asignadas)</option>
+                                {% endfor %}
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div style="background: #000; border-radius: 6px; overflow: hidden; height: 165px; position: relative; display: flex; align-items: center; justify-content: center;">
+                        <img id="dash-video-egreso" 
+                             src="{% if camaras|length > 1 %}{% url 'video_feed' %}?cam_id={{ camaras.1.id }}{% elif camaras.first %}{% url 'video_feed' %}?cam_id={{ camaras.first.id }}{% else %}about:blank{% endif %}" 
+                             alt="Cámara Egresos" 
+                             style="width: 100%; height: 100%; object-fit: cover;">
+                        <video id="dash-client-video-egreso" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
+                    </div>
+                    <div style="margin-top: 6px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
+                        <span>Canal: <b id="dash-name-egreso" style="color: #0f172a;">{% if camaras|length > 1 %}{{ camaras.1.nombre }}{% else %}{{ camaras.first.nombre|default:'Acceso Egresos' }}{% endif %}</b></span>
+                        <span id="dash-badge-egreso" style="color: #ef4444; font-weight: 700;">● CONECTADA</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

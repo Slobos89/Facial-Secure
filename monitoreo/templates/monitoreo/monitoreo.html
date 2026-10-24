@@ -6,17 +6,30 @@ Monitoreo Biométrico en Tiempo Real
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/monitoreo.css' %}?v=1.1">
+<link rel="stylesheet" href="{% static 'css/monitoreo.css' %}?v=1.2">
 {% endblock %}
 
 {% block content %}
 {% csrf_token %}
+
+<!-- PESTAÑAS DE FLUJO: INGRESOS Y EGRESOS -->
+<div class="flujo-tabs-bar">
+    <button type="button" class="flujo-tab-btn active-ingreso" id="tab-btn-ingreso" onclick="cambiarFlujoMonitoreo('ingreso')">
+        <span class="flujo-dot" style="background: #10b981;"></span>
+        INGRESOS
+    </button>
+    <button type="button" class="flujo-tab-btn" id="tab-btn-egreso" onclick="cambiarFlujoMonitoreo('egreso')">
+        <span class="flujo-dot" style="background: #ef4444;"></span>
+        EGRESOS
+    </button>
+</div>
+
 <div class="monitoreo-grid">
     <!-- PANEL DE CÁMARA & HUD TÁCTICO -->
     <div class="hud-panel">
         <div class="hud-header">
             <div class="hud-title" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <span>🛡️ Control de Acceso:</span>
+                <span id="hud-flujo-label">🛡️ Control de Acceso: <b style="color:#10b981;">INGRESOS</b></span>
                 <select id="selector-camara-hud" class="hud-camera-select" onchange="cambiarModoCamara(this.value)">
                     <optgroup label="💻 Cámaras de este Navegador (Local / Iriun)" id="optgroup-browser">
                         <option value="browser:default">📹 Cámara de este Navegador (Por Defecto)</option>
@@ -65,6 +78,9 @@ Monitoreo Biométrico en Tiempo Real
         </div>
 
         <div class="hud-telemetry-bar">
+            <div class="telemetry-item">
+                <span>ZONA / FLUJO:</span> <span class="telemetry-val" id="telemetry-flujo" style="color: #10b981;">CONTROL DE INGRESO</span>
+            </div>
             <div class="telemetry-item">
                 <span>TIPO SENSOR:</span> <span class="telemetry-val" id="telemetry-sensor">{{ camara_activa.get_tipo_display|default:'Navegador Web' }}</span>
             </div>
@@ -119,6 +135,7 @@ let clientStream = null;
 let clientDetectionRunning = false;
 let clientDetectionLoopTimer = null;
 let clientFrameBusy = false;
+let currentFlujo = 'ingreso'; // 'ingreso' o 'egreso'
 let currentCameraNombre = "{{ camara_activa.nombre|default:'Cámara del Navegador' }}";
 
 const captureCanvas = document.createElement('canvas');
@@ -155,7 +172,6 @@ function reproducirTono(tipo) {
 
         const now = audioCtx.currentTime;
         if (tipo === 'PERMITIDO') {
-            // Chime agradable doble tono ascendente (880Hz -> 1320Hz)
             osc.frequency.setValueAtTime(880, now);
             osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
             gain.gain.setValueAtTime(0.15, now);
@@ -163,7 +179,6 @@ function reproducirTono(tipo) {
             osc.start(now);
             osc.stop(now + 0.25);
         } else {
-            // Tono de alerta táctico grave
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(240, now);
             osc.frequency.setValueAtTime(180, now + 0.15);
@@ -193,7 +208,7 @@ function getCookie(name) {
 }
 
 /* ========================================================
-   LISTAR CÁMARAS DEL NAVEGADOR (Iriun, USB, Frontal, etc.)
+   LISTAR CÁMARAS DEL NAVEGADOR (Iriun, USB, etc.)
    ======================================================== */
 async function listarCamarasNavegador() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
@@ -211,7 +226,6 @@ async function listarCamarasNavegador() {
                 return `<option value="browser:${d.deviceId}">📹 ${label}</option>`;
             }).join('');
 
-            // Mantener valor previo si existe
             if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
                 sel.value = currentVal;
             }
@@ -224,18 +238,77 @@ async function listarCamarasNavegador() {
 }
 
 /* ========================================================
+   CAMBIAR PESTAÑA DE FLUJO: INGRESOS VS EGRESOS
+   ======================================================== */
+function cambiarFlujoMonitoreo(flujo) {
+    if (flujo === currentFlujo) return;
+    currentFlujo = flujo;
+
+    const btnIngreso = document.getElementById('tab-btn-ingreso');
+    const btnEgreso = document.getElementById('tab-btn-egreso');
+    const labelFlujo = document.getElementById('hud-flujo-label');
+    const teleFlujo = document.getElementById('telemetry-flujo');
+
+    if (flujo === 'ingreso') {
+        btnIngreso.className = 'flujo-tab-btn active-ingreso';
+        btnEgreso.className = 'flujo-tab-btn';
+        if (labelFlujo) labelFlujo.innerHTML = '🛡️ Control de Acceso: <b style="color:#10b981;">INGRESOS</b>';
+        if (teleFlujo) {
+            teleFlujo.innerText = 'CONTROL DE INGRESO';
+            teleFlujo.style.color = '#10b981';
+        }
+    } else {
+        btnEgreso.className = 'flujo-tab-btn active-egreso';
+        btnIngreso.className = 'flujo-tab-btn';
+        if (labelFlujo) labelFlujo.innerHTML = '🚪 Control de Acceso: <b style="color:#f87171;">EGRESOS</b>';
+        if (teleFlujo) {
+            teleFlujo.innerText = 'CONTROL DE EGRESO';
+            teleFlujo.style.color = '#f87171';
+        }
+    }
+
+    // Cargar la cámara configurada para este flujo
+    const sel = document.getElementById('selector-camara-hud');
+    const savedCamera = localStorage.getItem(`monitoreo_camara_${flujo}_modo`);
+
+    if (savedCamera && sel && Array.from(sel.options).some(o => o.value === savedCamera)) {
+        sel.value = savedCamera;
+        cambiarModoCamara(savedCamera, false);
+    } else {
+        // Si es egreso y hay al menos 2 opciones de cámara, sugerir la segunda cámara
+        if (flujo === 'egreso' && sel && sel.options.length > 2) {
+            const secondOpt = sel.options[2]?.value;
+            if (secondOpt) {
+                sel.value = secondOpt;
+                cambiarModoCamara(secondOpt, true);
+                return;
+            }
+        }
+        if (sel && sel.value) {
+            cambiarModoCamara(sel.value, false);
+        }
+    }
+}
+
+/* ========================================================
    CAMBIO DE CÁMARA (SERVIDOR VS NAVEGADOR)
    ======================================================== */
-function cambiarModoCamara(valor) {
+function cambiarModoCamara(valor, persistir = true) {
     if (!valor) return;
-    localStorage.setItem('monitoreo_camara_modo', valor);
+    if (persistir) {
+        localStorage.setItem(`monitoreo_camara_${currentFlujo}_modo`, valor);
+        localStorage.setItem('monitoreo_camara_modo', valor);
+    }
 
     const sel = document.getElementById('selector-camara-hud');
     const selectedText = sel?.options[sel.selectedIndex]?.text || '';
     const cleanName = selectedText.replace(/^[📹💻📡\s]+/, '').split('(')[0].trim();
-    if (cleanName) {
+    if (persistir && cleanName) {
+        localStorage.setItem(`monitoreo_camara_${currentFlujo}_nombre`, cleanName);
         localStorage.setItem('monitoreo_camara_nombre', cleanName);
     }
+
+    currentCameraNombre = cleanName || 'Cámara Monitoreo';
 
     if (valor.startsWith('browser:')) {
         const deviceId = valor.replace('browser:', '');
@@ -244,12 +317,13 @@ function cambiarModoCamara(valor) {
         const camId = valor.replace('server:', '');
         iniciarStreamServidor(camId);
 
-        // Notificar al backend para que sea la cámara activa en la BD (y se refleje en el Dashboard)
-        fetch('/monitoreo/camaras/seleccionar/', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({id: camId})
-        }).catch(() => {});
+        if (persistir) {
+            fetch('/monitoreo/camaras/seleccionar/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: camId})
+            }).catch(() => {});
+        }
     }
 }
 
@@ -324,7 +398,6 @@ async function iniciarCamaraNavegador(deviceId) {
         overlay.style.display = 'block';
         if (loader) loader.style.display = 'none';
 
-        // Actualizar nombres amigables si recién se otorgó permiso
         await listarCamarasNavegador();
 
         const sel = document.getElementById('selector-camara-hud');
@@ -337,7 +410,6 @@ async function iniciarCamaraNavegador(deviceId) {
         document.getElementById('telemetry-status').innerText = 'OPERATIVO';
         document.getElementById('telemetry-status').style.color = '#4ade80';
 
-        // Iniciar loop de inferencia facial Deep Learning
         clientDetectionRunning = true;
         procesarFrameCliente();
 
@@ -366,7 +438,6 @@ async function procesarFrameCliente() {
     if (!clientFrameBusy) {
         clientFrameBusy = true;
         try {
-            // Escalar a 640x480 para transmisión ligera y óptimo rendimiento Deep Learning
             const targetW = 640;
             const targetH = Math.round((clientVideo.videoHeight / clientVideo.videoWidth) * targetW) || 480;
             captureCanvas.width = targetW;
@@ -377,7 +448,7 @@ async function procesarFrameCliente() {
 
             const formData = new FormData();
             formData.append('foto_base64', base64Data);
-            formData.append('camara_nombre', currentCameraNombre);
+            formData.append('camara_nombre', `${currentCameraNombre} (${currentFlujo === 'ingreso' ? 'Ingreso' : 'Egreso'})`);
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken') || '';
             const res = await fetch("{% url 'detectar_rostros' %}", {
@@ -428,11 +499,11 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
         const w = r.w * scaleX;
         const h = r.h * scaleY;
 
-        let strokeColor = '#f59e0b'; // Ámbar
-        if (r.estado === 'PERMITIDO') strokeColor = '#10b981'; // Verde
-        else if (r.estado === 'DENEGADO') strokeColor = '#ef4444'; // Rojo
+        let strokeColor = '#f59e0b';
+        if (r.estado === 'PERMITIDO') strokeColor = '#10b981';
+        else if (r.estado === 'DENEGADO') strokeColor = '#ef4444';
 
-        // 1. Marco del rostro con esquinas tácticas reforzadas
+        // 1. Marco táctico
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
@@ -440,17 +511,13 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
         const bracket = Math.min(18, w * 0.25, h * 0.25);
         ctx.lineWidth = 4;
         ctx.beginPath();
-        // Superior Izquierda
         ctx.moveTo(x, y + bracket); ctx.lineTo(x, y); ctx.lineTo(x + bracket, y);
-        // Superior Derecha
         ctx.moveTo(x + w - bracket, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + bracket);
-        // Inferior Izquierda
         ctx.moveTo(x, y + h - bracket); ctx.lineTo(x, y + h); ctx.lineTo(x + bracket, y + h);
-        // Inferior Derecha
         ctx.moveTo(x + w - bracket, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - bracket);
         ctx.stroke();
 
-        // 2. Puntos biométricos (ojos, nariz, comisuras)
+        // 2. Puntos biométricos
         if (r.landmarks && r.landmarks.length > 0) {
             ctx.fillStyle = strokeColor;
             r.landmarks.forEach(pt => {
@@ -462,7 +529,7 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
             });
         }
 
-        // 3. Badge táctico con nombre y coincidencia
+        // 3. Badge táctico
         const labelText = `${r.nombre} (${Math.round(r.coincidencia)}%)`;
         ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
         const textWidth = ctx.measureText(labelText).width;
@@ -486,7 +553,6 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
         ctx.fillStyle = '#ffffff';
         ctx.fillText(labelText, pillX + 12, pillY - 8);
 
-        // Si se generó un nuevo registro en la base de datos
         if (r.nuevo_registro) {
             reproducirTono(r.estado);
             agregarDeteccionEnVivo(r);
@@ -511,6 +577,8 @@ function agregarDeteccionEnVivo(r) {
         badgeClass = 'badge-danger';
     }
 
+    const flujoBadge = currentFlujo === 'ingreso' ? '🟢 Ingreso' : '🔴 Egreso';
+
     const item = document.createElement('div');
     item.className = `detection-item ${itemClass}`;
     item.innerHTML = `
@@ -520,7 +588,7 @@ function agregarDeteccionEnVivo(r) {
         <div class="det-info">
             <h4>${r.nombre}</h4>
             <span>${r.tipo} • ${r.hora}</span>
-            <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${currentCameraNombre}</small>
+            <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${currentCameraNombre} (${flujoBadge})</small>
         </div>
         <div class="det-badge">
             <span class="badge ${badgeClass}">
@@ -597,7 +665,6 @@ function renderizarListadoDetecciones(items) {
     list.innerHTML = html;
 }
 
-// Polling cada 3 segundos para sincronizar detecciones del servidor
 setInterval(actualizarFeedDetecciones, 3000);
 
 /* ========================================================
@@ -606,23 +673,20 @@ setInterval(actualizarFeedDetecciones, 3000);
 document.addEventListener('DOMContentLoaded', async () => {
     await listarCamarasNavegador();
 
+    // Inicializar en flujo INGRESOS por defecto
+    const savedIngreso = localStorage.getItem('monitoreo_camara_ingreso_modo');
     const sel = document.getElementById('selector-camara-hud');
-    const savedMode = localStorage.getItem('monitoreo_camara_modo');
 
-    if (savedMode && Array.from(sel.options).some(o => o.value === savedMode)) {
-        sel.value = savedMode;
-        cambiarModoCamara(savedMode);
+    if (savedIngreso && sel && Array.from(sel.options).some(o => o.value === savedIngreso)) {
+        sel.value = savedIngreso;
+        cambiarModoCamara(savedIngreso, false);
     } else {
-        // Si no hay preferencia guardada, verificar el valor seleccionado
-        if (sel.value) {
-            cambiarModoCamara(sel.value);
-        } else {
-            // Por defecto, usar la primera opción disponible
-            const firstOpt = sel.options[0]?.value;
-            if (firstOpt) {
-                sel.value = firstOpt;
-                cambiarModoCamara(firstOpt);
-            }
+        const savedMode = localStorage.getItem('monitoreo_camara_modo');
+        if (savedMode && sel && Array.from(sel.options).some(o => o.value === savedMode)) {
+            sel.value = savedMode;
+            cambiarModoCamara(savedMode, false);
+        } else if (sel && sel.value) {
+            cambiarModoCamara(sel.value, false);
         }
     }
 });
