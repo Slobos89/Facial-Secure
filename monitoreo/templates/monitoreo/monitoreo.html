@@ -99,8 +99,8 @@ Monitoreo Biométrico en Tiempo Real
     <!-- PANEL LATERAL DE EVENTOS Y DETECCIONES -->
     <div class="detections-panel">
         <div class="detections-header">
-            <h3>Últimas Detecciones</h3>
-            <span id="detection-count" style="font-size: 11px; font-weight: 600; color: #64748b;">Feed en Tiempo Real</span>
+            <h3 id="panel-detections-title">Últimas Detecciones (Ingresos)</h3>
+            <span id="detection-count" style="font-size: 11px; font-weight: 600; color: #10b981;">🟢 Feed en Tiempo Real</span>
         </div>
         <div class="detections-list" id="detections-list">
             {% for acc in accesos %}
@@ -248,11 +248,18 @@ function cambiarFlujoMonitoreo(flujo) {
     const btnEgreso = document.getElementById('tab-btn-egreso');
     const labelFlujo = document.getElementById('hud-flujo-label');
     const teleFlujo = document.getElementById('telemetry-flujo');
+    const panelTitle = document.getElementById('panel-detections-title');
+    const detectionCount = document.getElementById('detection-count');
 
     if (flujo === 'ingreso') {
         btnIngreso.className = 'flujo-tab-btn active-ingreso';
         btnEgreso.className = 'flujo-tab-btn';
         if (labelFlujo) labelFlujo.innerHTML = '🛡️ Control de Acceso: <b style="color:#10b981;">INGRESOS</b>';
+        if (panelTitle) panelTitle.innerText = 'Últimas Detecciones (Ingresos)';
+        if (detectionCount) {
+            detectionCount.innerHTML = '🟢 Feed en Tiempo Real';
+            detectionCount.style.color = '#10b981';
+        }
         if (teleFlujo) {
             teleFlujo.innerText = 'CONTROL DE INGRESO';
             teleFlujo.style.color = '#10b981';
@@ -261,13 +268,18 @@ function cambiarFlujoMonitoreo(flujo) {
         btnEgreso.className = 'flujo-tab-btn active-egreso';
         btnIngreso.className = 'flujo-tab-btn';
         if (labelFlujo) labelFlujo.innerHTML = '🚪 Control de Acceso: <b style="color:#f87171;">EGRESOS</b>';
+        if (panelTitle) panelTitle.innerText = 'Últimas Detecciones (Egresos)';
+        if (detectionCount) {
+            detectionCount.innerHTML = '🔴 Feed en Tiempo Real';
+            detectionCount.style.color = '#f87171';
+        }
         if (teleFlujo) {
             teleFlujo.innerText = 'CONTROL DE EGRESO';
             teleFlujo.style.color = '#f87171';
         }
     }
 
-    // Cargar la cámara configurada para este flujo
+    // 1. Cargar la cámara configurada para este flujo
     const sel = document.getElementById('selector-camara-hud');
     const savedCamera = localStorage.getItem(`monitoreo_camara_${flujo}_modo`);
 
@@ -275,19 +287,21 @@ function cambiarFlujoMonitoreo(flujo) {
         sel.value = savedCamera;
         cambiarModoCamara(savedCamera, false);
     } else {
-        // Si es egreso y hay al menos 2 opciones de cámara, sugerir la segunda cámara
         if (flujo === 'egreso' && sel && sel.options.length > 2) {
             const secondOpt = sel.options[2]?.value;
             if (secondOpt) {
                 sel.value = secondOpt;
                 cambiarModoCamara(secondOpt, true);
-                return;
+            } else if (sel && sel.value) {
+                cambiarModoCamara(sel.value, false);
             }
-        }
-        if (sel && sel.value) {
+        } else if (sel && sel.value) {
             cambiarModoCamara(sel.value, false);
         }
     }
+
+    // 2. Limpiar e invocar inmediatamente el feed filtrado por flujo
+    actualizarFeedDetecciones(true);
 }
 
 /* ========================================================
@@ -341,7 +355,7 @@ function iniciarStreamServidor(camId) {
 
     if (streamImg) {
         streamImg.style.display = 'block';
-        streamImg.src = "{% url 'video_feed' %}?cam_id=" + camId + "&t=" + Date.now();
+        streamImg.src = "{% url 'video_feed' %}?cam_id=" + camId + "&flujo=" + currentFlujo + "&t=" + Date.now();
     }
 
     const sel = document.getElementById('selector-camara-hud');
@@ -448,7 +462,8 @@ async function procesarFrameCliente() {
 
             const formData = new FormData();
             formData.append('foto_base64', base64Data);
-            formData.append('camara_nombre', `${currentCameraNombre} (${currentFlujo === 'ingreso' ? 'Ingreso' : 'Egreso'})`);
+            formData.append('camara_nombre', currentCameraNombre);
+            formData.append('flujo', currentFlujo);
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken') || '';
             const res = await fetch("{% url 'detectar_rostros' %}", {
@@ -577,7 +592,8 @@ function agregarDeteccionEnVivo(r) {
         badgeClass = 'badge-danger';
     }
 
-    const flujoBadge = currentFlujo === 'ingreso' ? '🟢 Ingreso' : '🔴 Egreso';
+    const flujoColor = currentFlujo === 'ingreso' ? '#10b981' : '#f87171';
+    const flujoTag = currentFlujo === 'ingreso' ? '[INGRESO]' : '[EGRESO]';
 
     const item = document.createElement('div');
     item.className = `detection-item ${itemClass}`;
@@ -588,7 +604,7 @@ function agregarDeteccionEnVivo(r) {
         <div class="det-info">
             <h4>${r.nombre}</h4>
             <span>${r.tipo} • ${r.hora}</span>
-            <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${currentCameraNombre} (${flujoBadge})</small>
+            <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${currentCameraNombre} <b style="color:${flujoColor};">${flujoTag}</b></small>
         </div>
         <div class="det-badge">
             <span class="badge ${badgeClass}">
@@ -604,14 +620,23 @@ function agregarDeteccionEnVivo(r) {
 }
 
 /* ========================================================
-   FEED EN VIVO: POLLING DE DETECCIONES
+   FEED EN VIVO: POLLING DE DETECCIONES ESPECÍFICO POR FLUJO
    ======================================================== */
-async function actualizarFeedDetecciones() {
+async function actualizarFeedDetecciones(limpiar = false) {
+    const list = document.getElementById('detections-list');
+    if (limpiar && list) {
+        list.innerHTML = `
+            <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 40px;">
+                🔄 Actualizando feed de ${currentFlujo === 'ingreso' ? 'Ingresos' : 'Egresos'}...
+            </div>
+        `;
+    }
+
     try {
-        const res = await fetch("{% url 'ultimas_detecciones' %}");
+        const res = await fetch("{% url 'ultimas_detecciones' %}?flujo=" + currentFlujo);
         if (!res.ok) return;
         const data = await res.json();
-        if (data.success && data.detecciones) {
+        if (data.success && data.flujo === currentFlujo && data.detecciones) {
             renderizarListadoDetecciones(data.detecciones);
         }
     } catch(e) {}
@@ -622,13 +647,11 @@ function renderizarListadoDetecciones(items) {
     if (!list) return;
 
     if (!items || items.length === 0) {
-        if (!list.querySelector('.detection-item')) {
-            list.innerHTML = `
-                <div id="no-detections-msg" style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 40px;">
-                    📡 Esperando presencia de rostros frente a la cámara...
-                </div>
-            `;
-        }
+        list.innerHTML = `
+            <div id="no-detections-msg" style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 40px;">
+                📡 Esperando presencia de rostros en control de ${currentFlujo === 'ingreso' ? 'ingresos' : 'egresos'}...
+            </div>
+        `;
         return;
     }
 
@@ -643,6 +666,9 @@ function renderizarListadoDetecciones(items) {
             badgeClass = 'badge-danger';
         }
 
+        const tagColor = acc.flujo === 'egreso' ? '#f87171' : '#10b981';
+        const tagText = acc.flujo === 'egreso' ? '[EGRESO]' : '[INGRESO]';
+
         return `
             <div class="detection-item ${itemClass}">
                 <div class="det-avatar">
@@ -651,7 +677,7 @@ function renderizarListadoDetecciones(items) {
                 <div class="det-info">
                     <h4>${acc.nombre}</h4>
                     <span>${acc.tipo} • ${acc.hora}</span>
-                    <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${acc.camara}</small>
+                    <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${acc.camara} <b style="color:${tagColor};">${tagText}</b></small>
                 </div>
                 <div class="det-badge">
                     <span class="badge ${badgeClass}">

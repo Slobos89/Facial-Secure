@@ -6,6 +6,7 @@ import uuid
 import threading
 import time
 from django.conf import settings
+from django.db.models import Q
 from django.shortcuts import render
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -98,7 +99,7 @@ def release_camera_instance(cam_id):
             del _camera_instances[cam_id]
 
 
-def generar_stream_con_reconocimiento(cam_id=None):
+def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
     """Generador continuo no-bloqueante con Inferencia Deep Learning SFace + YuNet."""
     engine = DeepFaceEngine.get_instance()
     ultimo_registro_tiempo = {}
@@ -109,6 +110,11 @@ def generar_stream_con_reconocimiento(cam_id=None):
 
     cfg = ConfiguracionCamara.get_activa(cam_id=cam_id)
     nombre_cam = cfg.nombre if cfg else "Cámara Principal"
+    if flujo:
+        tag = 'Ingreso' if flujo.lower() == 'ingreso' else 'Egreso'
+        nombre_cam_registrado = f"{nombre_cam} ({tag})"
+    else:
+        nombre_cam_registrado = nombre_cam
     cam_pk = cfg.id if cfg else 0
 
     # Imagen de respaldo en caso de que la cámara no esté accesible (ej. en la nube o apagada)
@@ -236,7 +242,7 @@ def generar_stream_con_reconocimiento(cam_id=None):
                                 nombre_detectado=persona.nombre if persona else "Sujeto Desconocido",
                                 coincidencia=coincidencia,
                                 resultado=estado,
-                                camara=nombre_cam
+                                camara=nombre_cam_registrado
                             )
                             acceso.foto_validacion.save(
                                 f"{uuid.uuid4()}.jpg",
@@ -258,15 +264,22 @@ def generar_stream_con_reconocimiento(cam_id=None):
 def video_feed(request):
     """Endpoint de transmisión en vivo MJPEG para Monitoreo y Dashboard."""
     cam_id = request.GET.get('cam_id')
+    flujo = request.GET.get('flujo')
     return StreamingHttpResponse(
-        generar_stream_con_reconocimiento(cam_id=cam_id),
+        generar_stream_con_reconocimiento(cam_id=cam_id, flujo=flujo),
         content_type='multipart/x-mixed-replace; boundary=frame'
     )
 
 
 @login_required
 def monitoreo(request):
-    accesos = Acceso.objects.select_related('persona').order_by('-fecha_hora')[:20]
+    flujo = request.GET.get('flujo', 'ingreso')
+    qs = Acceso.objects.select_related('persona')
+    if flujo == 'egreso':
+        qs = qs.filter(Q(camara__icontains='Egreso') | Q(camara__icontains='Salida'))
+    else:
+        qs = qs.filter(Q(camara__icontains='Ingreso') | (~Q(camara__icontains='Egreso') & ~Q(camara__icontains='Salida')))
+    accesos = qs.order_by('-fecha_hora')[:20]
     camaras = ConfiguracionCamara.objects.filter(activa=True).order_by('id')
     cam_activa = camaras.first() if camaras.exists() else ConfiguracionCamara.get_activa()
     return render(
@@ -275,7 +288,8 @@ def monitoreo(request):
         {
             'accesos': accesos,
             'camaras': camaras,
-            'camara_activa': cam_activa
+            'camara_activa': cam_activa,
+            'flujo_inicial': flujo
         }
     )
 
@@ -289,7 +303,11 @@ def detectar_rostros(request):
     """Endpoint para detección e inferencia Deep Learning sobre fotogramas base64."""
     if request.method == 'POST':
         foto_base64 = request.POST.get('foto_base64')
-        camara_nombre = request.POST.get('camara_nombre', 'Cámara del Navegador').strip() or 'Cámara del Navegador'
+        camara_base = request.POST.get('camara_nombre', 'Cámara del Navegador').strip() or 'Cámara del Navegador'
+        flujo = request.POST.get('flujo', 'ingreso').strip().lower()
+        tag = 'Ingreso' if flujo == 'ingreso' else 'Egreso'
+        camara_clean = camara_base.replace('(Ingreso)', '').replace('(Egreso)', '').strip()
+        camara_nombre = f"{camara_clean} ({tag})"
         if not foto_base64:
             return JsonResponse({'rostros': []})
 
@@ -410,8 +428,15 @@ def detectar_rostros(request):
 
 @login_required
 def ultimas_detecciones_ajax(request):
-    """Retorna las últimas 15 detecciones en formato JSON para actualizar el panel lateral en vivo."""
-    accesos = Acceso.objects.select_related('persona').order_by('-fecha_hora')[:15]
+    """Retorna las últimas 15 detecciones en formato JSON filtradas por flujo sin mezclar."""
+    flujo = request.GET.get('flujo')
+    qs = Acceso.objects.select_related('persona')
+    if flujo == 'ingreso':
+        qs = qs.filter(Q(camara__icontains='Ingreso') | (~Q(camara__icontains='Egreso') & ~Q(camara__icontains='Salida')))
+    elif flujo == 'egreso':
+        qs = qs.filter(Q(camara__icontains='Egreso') | Q(camara__icontains='Salida'))
+
+    accesos = qs.order_by('-fecha_hora')[:15]
     items = []
     for acc in accesos:
         if acc.foto_validacion:
@@ -421,17 +446,19 @@ def ultimas_detecciones_ajax(request):
         else:
             foto_url = "/static/img/no-face.jpg"
 
+        es_egreso = ('egreso' in acc.camara.lower()) or ('salida' in acc.camara.lower())
         items.append({
             'id': acc.id,
             'nombre': f"{acc.persona.nombre} {acc.persona.apellido}" if acc.persona else (acc.nombre_detectado or "Sujeto Desconocido"),
             'tipo': acc.persona.get_tipo_persona_display() if acc.persona else "Externo",
             'hora': acc.fecha_hora.strftime('%H:%M:%S') if acc.fecha_hora else "",
             'camara': acc.camara or "Cámara",
+            'flujo': 'egreso' if es_egreso else 'ingreso',
             'resultado': acc.resultado,
             'coincidencia': round(acc.coincidencia, 0) if acc.coincidencia else 0,
             'foto_url': foto_url
         })
-    return JsonResponse({'success': True, 'detecciones': items})
+    return JsonResponse({'success': True, 'flujo': flujo, 'detecciones': items})
 
 
 @login_required
