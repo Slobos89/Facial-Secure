@@ -103,11 +103,24 @@ def discover_onvif_cameras(timeout=2.0):
 
     return list(unique_cams.values())
 
-def discover_local_webcams(max_devices=2):
+
+def get_windows_camera_names():
+    """Obtiene los nombres amigables de cámaras en Windows (ej: Iriun Webcam)."""
+    try:
+        import subprocess
+        cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_PnPEntity | Where-Object { $_.PNPClass -eq \'Camera\' -or $_.PNPClass -eq \'Image\' } | Select-Object -ExpandProperty Name"'
+        output = subprocess.check_output(cmd, shell=True, text=True, timeout=2.5)
+        return [l.strip() for l in output.splitlines() if l.strip()]
+    except Exception:
+        return []
+
+
+def discover_local_webcams(max_devices=6):
     """
-    Detecta webcams USB / integradas locales disponibles de manera segura,
+    Detecta webcams USB / virtuales (como Iriun Webcam) / integradas locales disponibles de manera segura,
     sin emitir advertencias de bajo nivel de OpenCV ni bloquear el escaneo.
     """
+    friendly_names = get_windows_camera_names()
     found = []
     consecutive_failures = 0
 
@@ -115,7 +128,7 @@ def discover_local_webcams(max_devices=2):
         cap = None
         try:
             with SuppressStderr():
-                # En Windows probamos primero DirectShow
+                # En Windows probamos primero DirectShow (el backend nativo que usa Iriun)
                 cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
                 if not cap.isOpened():
                     try: cap.release()
@@ -132,10 +145,12 @@ def discover_local_webcams(max_devices=2):
             if cap.isOpened():
                 ret, frame = cap.read()
                 if ret and frame is not None and frame.size > 0:
+                    # Determinar nombre amigable real (ej: Iriun Webcam)
+                    nombre_cam = friendly_names[idx] if (friendly_names and idx < len(friendly_names)) else f'Webcam Local #{idx}'
                     found.append({
                         'id': f'webcam_{idx}',
                         'tipo': 'webcam',
-                        'nombre': f'Webcam Local (Dispositivo #{idx})',
+                        'nombre': nombre_cam,
                         'webcam_index': idx,
                         'icono': '💻'
                     })
@@ -153,18 +168,19 @@ def discover_local_webcams(max_devices=2):
                 except Exception:
                     pass
 
-        # Si ya fallaron 2 dispositivos seguidos (ej: 0 y 1), no sondear más índices
-        if consecutive_failures >= 2:
+        # Si ya fallaron 3 dispositivos seguidos, no sondear más índices
+        if consecutive_failures >= 3:
             break
 
     return found
 
+
 def scan_all_cameras():
     """
-    Escaneo integral de todas las cámaras IP en red local y webcams USB.
+    Escaneo integral de todas las cámaras IP en red local y webcams USB / virtuales.
     """
     ip_cameras = discover_onvif_cameras(timeout=1.8)
-    webcams = discover_local_webcams(max_devices=2)
+    webcams = discover_local_webcams(max_devices=6)
     return {
         'success': True,
         'ip_cameras': ip_cameras,

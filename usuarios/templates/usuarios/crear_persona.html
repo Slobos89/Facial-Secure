@@ -85,6 +85,12 @@ Nuevo Enrolamiento Biométrico | facIAL Secure
                     </h3>
                 </div>
 
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 11px; font-weight: 600; color: #64748b; display: block; margin-bottom: 4px;">📹 Dispositivo de Video:</label>
+                    <select id="select-camara-dispositivo" onchange="iniciarCamara()" style="width: 100%; font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: 600; color: #0f172a;">
+                        <option value="">(Cargando cámaras detectadas...)</option>
+                    </select>
+                </div>
                 <div class="camera-container">
 
                     <video id="video" autoplay playsinline></video>
@@ -260,24 +266,62 @@ let capturando = false;
    INICIAR CÁMARA
 ========================= */
 
+let localStream = null;
+
+async function listarDispositivosVideo(){
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const select = document.getElementById('select-camara-dispositivo');
+        if (!select) return;
+
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        if (videoDevices.length > 0) {
+            const currentVal = select.value;
+            select.innerHTML = videoDevices.map((d, idx) => {
+                const label = d.label || `Cámara #${idx + 1}`;
+                return `<option value="${d.deviceId}">${label}</option>`;
+            }).join('');
+            if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+                select.value = currentVal;
+            }
+        } else {
+            select.innerHTML = '<option value="">(No se detectaron cámaras en el navegador)</option>';
+        }
+    } catch(e) {
+        console.warn('Error listando cámaras:', e);
+    }
+}
+
 async function iniciarCamara(){
-
     try{
+        if (localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+            localStream = null;
+        }
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video:true,
-            audio:false
-        });
+        const select = document.getElementById('select-camara-dispositivo');
+        const deviceId = select && select.value ? select.value : undefined;
 
+        const constraints = {
+            video: deviceId ? { deviceId: { exact: deviceId } } : true,
+            audio: false
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        localStream = stream;
         video.srcObject = stream;
 
+        // Actualizar nombres amigables (ej: Iriun Webcam) una vez otorgado el permiso
+        await listarDispositivosVideo();
     }catch(error){
-
-        alert('No se pudo acceder a la cámara');
-
+        alert('No se pudo acceder a la cámara seleccionada: ' + error.message);
         console.error(error);
     }
+}
 
+// Sondear cámaras disponibles al cargar
+if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+    navigator.mediaDevices.enumerateDevices().then(listarDispositivosVideo).catch(() => {});
 }
 
 
