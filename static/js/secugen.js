@@ -57,14 +57,9 @@ async function secugenCapture(options = {}) {
                     errorCode: 0,
                     message: data.mensaje || 'Huella capturada correctamente con SecuGen'
                 };
-            } else {
-                return {
-                    success: false,
-                    errorCode: data.errorCode || -1,
-                    error: secugenErrorMessage(data.errorCode, data.error),
-                    quality: 0
-                };
             }
+            // Si el servidor está en la nube (Render) no tendrá el sensor USB conectado; intentar fallback local
+            console.warn('Servidor sin sensor USB local o driver disponible:', data.error);
         }
     } catch (err) {
         console.warn("Fallo endpoint nativo Django, probando WebAPI fallback:", err);
@@ -102,10 +97,15 @@ async function secugenCapture(options = {}) {
         // Fallback no disponible
     }
 
+    const isCloud = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const msg = isCloud 
+        ? 'Lector SecuGen USB no accesible en la nube (Render). El sensor físico está conectado a tu computador local. Para validar con huella ejecuta el sistema en local (http://127.0.0.1:8000) o activa SecuGen WebAPI.'
+        : 'No se pudo comunicar con el lector SecuGen Hamster Plus. Asegúrese de que el cable USB esté conectado y los drivers instalados.';
+
     return {
         success: false,
         errorCode: 55,
-        error: 'No se pudo comunicar con el lector SecuGen Hamster Plus. Asegúrese de que el cable USB esté conectado.'
+        error: msg
     };
 }
 
