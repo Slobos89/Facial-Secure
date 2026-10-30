@@ -32,7 +32,15 @@ class VisitaExterna(models.Model):
     rut_visitante = models.CharField(max_length=50, blank=True, null=True, help_text="RUT o documento de identidad")
     telefono = models.CharField(max_length=30, blank=True, default="")
     interno_a_visitar = models.CharField(max_length=150, blank=True, default="", help_text="Interno al cual acude a visitar")
+    modulo_interno = models.CharField(max_length=50, blank=True, default="Módulo General", help_text="Módulo o pabellón del interno")
     parentesco_o_motivo = models.CharField(max_length=100, blank=True, default="Visita general", help_text="Ej: Cónyuge, Abogado, Familiar")
+    nivel_riesgo_inteligencia = models.CharField(
+        max_length=20,
+        default="NORMAL",
+        choices=[('NORMAL', 'Normal'), ('MEDIO', 'Riesgo Medio'), ('ALTO', 'Alto Riesgo')],
+        help_text="Nivel de riesgo determinado por matriz de inteligencia"
+    )
+    motivo_riesgo = models.CharField(max_length=255, blank=True, default="")
 
     # Registro de Ingreso
     fecha_ingreso = models.DateTimeField(default=timezone.now, db_index=True)

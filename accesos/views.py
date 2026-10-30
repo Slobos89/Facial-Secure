@@ -539,3 +539,228 @@ def exportar_accesos_csv(request):
         ])
 
     return response
+
+
+# ========================================================
+# MATRIZ DE INTELIGENCIA DE VISITAS CRUZADAS (RED DE VÍNCULOS)
+# ========================================================
+@login_required
+def inteligencia_visitas(request):
+    """
+    Panel de Inteligencia Penitenciaria para Análisis de Vínculos y Visitas Cruzadas.
+    Detecta patrones de riesgo:
+    1. Visitantes que concurren a múltiples módulos o pabellones distintos (Riesgo Alto).
+    2. Visitantes con múltiples internos vinculados sin parentesco consanguíneo directo (Riesgo Medio/Alto).
+    3. Análisis de grafos de vínculos e interacción.
+    """
+    filtro_riesgo = request.GET.get('riesgo', 'TODOS').strip().upper()
+    filtro_modulo = request.GET.get('modulo', 'TODOS').strip()
+    busqueda = request.GET.get('q', '').strip()
+
+    datos = _analizar_matriz_inteligencia(filtro_riesgo=filtro_riesgo, filtro_modulo=filtro_modulo, busqueda=busqueda)
+
+    return render(
+        request,
+        'accesos/inteligencia.html',
+        {
+            'matriz_visitantes': datos['visitantes'],
+            'resumen': datos['resumen'],
+            'modulos_disponibles': datos['modulos_disponibles'],
+            'filtro_riesgo_actual': filtro_riesgo,
+            'filtro_modulo_actual': filtro_modulo,
+            'busqueda_actual': busqueda,
+            'grafo_json': datos['grafo_json']
+        }
+    )
+
+
+@login_required
+def inteligencia_datos_ajax(request):
+    """Endpoint AJAX para refrescar la matriz y el grafo de inteligencia."""
+    filtro_riesgo = request.GET.get('riesgo', 'TODOS').strip().upper()
+    filtro_modulo = request.GET.get('modulo', 'TODOS').strip()
+    busqueda = request.GET.get('q', '').strip()
+
+    datos = _analizar_matriz_inteligencia(filtro_riesgo=filtro_riesgo, filtro_modulo=filtro_modulo, busqueda=busqueda)
+    return JsonResponse(datos)
+
+
+def _analizar_matriz_inteligencia(filtro_riesgo='TODOS', filtro_modulo='TODOS', busqueda=''):
+    """Motor analítico de inteligencia penitenciaria para redes de visitas cruzadas."""
+    visitas = VisitaExterna.objects.all().order_by('-fecha_ingreso')
+
+    # Agrupar registros por visitante (identificado por RUT o nombre normalizado)
+    agrupados = {}
+    todos_modulos = set()
+
+    for v in visitas:
+        nombre = v.nombre_visitante.strip()
+        rut = v.rut_visitante.strip() if v.rut_visitante else ''
+        key = rut if rut else nombre.lower()
+
+        mod = getattr(v, 'modulo_interno', '').strip() or 'Módulo General'
+        todos_modulos.add(mod)
+
+        if key not in agrupados:
+            agrupados[key] = {
+                'identificador': key,
+                'nombre': nombre,
+                'rut': rut or 'S/RUT',
+                'telefono': v.telefono,
+                'visitas_raw': [],
+                'internos': set(),
+                'modulos': set(),
+                'parentescos': set(),
+                'ultima_visita': v.fecha_ingreso,
+                'en_recinto_actualmente': False,
+                'alerta_vestimenta': False,
+            }
+
+        agrupados[key]['visitas_raw'].append(v)
+        if v.interno_a_visitar:
+            agrupados[key]['internos'].add(v.interno_a_visitar.strip())
+        agrupados[key]['modulos'].add(mod)
+        if v.parentesco_o_motivo:
+            agrupados[key]['parentescos'].add(v.parentesco_o_motivo.strip())
+        if not v.fecha_egreso:
+            agrupados[key]['en_recinto_actualmente'] = True
+        if v.alerta_vestimenta:
+            agrupados[key]['alerta_vestimenta'] = True
+
+    # Evaluar nivel de riesgo para cada visitante
+    visitantes_procesados = []
+    parentescos_directos = {'madre', 'padre', 'hijo', 'hija', 'esposo', 'esposa', 'cónyuge', 'conyuge', 'hermano', 'hermana'}
+
+    for key, data in agrupados.items():
+        total_visitas = len(data['visitas_raw'])
+        cant_internos = len(data['internos'])
+        cant_modulos = len(data['modulos'])
+        modulos_lista = sorted(list(data['modulos']))
+        internos_lista = sorted(list(data['internos']))
+        parentescos_lista = sorted(list(data['parentescos']))
+
+        tiene_parentesco_no_directo = any(
+            p.lower() not in parentescos_directos for p in parentescos_lista
+        ) if parentescos_lista else False
+
+        # CLASIFICACIÓN DE INTELIGENCIA
+        if cant_modulos >= 2:
+            nivel_riesgo = 'ALTO'
+            motivo_riesgo = f"Visita Cruzada Multi-Módulo: concurre a {cant_modulos} módulos distintos ({', '.join(modulos_lista)})"
+        elif cant_internos >= 2 and (tiene_parentesco_no_directo or cant_internos >= 3):
+            nivel_riesgo = 'ALTO'
+            motivo_riesgo = f"Vínculo Múltiple Sospechoso: visita a {cant_internos} internos distintos ({', '.join(internos_lista)})"
+        elif cant_internos >= 2 or data['alerta_vestimenta'] or tiene_parentesco_no_directo:
+            nivel_riesgo = 'MEDIO'
+            if cant_internos >= 2:
+                motivo_riesgo = f"Múltiples internos visitados en el mismo módulo ({cant_internos} internos)"
+            elif data['alerta_vestimenta']:
+                motivo_riesgo = "Observación previa por discrepancia de vestimenta con IA"
+            else:
+                motivo_riesgo = f"Visita sin vínculo de parentesco consanguíneo directo ({', '.join(parentescos_lista)})"
+        else:
+            nivel_riesgo = 'NORMAL'
+            motivo_riesgo = "Vínculo familiar regular y módulo único verificado"
+
+        item = {
+            'identificador': data['identificador'],
+            'nombre': data['nombre'],
+            'rut': data['rut'],
+            'telefono': data['telefono'],
+            'total_visitas': total_visitas,
+            'cant_internos': cant_internos,
+            'internos_str': ', '.join(internos_lista) if internos_lista else 'No especificado',
+            'internos_lista': internos_lista,
+            'cant_modulos': cant_modulos,
+            'modulos_str': ', '.join(modulos_lista),
+            'modulos_lista': modulos_lista,
+            'parentescos_str': ', '.join(parentescos_lista) if parentescos_lista else 'Visita general',
+            'nivel_riesgo': nivel_riesgo,
+            'motivo_riesgo': motivo_riesgo,
+            'en_recinto': data['en_recinto_actualmente'],
+            'alerta_vestimenta': data['alerta_vestimenta'],
+            'ultima_visita': data['ultima_visita'].strftime('%d/%m/%Y %H:%M') if data['ultima_visita'] else '---'
+        }
+        visitantes_procesados.append(item)
+
+    # Filtrar según parámetros solicitados
+    filtrados = []
+    for item in visitantes_procesados:
+        if filtro_riesgo != 'TODOS' and item['nivel_riesgo'] != filtro_riesgo:
+            continue
+        if filtro_modulo != 'TODOS' and filtro_modulo not in item['modulos_lista']:
+            continue
+        if busqueda:
+            b = busqueda.lower()
+            if b not in item['nombre'].lower() and b not in item['rut'].lower() and b not in item['internos_str'].lower():
+                continue
+        filtrados.append(item)
+
+    # Ordenar: primero ALTO riesgo, luego MEDIO, luego NORMAL
+    prioridad_riesgo = {'ALTO': 1, 'MEDIO': 2, 'NORMAL': 3}
+    filtrados.sort(key=lambda x: (prioridad_riesgo.get(x['nivel_riesgo'], 9), -x['total_visitas']))
+
+    # Conteo de resumen
+    total_visitas_count = visitas.count()
+    alto_riesgo_count = sum(1 for v in visitantes_procesados if v['nivel_riesgo'] == 'ALTO')
+    medio_riesgo_count = sum(1 for v in visitantes_procesados if v['nivel_riesgo'] == 'MEDIO')
+    normal_count = sum(1 for v in visitantes_procesados if v['nivel_riesgo'] == 'NORMAL')
+    multimodulo_count = sum(1 for v in visitantes_procesados if v['cant_modulos'] >= 2)
+
+    # Construir estructura para Grafo de Red (Nodos y Aristas)
+    nodos = []
+    aristas = []
+    nodos_agregados = set()
+
+    for item in filtrados:
+        node_id_vis = f"vis_{item['identificador']}"
+        if node_id_vis not in nodos_agregados:
+            color_nodo = '#ef4444' if item['nivel_riesgo'] == 'ALTO' else ('#f59e0b' if item['nivel_riesgo'] == 'MEDIO' else '#10b981')
+            nodos.append({
+                'id': node_id_vis,
+                'label': item['nombre'],
+                'sublabel': f"RUT: {item['rut']} ({item['nivel_riesgo']})",
+                'tipo': 'visitante',
+                'riesgo': item['nivel_riesgo'],
+                'color': color_nodo,
+                'size': 26 if item['nivel_riesgo'] == 'ALTO' else 20
+            })
+            nodos_agregados.add(node_id_vis)
+
+        for interno in item['internos_lista']:
+            node_id_int = f"int_{interno.lower().replace(' ', '_')}"
+            if node_id_int not in nodos_agregados:
+                nodos.append({
+                    'id': node_id_int,
+                    'label': interno,
+                    'sublabel': f"Interno - {item['modulos_str']}",
+                    'tipo': 'interno',
+                    'color': '#3b82f6',
+                    'size': 22
+                })
+                nodos_agregados.add(node_id_int)
+
+            aristas.append({
+                'source': node_id_vis,
+                'target': node_id_int,
+                'label': item['parentescos_str'],
+                'color': '#ef4444' if item['nivel_riesgo'] == 'ALTO' else ('#f59e0b' if item['nivel_riesgo'] == 'MEDIO' else '#64748b'),
+                'width': 3 if item['nivel_riesgo'] == 'ALTO' else 1.5
+            })
+
+    import json
+    grafo_json = json.dumps({'nodes': nodos, 'edges': aristas})
+
+    return {
+        'visitantes': filtrados,
+        'resumen': {
+            'total_visitas': total_visitas_count,
+            'total_sujetos': len(visitantes_procesados),
+            'alto_riesgo': alto_riesgo_count,
+            'medio_riesgo': medio_riesgo_count,
+            'normal': normal_count,
+            'multimodulo': multimodulo_count
+        },
+        'modulos_disponibles': sorted(list(todos_modulos)) if todos_modulos else ['Módulo 1', 'Módulo 2', 'Módulo 3'],
+        'grafo_json': grafo_json
+    }

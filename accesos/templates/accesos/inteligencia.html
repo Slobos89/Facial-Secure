@@ -1,0 +1,510 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}
+Matriz de Inteligencia de Visitas Cruzadas | facIAL Secure
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/accesos.css' %}?v=2.5">
+<style>
+    /* Estilos dedicados para el módulo de Inteligencia */
+    .intel-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border: 1px solid #334155;
+        border-radius: 16px;
+        padding: 24px;
+        color: #ffffff;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+    .intel-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .intel-kpi-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 18px 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .intel-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+    }
+    .kpi-title {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .kpi-value {
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1;
+        color: #0f172a;
+    }
+    .kpi-sub {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-top: 6px;
+    }
+
+    /* Contenedor del Grafo Visual */
+    .graph-panel {
+        background: #0f172a;
+        border: 1px solid #1e293b;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        color: #ffffff;
+    }
+    .graph-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #334155;
+    }
+    .graph-legend {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        font-size: 12px;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    #networkCanvas {
+        width: 100%;
+        height: 380px;
+        background: radial-gradient(circle at center, #1e293b 0%, #0a0f1d 100%);
+        border-radius: 12px;
+        border: 1px solid #334155;
+        cursor: crosshair;
+    }
+
+    /* Tabla y Badges */
+    .badge-alto-riesgo {
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .badge-medio-riesgo {
+        background: #fffbeb;
+        color: #d97706;
+        border: 1px solid #fde68a;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .badge-normal-riesgo {
+        background: #ecfdf5;
+        color: #059669;
+        border: 1px solid #a7f3d0;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .tag-modulo {
+        background: #eff6ff;
+        color: #2563eb;
+        border: 1px solid #bfdbfe;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+        margin: 2px;
+    }
+    .tag-modulo-multi {
+        background: #fdf2f8;
+        color: #db2777;
+        border: 1px solid #fbcfe8;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-block;
+        margin: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <!-- ENCABEZADO TÁCTICO DE INTELIGENCIA -->
+    <div class="intel-header">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">🧠</span>
+                    <h2 style="font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
+                        Matriz de Inteligencia de Visitas Cruzadas & Red de Vínculos
+                    </h2>
+                </div>
+                <p style="font-size: 13px; color: #94a3b8; margin: 6px 0 0 0;">
+                    Auditoría analítica penitenciaria: detección de visitas inter-módulo a pabellones rivales, enlaces sospechosos sin parentesco y patrones anómalos.
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="{% url 'accesos' %}" class="btn" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); font-size: 13px; padding: 8px 14px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                    📋 Volver a Accesos
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- TARJETAS KPI DE INTELIGENCIA -->
+    <div class="intel-kpi-grid">
+        <div class="intel-kpi-card" style="border-left: 4px solid #3b82f6;">
+            <div class="kpi-title">
+                <span>🔗 Vínculos Auditados</span>
+            </div>
+            <div class="kpi-value">{{ resumen.total_sujetos }}</div>
+            <div class="kpi-sub">Sujetos externos con historial registrado</div>
+        </div>
+
+        <div class="intel-kpi-card" style="border-left: 4px solid #ef4444;">
+            <div class="kpi-title" style="color: #ef4444;">
+                <span>🚨 Alto Riesgo Táctico</span>
+            </div>
+            <div class="kpi-value" style="color: #ef4444;">{{ resumen.alto_riesgo }}</div>
+            <div class="kpi-sub">Visitas multi-módulo o vínculos atípicos</div>
+        </div>
+
+        <div class="intel-kpi-card" style="border-left: 4px solid #db2777;">
+            <div class="kpi-title" style="color: #db2777;">
+                <span>🏢 Visitas Multi-Módulo</span>
+            </div>
+            <div class="kpi-value" style="color: #db2777;">{{ resumen.multimodulo }}</div>
+            <div class="kpi-sub">Concurrencia a pabellones distintos</div>
+        </div>
+
+        <div class="intel-kpi-card" style="border-left: 4px solid #f59e0b;">
+            <div class="kpi-title" style="color: #d97706;">
+                <span>⚠️ Riesgo Medio / En Observación</span>
+            </div>
+            <div class="kpi-value" style="color: #d97706;">{{ resumen.medio_riesgo }}</div>
+            <div class="kpi-sub">Múltiples reclusos en mismo módulo</div>
+        </div>
+
+        <div class="intel-kpi-card" style="border-left: 4px solid #10b981;">
+            <div class="kpi-title" style="color: #059669;">
+                <span>🟢 Vínculos Familiares Normales</span>
+            </div>
+            <div class="kpi-value" style="color: #059669;">{{ resumen.normal }}</div>
+            <div class="kpi-sub">Visitas regulares de consanguinidad</div>
+        </div>
+    </div>
+
+    <!-- PANEL DEL GRAFO DE RED INTERACTIVO -->
+    <div class="graph-panel">
+        <div class="graph-header">
+            <div>
+                <h3 style="font-size: 16px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span>🕸️</span> Topología de Red: Grafo de Conexiones Visitante - Interno
+                </h3>
+                <small style="color: #94a3b8; font-size: 12px;">Visualización gráfica en tiempo real de nodos y aristas de vinculación.</small>
+            </div>
+            <div class="graph-legend">
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #ef4444;"></span>
+                    <span>Visitante Alto Riesgo</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #f59e0b;"></span>
+                    <span>Visitante Observación</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #10b981;"></span>
+                    <span>Visitante Normal</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #3b82f6;"></span>
+                    <span>Interno / Pabellón</span>
+                </div>
+            </div>
+        </div>
+        <canvas id="networkCanvas"></canvas>
+    </div>
+
+    <!-- FILTROS DE TABLA DE INTELIGENCIA -->
+    <section class="filters-panel">
+        <form method="GET" class="filters-form" id="formFiltrosIntel">
+            <div class="filters-left">
+                <input 
+                    type="text"
+                    class="input"
+                    name="q"
+                    placeholder="Buscar por visitante, RUT o interno..."
+                    value="{{ busqueda_actual }}"
+                >
+                <button type="submit" class="btn-search">
+                    🔍 Filtrar
+                </button>
+            </div>
+
+            <div class="filters-right" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 12px; font-weight: 600; color: #64748b;">Nivel de Riesgo:</label>
+                    <select class="select" name="riesgo" onchange="this.form.submit()">
+                        <option value="TODOS" {% if filtro_riesgo_actual == 'TODOS' %}selected{% endif %}>Todos los Niveles</option>
+                        <option value="ALTO" {% if filtro_riesgo_actual == 'ALTO' %}selected{% endif %}>🔴 Solo Alto Riesgo</option>
+                        <option value="MEDIO" {% if filtro_riesgo_actual == 'MEDIO' %}selected{% endif %}>🟡 Solo Riesgo Medio</option>
+                        <option value="NORMAL" {% if filtro_riesgo_actual == 'NORMAL' %}selected{% endif %}>🟢 Solo Normal</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 12px; font-weight: 600; color: #64748b;">Módulo:</label>
+                    <select class="select" name="modulo" onchange="this.form.submit()">
+                        <option value="TODOS" {% if filtro_modulo_actual == 'TODOS' %}selected{% endif %}>Todos los Módulos</option>
+                        {% for mod in modulos_disponibles %}
+                        <option value="{{ mod }}" {% if filtro_modulo_actual == mod %}selected{% endif %}>{{ mod }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <!-- TABLA DE LA MATRIZ DE INTELIGENCIA -->
+    <div class="table-container" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 30px;">
+        <table class="table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left; color: #475569;">
+                    <th style="padding: 14px 16px;">Sujeto Visitante</th>
+                    <th style="padding: 14px 16px;">Internos Vinculados</th>
+                    <th style="padding: 14px 16px;">Módulos / Pabellones</th>
+                    <th style="padding: 14px 16px;">Parentesco Declarado</th>
+                    <th style="padding: 14px 16px; text-align: center;">Total Visitas</th>
+                    <th style="padding: 14px 16px;">Dictamen de Riesgo & Motivo</th>
+                    <th style="padding: 14px 16px; text-align: center;">Estado Recinto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in matriz_visitantes %}
+                <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <td style="padding: 14px 16px;">
+                        <strong style="color: #0f172a; font-size: 14px;">{{ item.nombre }}</strong>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                            RUT: <strong>{{ item.rut }}</strong> {% if item.telefono %}• Tel: {{ item.telefono }}{% endif %}
+                        </div>
+                    </td>
+                    <td style="padding: 14px 16px;">
+                        <strong style="color: #1e293b;">{{ item.internos_str }}</strong>
+                        {% if item.cant_internos > 1 %}
+                        <div style="font-size: 11px; color: #dc2626; font-weight: 700; margin-top: 2px;">
+                            ⚠️ {{ item.cant_internos }} reclusos distintos
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 14px 16px;">
+                        {% for mod in item.modulos_lista %}
+                            {% if item.cant_modulos > 1 %}
+                            <span class="tag-modulo-multi">⚡ {{ mod }}</span>
+                            {% else %}
+                            <span class="tag-modulo">{{ mod }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td style="padding: 14px 16px; color: #475569;">
+                        {{ item.parentescos_str }}
+                    </td>
+                    <td style="padding: 14px 16px; text-align: center;">
+                        <span style="display: inline-block; padding: 4px 10px; background: #f1f5f9; border-radius: 12px; font-weight: 700; color: #1e293b;">
+                            {{ item.total_visitas }}
+                        </span>
+                    </td>
+                    <td style="padding: 14px 16px;">
+                        {% if item.nivel_riesgo == 'ALTO' %}
+                        <div class="badge-alto-riesgo">🔴 ALTO RIESGO</div>
+                        {% elif item.nivel_riesgo == 'MEDIO' %}
+                        <div class="badge-medio-riesgo">🟡 OBSERVACIÓN</div>
+                        {% else %}
+                        <div class="badge-normal-riesgo">🟢 NORMAL</div>
+                        {% endif %}
+                        <div style="font-size: 11px; color: #475569; margin-top: 4px; max-width: 280px; line-height: 1.3;">
+                            {{ item.motivo_riesgo }}
+                        </div>
+                    </td>
+                    <td style="padding: 14px 16px; text-align: center;">
+                        {% if item.en_recinto %}
+                        <span style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px;">
+                            🏢 En Recinto
+                        </span>
+                        {% else %}
+                        <span style="color: #94a3b8; font-size: 12px;">Egresado</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="padding: 30px; text-align: center; color: #94a3b8;">
+                        🔍 No se encontraron registros de visitas cruzadas para los filtros seleccionados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // RENDERIZADO DEL GRAFO INTERACTIVO EN CANVAS HTML5
+    const grafoData = JSON.parse('{{ grafo_json|escapejs }}');
+    const canvas = document.getElementById('networkCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = 380;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Inicializar posiciones de los nodos con un layout de fuerza simple
+    const nodes = grafoData.nodes;
+    const edges = grafoData.edges;
+
+    const nodeMap = {};
+    nodes.forEach((node, index) => {
+        // Distribuir en círculo inicial
+        const angle = (index / (nodes.length || 1)) * 2 * Math.PI;
+        const radius = Math.min(canvas.width, canvas.height) * 0.35;
+        node.x = canvas.width / 2 + Math.cos(angle) * radius + (Math.random() - 0.5) * 40;
+        node.y = canvas.height / 2 + Math.sin(angle) * radius + (Math.random() - 0.5) * 40;
+        node.vx = 0;
+        node.vy = 0;
+        nodeMap[node.id] = node;
+    });
+
+    let hoveredNode = null;
+
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        hoveredNode = null;
+
+        for (let i = 0; i < nodes.length; i++) {
+            const n = nodes[i];
+            const dist = Math.hypot(n.x - mx, n.y - my);
+            if (dist <= n.size) {
+                hoveredNode = n;
+                break;
+            }
+        }
+    });
+
+    function drawGraph() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Si no hay nodos suficientes, mostrar mensaje
+        if (nodes.length === 0) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '14px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('No hay suficientes datos de vínculos para generar el grafo.', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+
+        // Dibujar Aristas (Líneas de conexión)
+        edges.forEach(edge => {
+            const s = nodeMap[edge.source];
+            const t = nodeMap[edge.target];
+            if (s && t) {
+                ctx.beginPath();
+                ctx.moveTo(s.x, s.y);
+                ctx.lineTo(t.x, t.y);
+                ctx.strokeStyle = edge.color || '#475569';
+                ctx.lineWidth = edge.width || 1.5;
+                ctx.stroke();
+
+                // Etiqueta del vínculo en el medio
+                if (edge.label && edge.width > 2) {
+                    const midX = (s.x + t.x) / 2;
+                    const midY = (s.y + t.y) / 2;
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = '10px Inter, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(edge.label, midX, midY - 4);
+                }
+            }
+        });
+
+        // Dibujar Nodos
+        nodes.forEach(node => {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, node.size, 0, 2 * Math.PI);
+            ctx.fillStyle = node.color || '#3b82f6';
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = (hoveredNode === node) ? '#ffffff' : 'rgba(255,255,255,0.3)';
+            ctx.stroke();
+
+            // Etiqueta de texto del nodo
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(node.label, node.x, node.y + node.size + 14);
+
+            if (node.sublabel) {
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '10px Inter, sans-serif';
+                ctx.fillText(node.sublabel, node.x, node.y + node.size + 26);
+            }
+        });
+
+        // Animación suave continua
+        requestAnimationFrame(drawGraph);
+    }
+
+    drawGraph();
+</script>
+{% endblock %}

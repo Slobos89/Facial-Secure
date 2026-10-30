@@ -686,6 +686,13 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
         if (r.es_alerta_interno) {
             reproducirAlarmaFuga();
             mostrarAlertaFugaBanner(r.nombre, r.rut, r.coincidencia);
+            if (typeof verificarEstadoLockdown === 'function') {
+                verificarEstadoLockdown();
+            }
+        } else if (r.lockdown_activado) {
+            if (typeof verificarEstadoLockdown === 'function') {
+                verificarEstadoLockdown();
+            }
         } else if (r.nuevo_registro) {
             reproducirTono(r.estado);
         }
@@ -721,6 +728,20 @@ function agregarDeteccionEnVivo(r) {
     const alertaNotice = r.es_alerta_interno ? `<div style="color:#ef4444; font-size:10px; font-weight:800; margin-top:2px;">🚨 ¡ALERTA: INTENTO DE EGRESO NO AUTORIZADO!</div>` : '';
     const badgeLabel = r.es_alerta_interno ? `🚨 DENEGADO ${Math.round(r.coincidencia)}%` : `${Math.round(r.coincidencia)}%`;
 
+    let antiSpoofTag = '';
+    if (r.prueba_vida) {
+        if (!r.prueba_vida.es_real) {
+            antiSpoofTag = `<div style="margin-top: 3px;"><span style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">🚨 SPOOFING [PANTALLA / FOTO] (${r.prueba_vida.score}%)</span></div>`;
+        } else {
+            antiSpoofTag = `<div style="margin-top: 3px;"><span style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px;">🛡️ Vida Pasiva: ${r.prueba_vida.score}%</span></div>`;
+        }
+    }
+
+    let accesorioTag = '';
+    if (r.accesorios && !r.accesorios.rostro_despejado && r.accesorios.items && r.accesorios.items.length > 0) {
+        accesorioTag = `<div style="margin-top: 3px;"><span style="background:#fffbeb; color:#d97706; border:1px solid #fde68a; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;">⚠️ Retirar: ${r.accesorios.items.join(', ')}</span></div>`;
+    }
+
     const item = document.createElement('div');
     item.className = `detection-item ${itemClass}`;
     item.innerHTML = `
@@ -732,6 +753,8 @@ function agregarDeteccionEnVivo(r) {
             <span>${r.tipo} • ${r.hora}</span>
             <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${currentCameraNombre} <b style="color:${flujoColor};">${flujoTag}</b></small>
             ${alertaNotice}
+            ${antiSpoofTag}
+            ${accesorioTag}
         </div>
         <div class="det-badge">
             <span class="badge ${badgeClass}" style="${r.es_alerta_interno ? 'background:#dc2626; color:#fff; font-weight:800; padding:4px 8px;' : ''}">

@@ -72,6 +72,12 @@
                     </div>
                 </a>
 
+                <a href="{% url 'inteligencia_visitas' %}" class="nav-link">
+                    <div class="nav-item {% if request.resolver_match.url_name == 'inteligencia_visitas' %}active{% endif %}">
+                        🧠 Inteligencia
+                    </div>
+                </a>
+
                 <a href="{% url 'alertas' %}" class="nav-link">
                     <div class="nav-item {% if request.resolver_match.url_name == 'alertas' %}active{% endif %}">
                         🚨 Alertas
@@ -105,6 +111,14 @@
                         APIs Activas
                     </div>
 
+                </div>
+
+                <!-- BOTON DE PANICO / PROTOCOLO LOCKDOWN -->
+                <div style="display: flex; align-items: center; margin-left: auto; margin-right: 14px;">
+                    <button id="btnTopbarLockdown" onclick="abrirModalLockdown()" class="btn-panic-lockdown" title="Cierre Perimetral y Alarma de Emergencia">
+                        <span class="lockdown-pulse-icon">🚨</span>
+                        <span id="txtLockdownBoton">LOCKDOWN PERIMETRAL</span>
+                    </button>
                 </div>
 
                 <div class="user-menu">
@@ -170,6 +184,16 @@
 
                 </div>
 
+            </div>
+
+            <!-- BANNER DE EMERGENCIA GLOBAL LOCKDOWN -->
+            <div id="bannerGlobalLockdown" class="lockdown-banner-global">
+                <div style="display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <span>🚨 <strong>¡ALERTA MÁXIMA: PROTOCOLO LOCKDOWN ACTIVO!</strong> CIERRE PERIMETRAL Y BLOQUEO DE PORTALES EN EJECUCIÓN</span>
+                    <button onclick="abrirModalLockdown()" style="background: #ffffff; color: #dc2626; border: none; padding: 3px 10px; border-radius: 6px; font-weight: 800; cursor: pointer; font-size: 11px;">
+                        Ver Pase de Evacuación / Desbloquear
+                    </button>
+                </div>
             </div>
 
             <!-- CONTENT -->
@@ -305,6 +329,341 @@
         </div>
     </div>
 </div>
+
+
+<!-- MODAL DE GESTIÓN DE PROTOCOLO LOCKDOWN -->
+<div id="modalLockdownPerimetral" class="modal-lockdown-overlay" style="display: none;">
+    <div class="modal-lockdown-card">
+        <div class="modal-lockdown-header" id="lockdownHeaderColor">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 26px;">🚨</span>
+                <div>
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 800;" id="lockdownModalTitulo">Protocolo de Cierre Perimetral (Lockdown)</h3>
+                    <small id="lockdownModalSubtitulo" style="opacity: 0.9;">Control de Emergencia Penitenciaria y Bloqueo de Portales</small>
+                </div>
+            </div>
+            <button onclick="cerrarModalLockdown()" style="background: transparent; border: none; color: #ffffff; font-size: 22px; cursor: pointer;">&times;</button>
+        </div>
+
+        <div style="padding: 20px;">
+            <!-- ESTADO INACTIVO: Permite activar -->
+            <div id="panelLockdownInactivo" style="display: block;">
+                <p style="font-size: 13px; color: #475569; margin-top: 0;">
+                    La activación manual de este protocolo ordenará el <strong>cierre inmediato de todos los portales biométricos</strong>, disparará sirenas de alarma táctica en todos los puestos y generará la lista de evacuación de visitas.
+                </p>
+                <div style="margin-bottom: 14px;">
+                    <label style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px;">Motivo o Sector del Incidente:</label>
+                    <input type="text" id="lockdownMotivoInput" class="input" style="width: 100%; height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; font-size: 13px;" placeholder="Ej: Fuga en progreso, sospecha de evasión, motín...">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="cerrarModalLockdown()" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;">Cancelar</button>
+                    <button type="button" onclick="ejecutarActivarLockdown()" style="background: #dc2626; color: #ffffff; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 8px rgba(220,38,38,0.4);">🚨 ACTIVAR CIERRE TOTAL</button>
+                </div>
+            </div>
+
+            <!-- ESTADO ACTIVO: Muestra lista de evacuación y formulario de PIN de desbloqueo -->
+            <div id="panelLockdownActivo" style="display: none;">
+                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+                    <div style="font-size: 12px; color: #991b1b; font-weight: 700;">INCIDENTE ACTIVO:</div>
+                    <div id="lockdownIncidenteMotivo" style="font-size: 14px; color: #b91c1c; font-weight: 800; margin-top: 2px;">---</div>
+                    <div id="lockdownIncidenteHora" style="font-size: 11px; color: #7f1d1d; margin-top: 4px;">---</div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <strong style="font-size: 13px; color: #0f172a;">📋 Pase de Evacuación y Aforo (Personas en Recinto):</strong>
+                        <span id="badgeTotalEvacuacion" style="background: #eff6ff; color: #2563eb; font-weight: 700; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0 en recinto</span>
+                    </div>
+                    <div id="contenedorListaEvacuacion" style="max-height: 180px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 12px;">
+                        <!-- Se llena vía AJAX -->
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px;">
+                    <label style="font-size: 12px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 6px;">
+                        PIN Maestro para Desactivar y Reabrir Portales (Por defecto: 1234):
+                    </label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="password" id="lockdownPinInput" class="input" style="flex: 1; height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; font-size: 14px; letter-spacing: 2px;" placeholder="PIN de Seguridad">
+                        <button type="button" onclick="ejecutarDesactivarLockdown()" style="background: #10b981; color: #ffffff; border: none; padding: 0 16px; border-radius: 8px; font-weight: 700; cursor: pointer;">
+                            🔓 Desactivar Cierre
+                        </button>
+                    </div>
+                    <small id="lockdownErrorPin" style="color: #dc2626; font-size: 11px; display: none; margin-top: 4px; font-weight: 600;"></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.btn-panic-lockdown {
+    background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+    color: #ffffff;
+    border: 1px solid #ef4444;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+    transition: all 0.2s ease;
+}
+.btn-panic-lockdown:hover {
+    background: #991b1b;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.8);
+    transform: scale(1.02);
+}
+.btn-panic-lockdown.activo {
+    background: #7f1d1d;
+    border-color: #f87171;
+    animation: pulse-panic 1.2s infinite;
+}
+@keyframes pulse-panic {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+.lockdown-banner-global {
+    display: none;
+    background: #dc2626;
+    color: #ffffff;
+    padding: 10px 20px;
+    font-weight: 800;
+    font-size: 13px;
+    text-align: center;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.5);
+    animation: flash-banner 1.5s infinite;
+}
+@keyframes flash-banner {
+    0%, 100% { background: #dc2626; }
+    50% { background: #991b1b; }
+}
+.modal-lockdown-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(4px);
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.modal-lockdown-card {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 95%;
+    max-width: 540px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    overflow: hidden;
+    animation: slideUp 0.25s ease;
+}
+.modal-lockdown-header {
+    background: #0f172a;
+    color: #ffffff;
+    padding: 18px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
+<script>
+// ==========================================
+// CONTROLADOR GLOBAL DEL PROTOCOLO LOCKDOWN
+// ==========================================
+let _lockdownActivoGlobal = false;
+let _sirenaAudioCtx = null;
+let _sirenaOscilador = null;
+
+function reproducirSirenaLockdown() {
+    try {
+        if (!_sirenaAudioCtx) {
+            _sirenaAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (_sirenaAudioCtx.state === 'suspended') {
+            _sirenaAudioCtx.resume();
+        }
+        if (_sirenaOscilador) return;
+
+        const osc = _sirenaAudioCtx.createOscillator();
+        const gain = _sirenaAudioCtx.createGain();
+        osc.type = 'sawtooth';
+
+        const startTime = _sirenaAudioCtx.currentTime;
+        osc.frequency.setValueAtTime(600, startTime);
+        osc.frequency.linearRampToValueAtTime(950, startTime + 0.35);
+        osc.frequency.linearRampToValueAtTime(600, startTime + 0.7);
+
+        gain.gain.setValueAtTime(0.12, startTime);
+        osc.connect(gain);
+        gain.connect(_sirenaAudioCtx.destination);
+        osc.start();
+        _sirenaOscilador = osc;
+
+        // Bucle de sirena modulada
+        const sirenInterval = setInterval(() => {
+            if (!_lockdownActivoGlobal || !_sirenaAudioCtx) {
+                clearInterval(sirenInterval);
+                try { osc.stop(); } catch(e){}
+                _sirenaOscilador = null;
+                return;
+            }
+            const t = _sirenaAudioCtx.currentTime;
+            osc.frequency.setValueAtTime(600, t);
+            osc.frequency.linearRampToValueAtTime(950, t + 0.35);
+            osc.frequency.linearRampToValueAtTime(600, t + 0.7);
+        }, 700);
+    } catch(e) {
+        console.warn('Audio de sirena no soportado o bloqueado:', e);
+    }
+}
+
+function detenerSirenaLockdown() {
+    if (_sirenaOscilador) {
+        try { _sirenaOscilador.stop(); } catch(e){}
+        _sirenaOscilador = null;
+    }
+}
+
+function abrirModalLockdown() {
+    document.getElementById('modalLockdownPerimetral').style.display = 'flex';
+    verificarEstadoLockdown();
+}
+
+function cerrarModalLockdown() {
+    document.getElementById('modalLockdownPerimetral').style.display = 'none';
+}
+
+function verificarEstadoLockdown() {
+    fetch('/monitoreo/lockdown/estado/')
+    .then(r => r.json())
+    .then(data => {
+        const btn = document.getElementById('btnTopbarLockdown');
+        const txtBtn = document.getElementById('txtLockdownBoton');
+        const banner = document.getElementById('bannerGlobalLockdown');
+        const panelInactivo = document.getElementById('panelLockdownInactivo');
+        const panelActivo = document.getElementById('panelLockdownActivo');
+        const header = document.getElementById('lockdownHeaderColor');
+
+        _lockdownActivoGlobal = data.activo;
+
+        if (data.activo) {
+            btn.classList.add('activo');
+            txtBtn.textContent = '🚨 LOCKDOWN EN CURSO';
+            banner.style.display = 'block';
+            header.style.background = '#b91c1c';
+
+            panelInactivo.style.display = 'none';
+            panelActivo.style.display = 'block';
+
+            document.getElementById('lockdownIncidenteMotivo').textContent = data.motivo;
+            document.getElementById('lockdownIncidenteHora').textContent = 'Hora de Activación: ' + data.fecha_activacion + ' | ' + data.origen;
+            document.getElementById('badgeTotalEvacuacion').textContent = data.total_visitas_en_recinto + ' visitas en recinto';
+
+            const lista = document.getElementById('contenedorListaEvacuacion');
+            if (data.visitas_en_recinto && data.visitas_en_recinto.length > 0) {
+                lista.innerHTML = data.visitas_en_recinto.map(v => `
+                    <div style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>${v.nombre}</strong> (RUT: ${v.rut})
+                            <div style="font-size: 11px; color: #64748b;">Visita a: <strong>${v.interno_a_visitar}</strong> (${v.modulo})</div>
+                        </div>
+                        <span style="font-size: 11px; font-weight: 700; color: #2563eb;">${v.minutos_en_recinto} min adentro</span>
+                    </div>
+                `).join('');
+            } else {
+                lista.innerHTML = '<div style="padding: 12px; text-align: center; color: #94a3b8;">No hay visitantes externos en el recinto actualmente.</div>';
+            }
+
+            reproducirSirenaLockdown();
+        } else {
+            btn.classList.remove('activo');
+            txtBtn.textContent = 'LOCKDOWN PERIMETRAL';
+            banner.style.display = 'none';
+            header.style.background = '#0f172a';
+
+            panelInactivo.style.display = 'block';
+            panelActivo.style.display = 'none';
+
+            detenerSirenaLockdown();
+        }
+    })
+    .catch(() => {});
+}
+
+function ejecutarActivarLockdown() {
+    const motivo = document.getElementById('lockdownMotivoInput').value.trim();
+    const formData = new FormData();
+    formData.append('motivo', motivo || 'Cierre Perimetral Táctico Activado por Operador');
+
+    fetch('/monitoreo/lockdown/activar/', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            verificarEstadoLockdown();
+        } else {
+            alert('Error activando lockdown: ' + (data.mensaje || 'Error'));
+        }
+    })
+    .catch(() => alert('Error de conexión con el servidor.'));
+}
+
+function ejecutarDesactivarLockdown() {
+    const pin = document.getElementById('lockdownPinInput').value.trim();
+    const errSpan = document.getElementById('lockdownErrorPin');
+    errSpan.style.display = 'none';
+
+    if (!pin) {
+        errSpan.textContent = 'Por favor ingrese el PIN de seguridad.';
+        errSpan.style.display = 'block';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('pin', pin);
+
+    fetch('/monitoreo/lockdown/desactivar/', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            document.getElementById('lockdownPinInput').value = '';
+            verificarEstadoLockdown();
+            alert('✅ Protocolo Lockdown Finalizado. Portales perimetrales normalizados.');
+            cerrarModalLockdown();
+        } else {
+            errSpan.textContent = data.mensaje || 'PIN incorrecto.';
+            errSpan.style.display = 'block';
+        }
+    })
+    .catch(() => alert('Error de comunicación con el servidor.'));
+}
+
+// Polling cada 3.5 segundos para sincronización en tiempo real
+setInterval(verificarEstadoLockdown, 3500);
+document.addEventListener('DOMContentLoaded', verificarEstadoLockdown);
+</script>
 
 </body>
 

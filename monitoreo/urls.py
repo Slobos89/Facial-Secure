@@ -9,7 +9,10 @@ from .views import (
     seleccionar_camara_ajax,
     asignar_camara_ajax,
     renombrar_camara_ajax,
-    eliminar_camara_ajax
+    eliminar_camara_ajax,
+    lockdown_estado_ajax,
+    lockdown_activar_ajax,
+    lockdown_desactivar_ajax
 )
 
 urlpatterns = [
@@ -23,4 +26,7 @@ urlpatterns = [
     path('camaras/renombrar/', renombrar_camara_ajax, name='renombrar_camara'),
     path('camaras/eliminar/', eliminar_camara_ajax, name='eliminar_camara'),
     path('camaras/seleccionar/', seleccionar_camara_ajax, name='seleccionar_camara'),
+    path('lockdown/estado/', lockdown_estado_ajax, name='lockdown_estado'),
+    path('lockdown/activar/', lockdown_activar_ajax, name='lockdown_activar'),
+    path('lockdown/desactivar/', lockdown_desactivar_ajax, name='lockdown_desactivar'),
 ]
