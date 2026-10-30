@@ -9,5 +9,6 @@ urlpatterns = [
     path('visita/<int:visita_id>/guardar/', views.visita_guardar_pertenencias, name='visita_guardar_pertenencias'),
     path('visita/<int:visita_id>/analizar-ia/', views.visita_analizar_ia, name='visita_analizar_ia'),
     path('visita/<int:visita_id>/egreso/', views.visita_registrar_egreso_ajax, name='visita_registrar_egreso_ajax'),
+    path('visita/<int:visita_id>/parlante/', views.visita_emitir_parlante, name='visita_emitir_parlante'),
     path('visita/crear/', views.visita_crear_ajax, name='visita_crear_ajax'),
 ]

@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from datetime import timedelta
 from django.contrib.auth.models import User
 
 
@@ -8,9 +9,11 @@ class VisitaExterna(models.Model):
     Registro y control de aforo para personas externas (visitas, abogados, proveedores).
     Permite el balance estricto de entradas vs salidas y auditoría biométrica/IA
     de vestimenta para prevenir intercambio de ropas o suplantaciones con internos.
+    Incluye temporizador reglamentario de 3 horas de permanencia máxima.
     """
     ESTADOS_VISITA = [
         ('EN_RECINTO', 'En Recinto (Pendiente de Salida)'),
+        ('TIEMPO_EXCEDIDO', 'Alerta: Tiempo de Visita Excedido (3 Horas)'),
         ('FINALIZADA', 'Finalizada (Egresó - Conforme)'),
         ('ALERTA_DISCREPANCIA', 'Alerta: Discrepancia de Vestimenta'),
         ('OBSERVADA', 'Revisión Manual Requerida'),
@@ -72,6 +75,9 @@ class VisitaExterna(models.Model):
     alerta_vestimenta = models.BooleanField(default=False, help_text="Indica si hubo discordancia sospechosa de ropa")
     dictamen_ia = models.TextField(blank=True, default="")
 
+    # Control de Megafonía / Parlantes
+    aviso_parlante_emitido = models.BooleanField(default=False, help_text="Indica si se activó aviso de parlantes por permanencia excedida")
+
     # Auditoría
     observaciones_guardia = models.TextField(blank=True, default="")
     registrado_por = models.ForeignKey(
@@ -94,3 +100,25 @@ class VisitaExterna(models.Model):
     @property
     def ha_egresado(self):
         return self.fecha_egreso is not None
+
+    @property
+    def tiempo_limite(self):
+        """Calcula el término de las 3 horas reglamentarias de visita."""
+        if not self.fecha_ingreso:
+            return None
+        return self.fecha_ingreso + timedelta(hours=3)
+
+    @property
+    def segundos_restantes(self):
+        """Retorna segundos restantes de permanencia permitida."""
+        if self.ha_egresado or not self.fecha_ingreso:
+            return 0
+        delta = (self.tiempo_limite - timezone.now()).total_seconds()
+        return int(delta)
+
+    @property
+    def tiempo_excedido(self):
+        """Retorna True si han transcurrido más de 3 horas sin egreso."""
+        if self.ha_egresado or not self.fecha_ingreso:
+            return False
+        return timezone.now() > self.tiempo_limite

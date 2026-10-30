@@ -7,7 +7,7 @@ Control y Registro de Accesos | facIAL Secure
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/accesos.css' %}?v=2.3">
+<link rel="stylesheet" href="{% static 'css/accesos.css' %}?v=2.4">
 {% endblock %}
 
 {% block content %}
@@ -72,7 +72,7 @@ Control y Registro de Accesos | facIAL Secure
                         <span>👥</span> Control y Balance de Aforo de Personas Externas
                     </div>
                     <div class="visitantes-subtitle">
-                        Auditoría estricta de visitas: si ingresan 100 deben salir esas mismas 100, vestidas tal cual como entraron (Supervisado por IA).
+                        Auditoría estricta de visitas: si ingresan 100 deben salir esas mismas 100, vestidas tal cual como entraron y dentro del límite reglamentario de 3 horas.
                     </div>
                 </div>
                 <div class="visitantes-actions">
@@ -111,21 +111,44 @@ Control y Registro de Accesos | facIAL Secure
                     {% if dentro_penal == 0 %}
                         <span class="b-pill green">✅ Aforo Cuadrado</span>
                     {% else %}
-                        <span class="b-pill yellow">⚠️ Pendientes</span>
+                        <span class="b-pill yellow">⚠️ Pendientes ({{ dentro_penal }})</span>
                     {% endif %}
                 </div>
 
-                <div class="balance-card ia {% if alertas_vestimenta_count > 0 %}alerta-activa{% endif %}">
-                    <div class="b-icon">👕</div>
+                <div class="balance-card ia {% if total_tiempo_excedido > 0 %}alerta-activa{% endif %}">
+                    <div class="b-icon">⏰</div>
                     <div class="b-info">
-                        <span class="b-lbl">Auditoría IA Ropa</span>
-                        <span class="b-val">{{ alertas_vestimenta_count }}</span>
+                        <span class="b-lbl">Límite 3 Horas</span>
+                        <span class="b-val" id="cnt-excedidos">{{ total_tiempo_excedido }}</span>
                     </div>
-                    {% if alertas_vestimenta_count == 0 %}
-                        <span class="b-pill green">100% Conforme</span>
+                    {% if total_tiempo_excedido == 0 %}
+                        <span class="b-pill green">En Tiempo Límite</span>
                     {% else %}
-                        <span class="b-pill red">🚨 {{ alertas_vestimenta_count }} Discrepancia(s)</span>
+                        <span class="b-pill red">🚨 {{ total_tiempo_excedido }} Excedido(s)</span>
                     {% endif %}
+                </div>
+            </div>
+
+            <!-- BANNER DE ALERTA DE PERMANENCIA EXCEDIDA (3 HORAS) Y LLAMADO A MEGAFONÍA / PARLANTES -->
+            <div id="alerta-megafonia-container" class="banner-megafonia-alerta" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <span class="megafono-animado">📢</span>
+                    <div>
+                        <div style="font-size: 13.5px; font-weight: 800; color: #ffffff; text-transform: uppercase; letter-spacing: 0.5px;">
+                            ¡ALERTA DE SEGURIDAD! TIEMPO DE VISITA EXCEDIDO (LÍMITE: 3 HORAS)
+                        </div>
+                        <div id="alerta-megafonia-texto" style="font-size: 12px; color: #fee2e2; margin-top: 3px;">
+                            Uno o más visitantes han superado las 3 horas de permanencia dentro del penal. Activar sistema de megafonía/parlantes para ordenar su egreso inmediato.
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" onclick="abrirModalMegafoniaGeneral()" class="btn-megafonia-accion">
+                        📢 Emitir Aviso por Parlantes
+                    </button>
+                    <button type="button" onclick="silenciarAlarmaTiempo()" class="btn-megafonia-silenciar">
+                        Silenciar
+                    </button>
                 </div>
             </div>
 
@@ -134,7 +157,7 @@ Control y Registro de Accesos | facIAL Secure
             <div class="balance-status-alert alerta">
                 <div class="alert-icon">⚠️</div>
                 <div class="alert-text">
-                    <strong>CONTROL DE AFORO EN CURSO:</strong> Hay <strong>{{ dentro_penal }} persona(s) externa(s)</strong> actualmente dentro del recinto penitenciario pendientes de salida. Cada una debe egresar con la misma indumentaria y pertenencias registradas al ingresar para prevenir intercambio de ropas o suplantación con internos.
+                    <strong>CONTROL DE AFORO EN CURSO:</strong> Hay <strong>{{ dentro_penal }} persona(s) externa(s)</strong> actualmente dentro del recinto penitenciario. Cada visitante cuenta con un tiempo máximo reglamentario de <strong>3 horas de permanencia</strong> en cuenta atrás continua.
                 </div>
             </div>
             {% else %}
@@ -157,11 +180,13 @@ Control y Registro de Accesos | facIAL Secure
                         <span class="col-count">{{ visitas_ingresadas|length }} registradas</span>
                     </div>
                     <div class="split-col-help">
-                        💡 <strong>Selecciona cualquier persona</strong> para ver la ficha detallada de lo que lleva y sus prendas.
+                        💡 <strong>Temporizador de 3 horas activo:</strong> Cuenta atrás en vivo. Si el tiempo expira, se emite alerta para llamado por parlantes.
                     </div>
                     <div class="split-list" id="lista-ingresados">
                         {% for v in visitas_ingresadas %}
-                            <div class="visita-card ing-card {% if not v.ha_egresado %}en-recinto{% endif %}" onclick="verFichaVisita({{ v.id }})" title="Click para ver pertenencias e inspección">
+                            <div class="visita-card ing-card {% if not v.ha_egresado %}en-recinto{% endif %} {% if not v.ha_egresado and v.tiempo_excedido %}tiempo-excedido{% endif %}" 
+                                 onclick="verFichaVisita({{ v.id }})" 
+                                 title="Click para ver pertenencias e inspección">
                                 <div class="visita-avatar">
                                     {% if v.foto_ingreso %}
                                         <img src="{{ v.foto_ingreso.url }}" alt="{{ v.nombre_visitante }}">
@@ -174,11 +199,25 @@ Control y Registro de Accesos | facIAL Secure
                                 <div class="visita-info">
                                     <div class="visita-topline">
                                         <h4>{{ v.nombre_visitante }}</h4>
-                                        {% if not v.ha_egresado %}
-                                            <span class="tag-status badge-en-recinto">🏢 En Recinto</span>
-                                        {% else %}
-                                            <span class="tag-status badge-egreso-ok">✅ Egresó</span>
-                                        {% endif %}
+                                        <div class="visita-estado-container">
+                                            {% if not v.ha_egresado %}
+                                                <span class="tag-status badge-en-recinto">🏢 En Recinto</span>
+                                                <!-- CUENTA ATRÁS DE 3 HORAS DEBAJO DEL ICONO -->
+                                                <span class="tag-timer timer-cuenta-atras" 
+                                                      id="timer-visita-{{ v.id }}"
+                                                      data-ingreso="{{ v.fecha_ingreso|date:'c' }}"
+                                                      data-visita-id="{{ v.id }}"
+                                                      data-nombre="{{ v.nombre_visitante }}"
+                                                      data-interno="{{ v.interno_a_visitar|default:'Interno' }}">
+                                                    ⏳ 03:00:00
+                                                </span>
+                                            {% else %}
+                                                <span class="tag-status badge-egreso-ok">✅ Egresó</span>
+                                                <span style="font-size: 10px; color: #15803d; font-weight: 700; margin-top: 2px;">
+                                                    Visita Concluida
+                                                </span>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                     <div class="visita-meta">
                                         <span>RUT: {{ v.rut_visitante|default:'---' }}</span> • 
@@ -192,6 +231,13 @@ Control y Registro de Accesos | facIAL Secure
                                     {% if v.pertenencias_declaradas %}
                                         <div class="visita-belongings-preview">
                                             🎒 <em>{{ v.pertenencias_declaradas|truncatechars:48 }}</em>
+                                        </div>
+                                    {% endif %}
+                                    {% if not v.ha_egresado and v.tiempo_excedido %}
+                                        <div style="margin-top: 6px;">
+                                            <button type="button" class="btn-parlante-card" onclick="event.stopPropagation(); abrirModalMegafonia({{ v.id }})">
+                                                📢 Activar Parlantes
+                                            </button>
                                         </div>
                                     {% endif %}
                                 </div>
@@ -533,6 +579,9 @@ Control y Registro de Accesos | facIAL Secure
         </div>
 
         <div class="modal-footer-custom">
+            <button type="button" class="btn-search" style="background: #dc2626;" id="btn-parlante-modal" onclick="abrirModalMegafoniaDesdeDetalle()">
+                📢 Aviso por Parlantes
+            </button>
             <button type="button" class="btn-search" style="background: #3b82f6;" onclick="reanalizarVestimentaIA()">
                 🤖 Re-analizar con IA
             </button>
@@ -649,13 +698,264 @@ Control y Registro de Accesos | facIAL Secure
 
 
 <!-- ========================================================================= -->
-<!-- JAVASCRIPT: LÓGICA DE CONTROL DE AFORO, PERTENENCIAS Y FILTRADO AJAX       -->
+<!-- MODAL 3: DIFUSIÓN POR MEGAFONÍA / PARLANTES (TIEMPO EXCEDIDO 3 HORAS)      -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop-custom" id="modal-megafonia">
+    <div class="modal-dialog-custom" style="max-width: 620px;">
+        <div class="modal-header-custom" style="background: #991b1b;">
+            <h3>
+                <span>📢</span> Transmisión por Altoparlantes / Megafonía
+            </h3>
+            <button type="button" class="modal-close-btn" onclick="cerrarModales()">&times;</button>
+        </div>
+
+        <div class="modal-body-custom">
+            <div style="background: #fef2f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;">
+                <div style="font-size: 12.5px; font-weight: 800; color: #991b1b; text-transform: uppercase;">
+                    🚨 Término de Horario Reglamentario de Visita (3 Horas)
+                </div>
+                <div style="font-size: 12px; color: #7f1d1d; margin-top: 3px;">
+                    Se solicita el desalojo ordenado de los patios de visita hacia los controles de salida.
+                </div>
+            </div>
+
+            <input type="hidden" id="modal-megafonia-visita-id" value="">
+
+            <div class="form-group-custom" style="margin-bottom: 14px;">
+                <label>Locución Oficial para Difusión por Parlantes:</label>
+                <textarea class="form-textarea-custom" id="modal-megafonia-texto" style="min-height: 120px; font-weight: 600; line-height: 1.5; color: #0f172a;"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="font-size: 11.5px; color: #475569;">
+                    🎙️ <strong>Salida de Audio:</strong> Puede emitir la locución automática por los parlantes conectados o leer el texto en vivo.
+                </div>
+                <button type="button" class="btn-search" style="background: #0284c7; white-space: nowrap;" onclick="reproducirVozMegafonia()">
+                    🔊 Probar Audio TTS
+                </button>
+            </div>
+        </div>
+
+        <div class="modal-footer-custom">
+            <button type="button" class="btn-search" style="background: #64748b;" onclick="cerrarModales()">
+                Cancelar
+            </button>
+            <button type="button" class="btn-search" style="background: #dc2626;" onclick="confirmarAvisoMegafonia()">
+                📢 Registrar Transmisión Emitida
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========================================================================= -->
+<!-- JAVASCRIPT: LÓGICA DE CONTROL DE AFORO, CUENTA ATRÁS Y MEGAFONÍA          -->
 <!-- ========================================================================= -->
 <script>
 let currentVisitaId = null;
 let debounceTimer = null;
+let _alarmaTiempoSonada = {};
 
-// FILTRADO DINÁMICO DE LA TABLA GENERAL (7 ELEMENTOS)
+// 1. TEMPORIZADOR DE CUENTA ATRÁS DE 3 HORAS EN VIVO
+function actualizarTemporizadoresVisitas() {
+    const timers = document.querySelectorAll('.timer-cuenta-atras');
+    let hayExcedidos = false;
+    let nombresExcedidos = [];
+    let countExcedidos = 0;
+
+    const ahora = new Date().getTime();
+
+    timers.forEach(timer => {
+        const fechaIngresoStr = timer.getAttribute('data-ingreso');
+        if (!fechaIngresoStr) return;
+
+        const fechaIngreso = new Date(fechaIngresoStr).getTime();
+        // 3 horas reglamentarias = 3 * 60 * 60 * 1000 ms
+        const tiempoLimite = fechaIngreso + (3 * 60 * 60 * 1000);
+        const diferenciaMs = tiempoLimite - ahora;
+        const visitaId = timer.getAttribute('data-visita-id');
+        const nombreVisita = timer.getAttribute('data-nombre');
+
+        const card = timer.closest('.visita-card');
+
+        if (diferenciaMs > 0) {
+            // Aún queda tiempo
+            const totalSegundos = Math.floor(diferenciaMs / 1000);
+            const horas = Math.floor(totalSegundos / 3600);
+            const minutos = Math.floor((totalSegundos % 3600) / 60);
+            const segundos = totalSegundos % 60;
+
+            const pad = (n) => String(n).padStart(2, '0');
+            timer.innerText = `⏳ ${pad(horas)}:${pad(minutos)}:${pad(segundos)}`;
+
+            if (totalSegundos < 1800) {
+                // Menos de 30 minutos: Advertencia ámbar
+                timer.className = 'tag-timer timer-cuenta-atras timer-advertencia';
+            } else {
+                timer.className = 'tag-timer timer-cuenta-atras timer-normal';
+            }
+
+            if (card) card.classList.remove('tiempo-excedido');
+        } else {
+            // ¡TIEMPO EXCEDIDO DE 3 HORAS!
+            hayExcedidos = true;
+            countExcedidos++;
+            if (!nombresExcedidos.includes(nombreVisita)) {
+                nombresExcedidos.push(nombreVisita);
+            }
+
+            const segundosExcedidos = Math.floor(Math.abs(diferenciaMs) / 1000);
+            const horas = Math.floor(segundosExcedidos / 3600);
+            const minutos = Math.floor((segundosExcedidos % 3600) / 60);
+            const segundos = segundosExcedidos % 60;
+
+            const pad = (n) => String(n).padStart(2, '0');
+            timer.innerText = `🚨 EXCEDIDO +${pad(horas)}:${pad(minutos)}:${pad(segundos)}`;
+            timer.className = 'tag-timer timer-cuenta-atras timer-excedido';
+
+            if (card) card.classList.add('tiempo-excedido');
+
+            // Disparar sonido una sola vez por visita al vencer
+            if (!_alarmaTiempoSonada[visitaId]) {
+                _alarmaTiempoSonada[visitaId] = true;
+                reproducirAlarmaTiempoExcedido();
+            }
+        }
+    });
+
+    // Control del contador KPI
+    const cntExcedidos = document.getElementById('cnt-excedidos');
+    if (cntExcedidos) {
+        cntExcedidos.innerText = countExcedidos;
+    }
+
+    // Control del banner superior de megafonía
+    const bannerMegafonia = document.getElementById('alerta-megafonia-container');
+    const textoMegafonia = document.getElementById('alerta-megafonia-texto');
+
+    if (hayExcedidos && bannerMegafonia) {
+        bannerMegafonia.style.display = 'flex';
+        if (textoMegafonia) {
+            textoMegafonia.innerHTML = `Los siguientes visitantes han superado el límite de 3 horas reglamentarias: <strong>${nombresExcedidos.join(', ')}</strong>. Hacer uso inmediato de los parlantes/megafonía perimetral para ordenar su egreso.`;
+        }
+    } else if (bannerMegafonia && !bannerMegafonia.dataset.silenciado) {
+        bannerMegafonia.style.display = 'none';
+    }
+}
+
+// Iniciar temporizador con actualización cada segundo
+setInterval(actualizarTemporizadoresVisitas, 1000);
+document.addEventListener('DOMContentLoaded', actualizarTemporizadoresVisitas);
+
+// Sonido táctico de chime de megafonía
+function reproducirAlarmaTiempoExcedido() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+        const freqs = [660, 880];
+        freqs.forEach((f, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            const t = now + (idx * 0.28);
+            osc.frequency.setValueAtTime(f, t);
+            gain.gain.setValueAtTime(0.25, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+            osc.start(t);
+            osc.stop(t + 0.25);
+        });
+    } catch(e) {
+        console.warn('Audio aviso error:', e);
+    }
+}
+
+function silenciarAlarmaTiempo() {
+    const banner = document.getElementById('alerta-megafonia-container');
+    if (banner) {
+        banner.style.display = 'none';
+        banner.dataset.silenciado = 'true';
+    }
+}
+
+// 2. MODAL DE MEGAFONÍA / PARLANTES
+function abrirModalMegafoniaGeneral() {
+    const nombres = [];
+    document.querySelectorAll('.timer-cuenta-atras.timer-excedido').forEach(el => {
+        const nom = el.getAttribute('data-nombre');
+        if (nom && !nombres.includes(nom)) nombres.push(nom);
+    });
+
+    const nomTxt = nombres.length > 0 ? nombres.join(', ') : 'los visitantes en permanencia';
+    const texto = `¡Atención todos los módulos y patios de visita! Se comunica el término del horario reglamentario de 3 horas de permanencia. Se solicita de forma inmediata a ${nomTxt} acercarse al Puesto de Control de Egreso N° 1 para su registro de salida. Personal de gendarmería procederá al despeje perimetral.`;
+
+    document.getElementById('modal-megafonia-visita-id').value = '';
+    document.getElementById('modal-megafonia-texto').value = texto;
+    document.getElementById('modal-megafonia').style.display = 'flex';
+}
+
+function abrirModalMegafonia(visitaId) {
+    const timer = document.getElementById(`timer-visita-${visitaId}`);
+    const nombre = timer ? timer.getAttribute('data-nombre') : 'el visitante';
+    const interno = timer ? timer.getAttribute('data-interno') : '';
+    const internoTxt = interno ? ` del interno ${interno}` : '';
+
+    const texto = `¡Atención módulos y patios de visita! Se comunica el término del horario reglamentario de 3 horas de permanencia. Se solicita de forma inmediata al visitante ${nombre}${internoTxt} acercarse al Puesto de Control de Egreso N° 1 para su registro de salida. Personal de servicio procederá a la verificación correspondiente.`;
+
+    document.getElementById('modal-megafonia-visita-id').value = visitaId;
+    document.getElementById('modal-megafonia-texto').value = texto;
+    document.getElementById('modal-megafonia').style.display = 'flex';
+}
+
+function abrirModalMegafoniaDesdeDetalle() {
+    if (!currentVisitaId) return;
+    abrirModalMegafonia(currentVisitaId);
+}
+
+function reproducirVozMegafonia() {
+    const texto = document.getElementById('modal-megafonia-texto')?.value;
+    if (!texto) return;
+
+    reproducirAlarmaTiempoExcedido();
+
+    setTimeout(() => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(texto);
+            utter.lang = 'es-CL';
+            utter.rate = 0.95;
+            utter.pitch = 1.0;
+            window.speechSynthesis.speak(utter);
+        } else {
+            alert('Aviso emitido. (Tu navegador no soporta síntesis de voz automática).');
+        }
+    }, 600);
+}
+
+function confirmarAvisoMegafonia() {
+    const visitaId = document.getElementById('modal-megafonia-visita-id').value;
+
+    if (visitaId) {
+        fetch(`/accesos/visita/${visitaId}/parlante/`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                alert('✅ ' + data.mensaje);
+                cerrarModales();
+                location.reload();
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Aviso de megafonía transmitido exitosamente.');
+                cerrarModales();
+            });
+    } else {
+        alert('✅ Aviso general de megafonía transmitido y registrado en la bitácora.');
+        cerrarModales();
+    }
+}
+
+// 3. FILTRADO DINÁMICO DE LA TABLA GENERAL (7 ELEMENTOS)
 function filtrarAccesosAjax(page = 1) {
     const nombre = document.getElementById('filtro-nombre-acceso')?.value.trim() || '';
     const resultado = document.getElementById('filtro-resultado-acceso')?.value || '';
@@ -709,7 +1009,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// ABRIR Y POBLAR FICHA DE VISITA
+// 4. ABRIR Y POBLAR FICHA DE VISITA
 function verFichaVisita(id) {
     currentVisitaId = id;
     document.getElementById('modal-v-id').value = id;
@@ -731,15 +1031,25 @@ function verFichaVisita(id) {
 
             // Badge de estado
             const badgeCont = document.getElementById('modal-v-badge-container');
+            const btnParlante = document.getElementById('btn-parlante-modal');
+
             if (!v.ha_egresado) {
-                badgeCont.innerHTML = `<span class="tag-status badge-en-recinto" style="font-size:12px; padding:4px 10px;">🏢 En Recinto</span>`;
+                if (v.tiempo_excedido) {
+                    badgeCont.innerHTML = `<span class="tag-status badge-alerta-ropa" style="font-size:12px; padding:4px 10px;">🚨 Tiempo Excedido (3h)</span>`;
+                    if (btnParlante) btnParlante.style.display = 'inline-block';
+                } else {
+                    badgeCont.innerHTML = `<span class="tag-status badge-en-recinto" style="font-size:12px; padding:4px 10px;">🏢 En Recinto</span>`;
+                    if (btnParlante) btnParlante.style.display = 'none';
+                }
                 document.getElementById('btn-registrar-egreso-modal').style.display = 'inline-block';
             } else if (v.alerta_vestimenta) {
                 badgeCont.innerHTML = `<span class="tag-status badge-alerta-ropa" style="font-size:12px; padding:4px 10px;">🚨 Alerta de Vestimenta</span>`;
                 document.getElementById('btn-registrar-egreso-modal').style.display = 'none';
+                if (btnParlante) btnParlante.style.display = 'none';
             } else {
                 badgeCont.innerHTML = `<span class="tag-status badge-egreso-ok" style="font-size:12px; padding:4px 10px;">✅ Egresó Conforme</span>`;
                 document.getElementById('btn-registrar-egreso-modal').style.display = 'none';
+                if (btnParlante) btnParlante.style.display = 'none';
             }
 
             // Fotos
@@ -901,7 +1211,7 @@ function enviarNuevoVisitante(e) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert('✅ Visitante externo y pertenencias registradas exitosamente.');
+            alert('✅ Visitante externo y pertenencias registradas exitosamente. El temporizador de 3 horas ha iniciado.');
             cerrarModales();
             location.reload();
         } else {
@@ -917,6 +1227,7 @@ function enviarNuevoVisitante(e) {
 function cerrarModales() {
     document.getElementById('modal-ficha-visita').style.display = 'none';
     document.getElementById('modal-nuevo-visitante').style.display = 'none';
+    document.getElementById('modal-megafonia').style.display = 'none';
 }
 
 // Cerrar con Escape

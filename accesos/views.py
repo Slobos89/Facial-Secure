@@ -103,9 +103,13 @@ def accesos(request):
     tasa_retorno = round((total_egresos_ext / total_ingresos_ext * 100), 1) if total_ingresos_ext > 0 else 100.0
 
     # Personas ingresadas (columna izquierda)
-    visitas_ingresadas = visitas_qs.order_by('-fecha_ingreso')[:25]
+    visitas_ingresadas = list(visitas_qs.order_by('-fecha_ingreso')[:25])
     # Personas egresadas (columna derecha)
-    visitas_egresadas = visitas_qs.filter(fecha_egreso__isnull=False).order_by('-fecha_egreso')[:25]
+    visitas_egresadas = list(visitas_qs.filter(fecha_egreso__isnull=False).order_by('-fecha_egreso')[:25])
+
+    # Visitantes con tiempo límite de 3 horas excedido
+    visitas_tiempo_excedido = [v for v in visitas_ingresadas if not v.ha_egresado and v.tiempo_excedido]
+    total_tiempo_excedido = len(visitas_tiempo_excedido)
 
     # 3. PAGINACIÓN DE LA TABLA PRINCIPAL (Configurada a 7 elementos para no extender la página)
     paginator = Paginator(queryset, 7)
@@ -129,6 +133,8 @@ def accesos(request):
         'tasa_retorno': tasa_retorno,
         'visitas_ingresadas': visitas_ingresadas,
         'visitas_egresadas': visitas_egresadas,
+        'visitas_tiempo_excedido': visitas_tiempo_excedido,
+        'total_tiempo_excedido': total_tiempo_excedido,
     }
 
     return render(request, 'accesos/accesos.html', context)
@@ -184,7 +190,6 @@ def accesos_ajax(request):
         )
 
     accesos_qs = accesos_qs.order_by('-fecha_hora')
-    # Paginación compacta de 7 elementos
     paginator = Paginator(accesos_qs, 7)
     page = request.GET.get('page')
     accesos_pag = paginator.get_page(page)
@@ -212,6 +217,8 @@ def visita_detalle_json(request, visita_id):
             visita.persona.foto.url if visita.persona and visita.persona.foto else '/static/img/no-face.jpg'
         )
         foto_egreso_url = visita.foto_egreso.url if visita.foto_egreso else None
+
+        tiempo_limite_str = visita.tiempo_limite.strftime('%d/%m/%Y %H:%M:%S') if visita.tiempo_limite else None
 
         data = {
             'id': visita.id,
@@ -241,7 +248,12 @@ def visita_detalle_json(request, visita_id):
             'coincidencia_inferior': visita.coincidencia_inferior,
             'alerta_vestimenta': visita.alerta_vestimenta,
             'dictamen_ia': visita.dictamen_ia or '',
-            'observaciones_guardia': visita.observaciones_guardia or ''
+            'observaciones_guardia': visita.observaciones_guardia or '',
+            # Temporizador de 3 horas
+            'tiempo_limite': tiempo_limite_str,
+            'segundos_restantes': visita.segundos_restantes,
+            'tiempo_excedido': visita.tiempo_excedido,
+            'aviso_parlante_emitido': visita.aviso_parlante_emitido
         }
         return JsonResponse({'success': True, 'visita': data})
     except VisitaExterna.DoesNotExist:
@@ -344,6 +356,44 @@ def visita_registrar_egreso_ajax(request, visita_id):
         except VisitaExterna.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Visita no encontrada'}, status=404)
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+@login_required
+def visita_emitir_parlante(request, visita_id):
+    """Registra y retorna el mensaje oficial de megafonía para solicitar el egreso del visitante."""
+    try:
+        visita = VisitaExterna.objects.get(id=visita_id)
+        visita.aviso_parlante_emitido = True
+        visita.estado = 'TIEMPO_EXCEDIDO'
+
+        hora_str = now().strftime('%H:%M')
+        nota = f"[{hora_str}] AVISO POR PARLANTES: Se emitió llamado por megafonía por superar las 3 horas reglamentarias de visita."
+        if visita.observaciones_guardia:
+            visita.observaciones_guardia += f"\n{nota}"
+        else:
+            visita.observaciones_guardia = nota
+
+        visita.save()
+
+        interno_txt = f" del interno {visita.interno_a_visitar}" if visita.interno_a_visitar else ""
+        texto_difusion = (
+            f"¡Atención todos los módulos y patios de visita! Se comunica el término del horario reglamentario "
+            f"de 3 horas de permanencia. Se solicita de forma inmediata al visitante {visita.nombre_visitante}{interno_txt} "
+            f"acercarse al Puesto de Control de Egreso N° 1 para su registro de salida. Personal de gendarmería "
+            f"procederá a la verificación perimetral."
+        )
+
+        return JsonResponse({
+            'success': True,
+            'mensaje': 'Aviso por megafonía registrado en el sistema.',
+            'texto_difusion': texto_difusion,
+            'nombre': visita.nombre_visitante,
+            'rut': visita.rut_visitante or '---',
+            'interno': visita.interno_a_visitar or 'No especificado'
+        })
+    except VisitaExterna.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Visita no encontrada'}, status=404)
 
 
 @csrf_exempt
