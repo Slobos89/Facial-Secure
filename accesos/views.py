@@ -21,11 +21,15 @@ from .ai_vestimenta import comparar_vestimentas, analizar_vestimenta_individual
 @login_required
 def accesos(request):
     periodo = request.GET.get('periodo', 'todo')
+    nombre_filtro = request.GET.get('nombre', '').strip()
+    resultado_filtro = request.GET.get('resultado', '').strip()
+    busqueda = request.GET.get('buscar', '').strip()
     hoy = now().date()
 
     # 1. QUERY DE ACCESOS GENERALES
     queryset = Acceso.objects.select_related('persona').all()
 
+    # Filtro por período
     if periodo == 'hoy':
         queryset = queryset.filter(fecha_hora__date=hoy)
     elif periodo in ['semana', '7']:
@@ -35,14 +39,34 @@ def accesos(request):
     elif periodo == 'todo':
         pass
 
-    busqueda = request.GET.get('buscar', '').strip()
+    # Filtro específico por Nombre
+    if nombre_filtro:
+        queryset = queryset.filter(
+            Q(persona__nombre__icontains=nombre_filtro) |
+            Q(persona__apellido__icontains=nombre_filtro) |
+            Q(nombre_detectado__icontains=nombre_filtro)
+        )
+
+    # Filtro específico por Resultado (Permitido, Denegado, Revisión)
+    if resultado_filtro:
+        if resultado_filtro == 'PERMITIDO':
+            queryset = queryset.filter(resultado__in=['PERMITIDO', 'APROBADO_MANUAL'])
+        elif resultado_filtro == 'DENEGADO':
+            queryset = queryset.filter(resultado__in=['DENEGADO', 'RECHAZADO'])
+        elif resultado_filtro == 'REVISION':
+            queryset = queryset.filter(resultado='REVISION')
+        else:
+            queryset = queryset.filter(resultado__iexact=resultado_filtro)
+
+    # Búsqueda general combinada
     if busqueda:
         queryset = queryset.filter(
             Q(persona__nombre__icontains=busqueda) |
             Q(persona__apellido__icontains=busqueda) |
             Q(persona__rut__icontains=busqueda) |
             Q(camara__icontains=busqueda) |
-            Q(resultado__icontains=busqueda)
+            Q(resultado__icontains=busqueda) |
+            Q(nombre_detectado__icontains=busqueda)
         )
 
     queryset = queryset.order_by('-fecha_hora')
@@ -62,12 +86,13 @@ def accesos(request):
     elif periodo in ['mes', '30']:
         visitas_qs = visitas_qs.filter(fecha_ingreso__date__gte=hoy - timedelta(days=30))
 
-    if busqueda:
+    if busqueda or nombre_filtro:
+        termino = nombre_filtro or busqueda
         visitas_qs = visitas_qs.filter(
-            Q(nombre_visitante__icontains=busqueda) |
-            Q(rut_visitante__icontains=busqueda) |
-            Q(pertenencias_declaradas__icontains=busqueda) |
-            Q(interno_a_visitar__icontains=busqueda)
+            Q(nombre_visitante__icontains=termino) |
+            Q(rut_visitante__icontains=termino) |
+            Q(pertenencias_declaradas__icontains=termino) |
+            Q(interno_a_visitar__icontains=termino)
         )
 
     total_ingresos_ext = visitas_qs.count()
@@ -82,8 +107,8 @@ def accesos(request):
     # Personas egresadas (columna derecha)
     visitas_egresadas = visitas_qs.filter(fecha_egreso__isnull=False).order_by('-fecha_egreso')[:25]
 
-    # 3. PAGINACIÓN DE LA TABLA PRINCIPAL
-    paginator = Paginator(queryset, 15)
+    # 3. PAGINACIÓN DE LA TABLA PRINCIPAL (Configurada a 7 elementos para no extender la página)
+    paginator = Paginator(queryset, 7)
     page = request.GET.get('page')
     accesos_paginados = paginator.get_page(page)
 
@@ -94,6 +119,8 @@ def accesos(request):
         'denegados': denegados,
         'revision': revision,
         'periodo': periodo,
+        'nombre_filtro': nombre_filtro,
+        'resultado_filtro': resultado_filtro,
         # Balance y Visitas Externas
         'total_ingresos_ext': total_ingresos_ext,
         'total_egresos_ext': total_egresos_ext,
@@ -108,11 +135,14 @@ def accesos(request):
 
 
 # ========================================================
-# ENDPOINT AJAX: TABLA GENERAL DE ACCESOS
+# ENDPOINT AJAX: TABLA GENERAL DE ACCESOS (CON FILTROS Y 7 ELEMENTOS)
 # ========================================================
 @login_required
 def accesos_ajax(request):
     periodo = request.GET.get('periodo', 'todo')
+    nombre_filtro = request.GET.get('nombre', '').strip()
+    resultado_filtro = request.GET.get('resultado', '').strip()
+    busqueda = request.GET.get('buscar', '').strip()
     hoy = now().date()
 
     accesos_qs = Acceso.objects.select_related('persona').all()
@@ -126,18 +156,36 @@ def accesos_ajax(request):
     elif periodo == 'todo':
         pass
 
-    busqueda = request.GET.get('buscar')
+    if nombre_filtro:
+        accesos_qs = accesos_qs.filter(
+            Q(persona__nombre__icontains=nombre_filtro) |
+            Q(persona__apellido__icontains=nombre_filtro) |
+            Q(nombre_detectado__icontains=nombre_filtro)
+        )
+
+    if resultado_filtro:
+        if resultado_filtro == 'PERMITIDO':
+            accesos_qs = accesos_qs.filter(resultado__in=['PERMITIDO', 'APROBADO_MANUAL'])
+        elif resultado_filtro == 'DENEGADO':
+            accesos_qs = accesos_qs.filter(resultado__in=['DENEGADO', 'RECHAZADO'])
+        elif resultado_filtro == 'REVISION':
+            accesos_qs = accesos_qs.filter(resultado='REVISION')
+        else:
+            accesos_qs = accesos_qs.filter(resultado__iexact=resultado_filtro)
+
     if busqueda:
         accesos_qs = accesos_qs.filter(
             Q(persona__nombre__icontains=busqueda) |
             Q(persona__apellido__icontains=busqueda) |
             Q(persona__rut__icontains=busqueda) |
             Q(camara__icontains=busqueda) |
-            Q(resultado__icontains=busqueda)
+            Q(resultado__icontains=busqueda) |
+            Q(nombre_detectado__icontains=busqueda)
         )
 
     accesos_qs = accesos_qs.order_by('-fecha_hora')
-    paginator = Paginator(accesos_qs, 15)
+    # Paginación compacta de 7 elementos
+    paginator = Paginator(accesos_qs, 7)
     page = request.GET.get('page')
     accesos_pag = paginator.get_page(page)
 
@@ -146,7 +194,8 @@ def accesos_ajax(request):
 
     return JsonResponse({
         'tabla': tabla_html,
-        'paginacion': paginacion_html
+        'paginacion': paginacion_html,
+        'total': accesos_qs.count()
     })
 
 
@@ -358,8 +407,9 @@ def visita_crear_ajax(request):
 @login_required
 def exportar_accesos_csv(request):
     periodo = request.GET.get('periodo', 'todo')
-    busqueda = request.GET.get('buscar', '').strip()
+    nombre_filtro = request.GET.get('nombre', '').strip()
     resultado_filtro = request.GET.get('resultado', '').strip()
+    busqueda = request.GET.get('buscar', '').strip()
     hoy = now().date()
 
     queryset = Acceso.objects.select_related('persona', 'resuelto_por').all()
@@ -373,8 +423,20 @@ def exportar_accesos_csv(request):
     elif periodo == 'todo':
         pass
 
+    if nombre_filtro:
+        queryset = queryset.filter(
+            Q(persona__nombre__icontains=nombre_filtro) |
+            Q(persona__apellido__icontains=nombre_filtro) |
+            Q(nombre_detectado__icontains=nombre_filtro)
+        )
+
     if resultado_filtro:
-        queryset = queryset.filter(resultado=resultado_filtro)
+        if resultado_filtro == 'PERMITIDO':
+            queryset = queryset.filter(resultado__in=['PERMITIDO', 'APROBADO_MANUAL'])
+        elif resultado_filtro == 'DENEGADO':
+            queryset = queryset.filter(resultado__in=['DENEGADO', 'RECHAZADO'])
+        elif resultado_filtro == 'REVISION':
+            queryset = queryset.filter(resultado='REVISION')
 
     if busqueda:
         queryset = queryset.filter(

@@ -7,7 +7,7 @@ Control y Registro de Accesos | facIAL Secure
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/accesos.css' %}?v=2.2">
+<link rel="stylesheet" href="{% static 'css/accesos.css' %}?v=2.3">
 {% endblock %}
 
 {% block content %}
@@ -50,7 +50,7 @@ Control y Registro de Accesos | facIAL Secure
                         </option>
                     </select>
 
-                    <a href="/accesos/exportar-csv/?periodo={{ request.GET.periodo|default:'todo' }}&buscar={{ request.GET.buscar|default:'' }}" 
+                    <a href="/accesos/exportar-csv/?periodo={{ request.GET.periodo|default:'todo' }}&buscar={{ request.GET.buscar|default:'' }}&nombre={{ nombre_filtro|default:'' }}&resultado={{ resultado_filtro|default:'' }}" 
                        class="btn-export-compact" 
                        style="background: #10b981; color: #ffffff; text-decoration: none; height: 38px; padding: 0 14px; border-radius: 8px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; width: auto; max-width: fit-content; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s ease;"
                        title="Exportar listado a Excel / CSV">
@@ -262,17 +262,54 @@ Control y Registro de Accesos | facIAL Secure
 
 
         <!-- ========================================================================= -->
-        <!-- TABLA GENERAL DE REGISTROS DE ACCESO (HISTORIAL GLOBAL)                   -->
+        <!-- TABLA GENERAL DE REGISTROS DE ACCESO (HISTORIAL GLOBAL - 7 POR PÁGINA)    -->
         <!-- ========================================================================= -->
         <section class="table-panel">
-            <div class="table-header">
+            <div class="table-header" style="flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between;">
                 <div>
                     <div class="table-title">
                         Historial General de Accesos y Detecciones
                     </div>
-                    <div class="table-info">
-                        {{ total }} registros encontrados
+                    <div class="table-info" id="table-info-counter">
+                        Mostrando 7 registros por página ({{ total }} encontrados)
                     </div>
+                </div>
+
+                <!-- BARRA DE FILTROS ESPECÍFICOS: NOMBRE Y RESULTADO -->
+                <div class="historial-filters-bar" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <!-- Filtro por Nombre -->
+                    <div style="position: relative; min-width: 220px;">
+                        <input 
+                            type="text" 
+                            id="filtro-nombre-acceso"
+                            name="filtro_nombre"
+                            class="input"
+                            placeholder="Filtrar por nombre..."
+                            value="{{ nombre_filtro }}"
+                            oninput="filtrarConDebounce()"
+                            style="height: 38px; font-size: 13px; padding-left: 34px; width: 100%; border-radius: 8px;"
+                        >
+                        <span style="position: absolute; left: 10px; top: 10px; color: #94a3b8; font-size: 14px;">👤</span>
+                    </div>
+
+                    <!-- Filtro por Resultado -->
+                    <select 
+                        id="filtro-resultado-acceso" 
+                        name="filtro_resultado" 
+                        class="select" 
+                        onchange="filtrarAccesosAjax(1)"
+                        style="height: 38px; font-size: 13px; padding: 0 12px; min-width: 190px; border-radius: 8px;"
+                    >
+                        <option value="" {% if not resultado_filtro %}selected{% endif %}>Todos los Resultados</option>
+                        <option value="PERMITIDO" {% if resultado_filtro == 'PERMITIDO' %}selected{% endif %}>✅ Permitido / Aprobado</option>
+                        <option value="DENEGADO" {% if resultado_filtro == 'DENEGADO' %}selected{% endif %}>⛔ Denegado / Rechazado</option>
+                        <option value="REVISION" {% if resultado_filtro == 'REVISION' %}selected{% endif %}>⚠️ Revisión Requerida</option>
+                    </select>
+
+                    <!-- Botón Restablecer -->
+                    <button type="button" onclick="limpiarFiltrosHistorial()" class="btn-search" style="height: 38px; padding: 0 14px; font-size: 12.5px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px;" title="Restablecer filtros">
+                        Restablecer
+                    </button>
                 </div>
             </div>
 
@@ -612,23 +649,57 @@ Control y Registro de Accesos | facIAL Secure
 
 
 <!-- ========================================================================= -->
-<!-- JAVASCRIPT: LÓGICA DE CONTROL DE AFORO, PERTENENCIAS Y AUDITORÍA IA       -->
+<!-- JAVASCRIPT: LÓGICA DE CONTROL DE AFORO, PERTENENCIAS Y FILTRADO AJAX       -->
 <!-- ========================================================================= -->
 <script>
 let currentVisitaId = null;
+let debounceTimer = null;
 
-// Cargar página de la tabla general vía AJAX
-function cargarPagina(page) {
+// FILTRADO DINÁMICO DE LA TABLA GENERAL (7 ELEMENTOS)
+function filtrarAccesosAjax(page = 1) {
+    const nombre = document.getElementById('filtro-nombre-acceso')?.value.trim() || '';
+    const resultado = document.getElementById('filtro-resultado-acceso')?.value || '';
     const periodo = document.querySelector('select[name="periodo"]')?.value || 'todo';
-    const buscar = document.querySelector('input[name="buscar"]')?.value || '';
+    const buscarGeneral = document.querySelector('input[name="buscar"]')?.value.trim() || '';
 
-    fetch(`/accesos/ajax/?page=${page}&periodo=${periodo}&buscar=${encodeURIComponent(buscar)}`)
+    const params = new URLSearchParams({
+        page: page,
+        nombre: nombre,
+        resultado: resultado,
+        periodo: periodo,
+        buscar: buscarGeneral
+    });
+
+    fetch(`/accesos/ajax/?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById('tabla-accesos').innerHTML = data.tabla;
             document.getElementById('pagination-accesos').innerHTML = data.paginacion;
+            const counter = document.getElementById('table-info-counter');
+            if (counter && data.total !== undefined) {
+                counter.innerText = `Mostrando 7 registros por página (${data.total} encontrados)`;
+            }
         })
         .catch(err => console.error('Error cargando página:', err));
+}
+
+function filtrarConDebounce() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        filtrarAccesosAjax(1);
+    }, 250);
+}
+
+function limpiarFiltrosHistorial() {
+    const inpNombre = document.getElementById('filtro-nombre-acceso');
+    const selResultado = document.getElementById('filtro-resultado-acceso');
+    if (inpNombre) inpNombre.value = '';
+    if (selResultado) selResultado.value = '';
+    filtrarAccesosAjax(1);
+}
+
+function cargarPagina(page) {
+    filtrarAccesosAjax(page);
 }
 
 document.addEventListener('click', function(e) {
