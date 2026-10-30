@@ -7,116 +7,276 @@ Control y Registro de Accesos | facIAL Secure
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/accesos.css' %}?v=2.0">
+<link rel="stylesheet" href="{% static 'css/accesos.css' %}?v=2.2">
 {% endblock %}
 
 {% block content %}
 
-        <!-- FILTERS -->
+        <!-- FILTROS PRINCIPALES -->
         <section class="filters-panel">
-
             <form method="GET" class="filters-form">
-
-            <!-- IZQUIERDA -->
-
-            <div class="filters-left">
-
-                <input 
-                    type="text"
-                    class="input"
-                    name="buscar"
-                    placeholder="Buscar usuario..."
-                    value="{{ request.GET.buscar }}"
-                >
-
-                <button class="btn-search">
-
-                    Buscar
-
-                </button>
-
-            </div>
-
-
-            <!-- DERECHA -->
-
-            <div class="filters-right" style="display: flex; align-items: center; gap: 10px;">
-
-                <select
-                    class="select"
-                    name="periodo"
-                    onchange="this.form.submit()"
-                >
-                    <option
-                        value="todo"
-                        {% if request.GET.periodo == 'todo' or not request.GET.periodo %}
-                            selected
-                        {% endif %}
+                <!-- IZQUIERDA -->
+                <div class="filters-left">
+                    <input 
+                        type="text"
+                        class="input"
+                        name="buscar"
+                        placeholder="Buscar por nombre, RUT, pertenencias, interno..."
+                        value="{{ request.GET.buscar }}"
                     >
-                        Historial Completo (Global)
-                    </option>
+                    <button class="btn-search">
+                        🔍 Buscar
+                    </button>
+                </div>
 
-                    <option
-                        value="hoy"
-                        {% if request.GET.periodo == 'hoy' %}
-                            selected
-                        {% endif %}
+                <!-- DERECHA -->
+                <div class="filters-right" style="display: flex; align-items: center; gap: 10px;">
+                    <select
+                        class="select"
+                        name="periodo"
+                        onchange="this.form.submit()"
                     >
-                        Hoy (Turno Actual)
-                    </option>
+                        <option value="todo" {% if request.GET.periodo == 'todo' or not request.GET.periodo %}selected{% endif %}>
+                            Historial Completo (Global)
+                        </option>
+                        <option value="hoy" {% if request.GET.periodo == 'hoy' %}selected{% endif %}>
+                            Hoy (Jornada Actual)
+                        </option>
+                        <option value="semana" {% if request.GET.periodo == 'semana' or request.GET.periodo == '7' %}selected{% endif %}>
+                            Últimos 7 días
+                        </option>
+                        <option value="mes" {% if request.GET.periodo == 'mes' or request.GET.periodo == '30' %}selected{% endif %}>
+                            Últimos 30 días
+                        </option>
+                    </select>
 
-                    <option
-                        value="semana"
-                        {% if request.GET.periodo == 'semana' or request.GET.periodo == '7' %}
-                            selected
-                        {% endif %}
-                    >
-                        Últimos 7 días
-                    </option>
-
-                    <option
-                        value="mes"
-                        {% if request.GET.periodo == 'mes' or request.GET.periodo == '30' %}
-                            selected
-                        {% endif %}
-                    >
-                        Últimos 30 días
-                    </option>
-
-                </select>
-
-                <a href="/accesos/exportar-csv/?periodo={{ request.GET.periodo|default:'todo' }}&buscar={{ request.GET.buscar|default:'' }}" 
-                   class="btn-export-compact" 
-                   style="background: #10b981; color: #ffffff; text-decoration: none; height: 38px; padding: 0 14px; border-radius: 8px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; width: auto; max-width: fit-content; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s ease;"
-                   title="Exportar listado a Excel / CSV">
-                    📊 Exportar Excel / CSV
-                </a>
-
-            </div>
-
-        </form>
-
+                    <a href="/accesos/exportar-csv/?periodo={{ request.GET.periodo|default:'todo' }}&buscar={{ request.GET.buscar|default:'' }}" 
+                       class="btn-export-compact" 
+                       style="background: #10b981; color: #ffffff; text-decoration: none; height: 38px; padding: 0 14px; border-radius: 8px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; width: auto; max-width: fit-content; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s ease;"
+                       title="Exportar listado a Excel / CSV">
+                        📊 Exportar Excel / CSV
+                    </a>
+                </div>
+            </form>
         </section>
 
-        <!-- TABLE -->
+
+        <!-- ========================================================================= -->
+        <!-- SECCIÓN: BALANCE DE AFORO Y AUDITORÍA DE VESTIMENTA DE PERSONAS EXTERNAS -->
+        <!-- ========================================================================= -->
+        <section class="visitantes-section" id="seccion-visitantes">
+            <!-- HEADER DE SECCIÓN -->
+            <div class="visitantes-header">
+                <div>
+                    <div class="visitantes-title">
+                        <span>👥</span> Control y Balance de Aforo de Personas Externas
+                    </div>
+                    <div class="visitantes-subtitle">
+                        Auditoría estricta de visitas: si ingresan 100 deben salir esas mismas 100, vestidas tal cual como entraron (Supervisado por IA).
+                    </div>
+                </div>
+                <div class="visitantes-actions">
+                    <button type="button" class="btn-nuevo-visitante" onclick="abrirModalNuevoVisitante()">
+                        <span>➕</span> Registrar Visitante / Pertenencias
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4 TARJETAS KPI DE BALANCE Y AFORO -->
+            <div class="balance-metrics-grid">
+                <div class="balance-card ing">
+                    <div class="b-icon">📥</div>
+                    <div class="b-info">
+                        <span class="b-lbl">Ingresos Externos</span>
+                        <span class="b-val">{{ total_ingresos_ext }}</span>
+                    </div>
+                    <span class="b-pill green">Total Entradas</span>
+                </div>
+
+                <div class="balance-card egr">
+                    <div class="b-icon">📤</div>
+                    <div class="b-info">
+                        <span class="b-lbl">Egresos Externos</span>
+                        <span class="b-val">{{ total_egresos_ext }}</span>
+                    </div>
+                    <span class="b-pill purple">Total Salidas</span>
+                </div>
+
+                <div class="balance-card den {% if dentro_penal > 0 %}alerta-activa{% endif %}">
+                    <div class="b-icon">🏢</div>
+                    <div class="b-info">
+                        <span class="b-lbl">Dentro del Recinto</span>
+                        <span class="b-val">{{ dentro_penal }}</span>
+                    </div>
+                    {% if dentro_penal == 0 %}
+                        <span class="b-pill green">✅ Aforo Cuadrado</span>
+                    {% else %}
+                        <span class="b-pill yellow">⚠️ Pendientes</span>
+                    {% endif %}
+                </div>
+
+                <div class="balance-card ia {% if alertas_vestimenta_count > 0 %}alerta-activa{% endif %}">
+                    <div class="b-icon">👕</div>
+                    <div class="b-info">
+                        <span class="b-lbl">Auditoría IA Ropa</span>
+                        <span class="b-val">{{ alertas_vestimenta_count }}</span>
+                    </div>
+                    {% if alertas_vestimenta_count == 0 %}
+                        <span class="b-pill green">100% Conforme</span>
+                    {% else %}
+                        <span class="b-pill red">🚨 {{ alertas_vestimenta_count }} Discrepancia(s)</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ALERTA DINÁMICA DE AFORO -->
+            {% if dentro_penal > 0 %}
+            <div class="balance-status-alert alerta">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-text">
+                    <strong>CONTROL DE AFORO EN CURSO:</strong> Hay <strong>{{ dentro_penal }} persona(s) externa(s)</strong> actualmente dentro del recinto penitenciario pendientes de salida. Cada una debe egresar con la misma indumentaria y pertenencias registradas al ingresar para prevenir intercambio de ropas o suplantación con internos.
+                </div>
+            </div>
+            {% else %}
+            <div class="balance-status-alert exito">
+                <div class="alert-icon">✅</div>
+                <div class="alert-text">
+                    <strong>BALANCE DE VISITAS CUADRADO:</strong> Todas las personas externas registradas han completado su correspondiente egreso del establecimiento penitenciario ({{ total_egresos_ext }}/{{ total_ingresos_ext }}).
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- CONTENEDOR SPLIT: IZQUIERDA (INGRESOS) VS DERECHA (EGRESOS) -->
+            <div class="visitantes-split-container">
+                <!-- COLUMNA IZQUIERDA: PERSONAS QUE INGRESAN -->
+                <div class="split-col col-ingresos">
+                    <div class="split-col-header">
+                        <div class="col-title">
+                            <span>📥</span> Personas que Ingresan (Entrada)
+                        </div>
+                        <span class="col-count">{{ visitas_ingresadas|length }} registradas</span>
+                    </div>
+                    <div class="split-col-help">
+                        💡 <strong>Selecciona cualquier persona</strong> para ver la ficha detallada de lo que lleva y sus prendas.
+                    </div>
+                    <div class="split-list" id="lista-ingresados">
+                        {% for v in visitas_ingresadas %}
+                            <div class="visita-card ing-card {% if not v.ha_egresado %}en-recinto{% endif %}" onclick="verFichaVisita({{ v.id }})" title="Click para ver pertenencias e inspección">
+                                <div class="visita-avatar">
+                                    {% if v.foto_ingreso %}
+                                        <img src="{{ v.foto_ingreso.url }}" alt="{{ v.nombre_visitante }}">
+                                    {% elif v.persona and v.persona.foto %}
+                                        <img src="{{ v.persona.foto.url }}" alt="{{ v.nombre_visitante }}">
+                                    {% else %}
+                                        <div class="avatar-ph">👤</div>
+                                    {% endif %}
+                                </div>
+                                <div class="visita-info">
+                                    <div class="visita-topline">
+                                        <h4>{{ v.nombre_visitante }}</h4>
+                                        {% if not v.ha_egresado %}
+                                            <span class="tag-status badge-en-recinto">🏢 En Recinto</span>
+                                        {% else %}
+                                            <span class="tag-status badge-egreso-ok">✅ Egresó</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="visita-meta">
+                                        <span>RUT: {{ v.rut_visitante|default:'---' }}</span> • 
+                                        <span>🕒 Entrada: {{ v.fecha_ingreso|date:"H:i" }}</span> •
+                                        <span style="color:#0284c7;">Visita a: {{ v.interno_a_visitar|default:'Interno'|truncatechars:18 }}</span>
+                                    </div>
+                                    <div class="visita-clothing-pills">
+                                        <span class="c-pill">👕 {{ v.color_superior|default:'Superior' }} ({{ v.prenda_superior|default:'Ropa'|truncatechars:16 }})</span>
+                                        <span class="c-pill">👖 {{ v.color_inferior|default:'Inferior' }} ({{ v.prenda_inferior|default:'Ropa'|truncatechars:16 }})</span>
+                                    </div>
+                                    {% if v.pertenencias_declaradas %}
+                                        <div class="visita-belongings-preview">
+                                            🎒 <em>{{ v.pertenencias_declaradas|truncatechars:48 }}</em>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="visita-action-arrow">👉</div>
+                            </div>
+                        {% empty %}
+                            <div class="empty-col">No hay registros de ingreso de visitas en este período.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: PERSONAS QUE EGRESAN -->
+                <div class="split-col col-egresos">
+                    <div class="split-col-header">
+                        <div class="col-title">
+                            <span>📤</span> Personas que Egresan (Salida)
+                        </div>
+                        <span class="col-count">{{ visitas_egresadas|length }} completadas</span>
+                    </div>
+                    <div class="split-col-help">
+                        🛡️ <strong>Verificación IA de Atuendo:</strong> Compara que salgan vestidos exactamente igual que al entrar.
+                    </div>
+                    <div class="split-list" id="lista-egresados">
+                        {% for v in visitas_egresadas %}
+                            <div class="visita-card egr-card {% if v.alerta_vestimenta %}alerta-cambio{% endif %}" onclick="verFichaVisita({{ v.id }})" title="Click para ver peritaje comparativo de vestimenta">
+                                <div class="visita-avatar">
+                                    {% if v.foto_egreso %}
+                                        <img src="{{ v.foto_egreso.url }}" alt="{{ v.nombre_visitante }}">
+                                    {% elif v.foto_ingreso %}
+                                        <img src="{{ v.foto_ingreso.url }}" alt="{{ v.nombre_visitante }}">
+                                    {% else %}
+                                        <div class="avatar-ph">👤</div>
+                                    {% endif %}
+                                </div>
+                                <div class="visita-info">
+                                    <div class="visita-topline">
+                                        <h4>{{ v.nombre_visitante }}</h4>
+                                        {% if v.alerta_vestimenta %}
+                                            <span class="tag-status badge-alerta-ropa">🚨 Alerta Ropa</span>
+                                        {% else %}
+                                            <span class="tag-status badge-ia-ok">🤖 Ropa OK ({{ v.similitud_vestimenta|floatformat:0 }}%)</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="visita-meta">
+                                        <span>🕒 Salida: {{ v.fecha_egreso|date:"H:i" }}</span> • 
+                                        <span>🚪 {{ v.puerta_egreso|default:'Puesto de Salida' }}</span>
+                                    </div>
+                                    <div class="visita-clothing-pills">
+                                        <span class="c-pill {% if v.alerta_vestimenta %}pill-danger{% endif %}">
+                                            Similitud IA: <strong>{{ v.similitud_vestimenta|floatformat:1 }}%</strong>
+                                        </span>
+                                        <span class="c-pill">Superior: {{ v.coincidencia_superior|floatformat:0 }}%</span>
+                                        <span class="c-pill">Inferior: {{ v.coincidencia_inferior|floatformat:0 }}%</span>
+                                    </div>
+                                    <div class="visita-belongings-preview">
+                                        📋 <em>{{ v.dictamen_ia|truncatechars:65|default:'Validación conforme' }}</em>
+                                    </div>
+                                </div>
+                                <div class="visita-action-arrow">🔍</div>
+                            </div>
+                        {% empty %}
+                            <div class="empty-col">Aún no se han registrado egresos de visitantes en este período.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================================================= -->
+        <!-- TABLA GENERAL DE REGISTROS DE ACCESO (HISTORIAL GLOBAL)                   -->
+        <!-- ========================================================================= -->
         <section class="table-panel">
-
             <div class="table-header">
-
                 <div>
                     <div class="table-title">
-                        Registros de Acceso
+                        Historial General de Accesos y Detecciones
                     </div>
-
                     <div class="table-info">
                         {{ total }} registros encontrados
                     </div>
                 </div>
-
             </div>
 
             <table>
-
                 <thead>
                     <tr>
                         <th>Usuario</th>
@@ -130,32 +290,27 @@ Control y Registro de Accesos | facIAL Secure
                 </thead>
 
                 <tbody id="tabla-accesos">
-
                     {% include 'accesos/partials/tabla.html' %}
-
                 </tbody>
-
             </table>
+
             <div class="pagination" id="pagination-accesos">
-
                 {% include 'accesos/partials/paginacion.html' %}
-
             </div>
-
         </section>
 
-        <!-- BOTTOM -->
-        <section class="bottom-grid">
 
+        <!-- ========================================================================= -->
+        <!-- ESTADÍSTICAS RÁPIDAS Y ACTIVIDAD RECIENTE                                 -->
+        <!-- ========================================================================= -->
+        <section class="bottom-grid">
             <!-- STATS -->
             <div class="stats-panel">
-
                 <div class="panel-title">
                     Estadísticas Rápidas
                 </div>
 
                 <div class="stats-grid">
-
                     <div class="stat-card">
                         <h2>{{ total }}</h2>
                         <span>Accesos</span>
@@ -175,154 +330,530 @@ Control y Registro de Accesos | facIAL Secure
                         <h2>{{ revision }}</h2>
                         <span>Revisión</span>
                     </div>
-
                 </div>
-
             </div>
 
             <!-- ACTIVITY -->
             <div class="activity-panel">
-
                 <div class="panel-title">
-                    Actividad Reciente
+                    Actividad Reciente en Cámaras
                 </div>
 
                 <div class="timeline">
+                    {% for acceso in accesos|slice:":5" %}
+                    <div class="timeline-item">
+                        <div class="timeline-dot
+                            {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}green
+                            {% elif acceso.resultado == 'REVISION' %}yellow
+                            {% else %}red{% endif %}">
+                        </div>
 
-                {% for acceso in accesos|slice:":5" %}
-
-                <div class="timeline-item">
-
-                    <div class="timeline-dot
-
-                        {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}
-                            green
-                        {% elif acceso.resultado == 'REVISION' %}
-                            yellow
-                        {% else %}
-                            red
-                        {% endif %}
-
-                    "></div>
-
-                    <div class="timeline-content
-
-                        {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}
-                            success
-                        {% elif acceso.resultado == 'REVISION' %}
-                            warning
-                        {% else %}
-                            danger
-                        {% endif %}
-
-                    ">
-
-                        <h4>
-
-                            {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}
-
-                                Acceso autorizado
-
-                            {% elif acceso.resultado == 'REVISION' %}
-
-                                Revisión requerida
-
-                            {% else %}
-
-                                Intento no autorizado
-
-                            {% endif %}
-
-                        </h4>
-
-                        <span>
-
-                            {% if acceso.persona %}
-
-                                {{ acceso.persona.nombre }}
-                                {{ acceso.persona.apellido }}
-
-                            {% else %}
-
-                                Desconocido
-
-                            {% endif %}
-
-                            -
-
-                            {{ acceso.camara }}
-
-                            -
-
-                            {{ acceso.fecha_hora|time:"H:i" }}
-
-                        </span>
-
+                        <div class="timeline-content
+                            {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}success
+                            {% elif acceso.resultado == 'REVISION' %}warning
+                            {% else %}danger{% endif %}">
+                            <h4>
+                                {% if acceso.resultado in 'PERMITIDO APROBADO_MANUAL' %}Acceso autorizado
+                                {% elif acceso.resultado == 'REVISION' %}Revisión requerida
+                                {% else %}Intento no autorizado{% endif %}
+                            </h4>
+                            <span>
+                                {% if acceso.persona %}
+                                    {{ acceso.persona.nombre }} {{ acceso.persona.apellido }}
+                                {% else %}
+                                    {{ acceso.nombre_detectado|default:'Desconocido' }}
+                                {% endif %}
+                                - {{ acceso.camara }} - {{ acceso.fecha_hora|time:"H:i" }}
+                            </span>
+                        </div>
                     </div>
-
+                    {% endfor %}
                 </div>
-
-                {% endfor %}
-
-                </div>
-
             </div>
-
         </section>
 
+
+<!-- ========================================================================= -->
+<!-- MODAL 1: FICHA TÉCNICA, PERTENENCIAS Y COMPARACIÓN IA DE VESTIMENTA       -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop-custom" id="modal-ficha-visita">
+    <div class="modal-dialog-custom">
+        <div class="modal-header-custom">
+            <h3>
+                <span>🛡️</span> Ficha de Visitante y Auditoría de Vestimenta
+            </h3>
+            <button type="button" class="modal-close-btn" onclick="cerrarModales()">&times;</button>
+        </div>
+
+        <div class="modal-body-custom">
+            <!-- TITULAR DEL VISITANTE -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">
+                <div>
+                    <h2 id="modal-v-nombre" style="margin: 0 0 4px 0; font-size: 18px; color: #0f172a; font-weight: 800;">---</h2>
+                    <div style="font-size: 12px; color: #64748b;">
+                        RUT: <strong id="modal-v-rut" style="color: #0f172a;">---</strong> • 
+                        Teléfono: <span id="modal-v-tel">---</span> • 
+                        Motivo / Vínculo: <span id="modal-v-parentesco" style="color: #2563eb; font-weight: 600;">---</span>
+                    </div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                        Visita al interno: <strong id="modal-v-interno" style="color: #0284c7;">---</strong>
+                    </div>
+                </div>
+                <div id="modal-v-badge-container">
+                    <!-- Se llena vía JS -->
+                </div>
+            </div>
+
+            <!-- COMPARATIVA FOTOGRÁFICA LADO A LADO (INGRESO VS EGRESO) -->
+            <div class="dual-photo-container">
+                <div class="photo-box">
+                    <div class="photo-box-header ingreso">
+                        <span>📥 Captura al Ingresar</span>
+                        <span id="modal-v-hora-ingreso">--:--</span>
+                    </div>
+                    <div class="photo-box-img">
+                        <img id="modal-v-foto-ingreso" src="/static/img/no-face.jpg" alt="Ingreso">
+                    </div>
+                </div>
+
+                <div class="photo-box">
+                    <div class="photo-box-header egreso">
+                        <span>📤 Captura al Egresar</span>
+                        <span id="modal-v-hora-egreso">Pendiente</span>
+                    </div>
+                    <div class="photo-box-img" id="modal-v-egreso-container">
+                        <img id="modal-v-foto-egreso" src="/static/img/no-face.jpg" alt="Egreso" style="display: none;">
+                        <div id="modal-v-egreso-placeholder" class="photo-ph-text">
+                            ⏳ El visitante aún se encuentra dentro del recinto.<br>
+                            Al salir, la cámara capturará la indumentaria para el escaneo de seguridad.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RESULTADO Y DICTAMEN DE INTELIGENCIA ARTIFICIAL -->
+            <div class="ia-verdict-box" id="modal-v-ia-box">
+                <div class="ia-verdict-header">
+                    <div class="ia-verdict-title">
+                        <span>🤖</span> Análisis de Vestimenta con Visión Artificial
+                    </div>
+                    <span class="ia-score-pill ok" id="modal-v-ia-pill">95% Similitud</span>
+                </div>
+                <div class="ia-verdict-text" id="modal-v-ia-dictamen">
+                    Analizando patrones de color, textura y segmentación de prendas...
+                </div>
+                <div style="display: flex; gap: 15px; margin-top: 8px; font-size: 11.5px; color: #475569;">
+                    <span>👕 Prenda Superior: <strong id="modal-v-score-sup">--%</strong></span>
+                    <span>👖 Prenda Inferior: <strong id="modal-v-score-inf">--%</strong></span>
+                </div>
+            </div>
+
+            <!-- FORMULARIO EDITABLE DE VESTIMENTA Y PERTENENCIAS -->
+            <form id="form-pertenencias-visita" onsubmit="event.preventDefault(); guardarPertenenciasVisita();">
+                <input type="hidden" id="modal-v-id" value="">
+                
+                <h4 style="margin: 0 0 10px 0; font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase;">
+                    📦 Declaración de Indumentaria y Pertenencias
+                </h4>
+
+                <div class="form-grid-2">
+                    <div class="form-group-custom">
+                        <label>Prenda Superior (Tipo y Detalle)</label>
+                        <input type="text" class="form-input-custom" id="modal-v-prenda-sup" placeholder="Ej: Polera deportiva, chaqueta negra">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Color Superior Detectado</label>
+                        <input type="text" class="form-input-custom" id="modal-v-color-sup" placeholder="Ej: Azul Marino, Rojo, Negro">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group-custom">
+                        <label>Prenda Inferior (Tipo y Detalle)</label>
+                        <input type="text" class="form-input-custom" id="modal-v-prenda-inf" placeholder="Ej: Jeans clásicos, buzo deportivo">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Color Inferior Detectado</label>
+                        <input type="text" class="form-input-custom" id="modal-v-color-inf" placeholder="Ej: Denim oscuro, Negro">
+                    </div>
+                </div>
+
+                <div class="form-group-custom" style="margin-bottom: 14px;">
+                    <label>Calzado y Accesorios Visibles</label>
+                    <input type="text" class="form-input-custom" id="modal-v-calzado" placeholder="Ej: Zapatillas blancas con negro, lentes ópticos">
+                </div>
+
+                <div class="form-group-custom" style="margin-bottom: 14px;">
+                    <label>Pertenencias que Porta (Bolsos, mochilas, artículos en custodia)</label>
+                    <textarea class="form-textarea-custom" id="modal-v-pertenencias" placeholder="Describa bolsos, carteras, paquetes sellados o artículos ingresados..."></textarea>
+                </div>
+
+                <div class="form-group-custom">
+                    <label>Observaciones del Guardia / Oficial de Turno</label>
+                    <textarea class="form-textarea-custom" id="modal-v-observaciones" placeholder="Anotaciones de seguridad, incidentes o autorizaciones especiales..."></textarea>
+                </div>
+            </form>
+        </div>
+
+        <div class="modal-footer-custom">
+            <button type="button" class="btn-search" style="background: #3b82f6;" onclick="reanalizarVestimentaIA()">
+                🤖 Re-analizar con IA
+            </button>
+            <button type="button" class="btn-search" style="background: #8b5cf6;" id="btn-registrar-egreso-modal" onclick="registrarEgresoVisita()">
+                📤 Registrar Egreso
+            </button>
+            <button type="button" class="btn-search" style="background: #10b981;" onclick="guardarPertenenciasVisita()">
+                💾 Guardar Cambios
+            </button>
+            <button type="button" class="btn-search" style="background: #64748b;" onclick="cerrarModales()">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========================================================================= -->
+<!-- MODAL 2: REGISTRO DE NUEVA VISITA EXTERNA CON FOTO Y PERTENENCIAS         -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop-custom" id="modal-nuevo-visitante">
+    <div class="modal-dialog-custom" style="max-width: 680px;">
+        <div class="modal-header-custom">
+            <h3>
+                <span>➕</span> Registro de Nuevo Visitante Externo
+            </h3>
+            <button type="button" class="modal-close-btn" onclick="cerrarModales()">&times;</button>
+        </div>
+
+        <form id="form-nuevo-visitante" onsubmit="enviarNuevoVisitante(event)">
+            <div class="modal-body-custom">
+                <div class="form-grid-2">
+                    <div class="form-group-custom">
+                        <label>Nombre Completo *</label>
+                        <input type="text" name="nombre_visitante" class="form-input-custom" required placeholder="Ej: Juan Silva Orellana">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>RUT / Documento de Identidad</label>
+                        <input type="text" name="rut_visitante" class="form-input-custom" placeholder="Ej: 12.345.678-9">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group-custom">
+                        <label>Interno a quien Visita</label>
+                        <input type="text" name="interno_a_visitar" class="form-input-custom" placeholder="Ej: Juan Pérez (Módulo 3)">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Vínculo o Motivo</label>
+                        <select name="parentesco_o_motivo" class="form-input-custom">
+                            <option value="Familiar">Familiar</option>
+                            <option value="Cónyuge / Pareja">Cónyuge / Pareja</option>
+                            <option value="Abogado Defensor">Abogado Defensor</option>
+                            <option value="Proveedor / Técnico">Proveedor / Técnico</option>
+                            <option value="Visita General">Visita General</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h4 style="margin: 16px 0 10px 0; font-size: 12.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">
+                    👕 Registro de Indumentaria al Ingresar
+                </h4>
+
+                <div class="form-grid-2">
+                    <div class="form-group-custom">
+                        <label>Prenda Superior</label>
+                        <input type="text" name="prenda_superior" class="form-input-custom" placeholder="Ej: Chaqueta cortaviento, polera">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Color Superior</label>
+                        <input type="text" name="color_superior" class="form-input-custom" placeholder="Ej: Azul Marino, Negro, Blanco">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group-custom">
+                        <label>Prenda Inferior</label>
+                        <input type="text" name="prenda_inferior" class="form-input-custom" placeholder="Ej: Jeans, pantalón cargo">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Color Inferior</label>
+                        <input type="text" name="color_inferior" class="form-input-custom" placeholder="Ej: Denim oscuro, Negro">
+                    </div>
+                </div>
+
+                <div class="form-group-custom" style="margin-bottom: 12px;">
+                    <label>Calzado</label>
+                    <input type="text" name="calzado" class="form-input-custom" placeholder="Ej: Zapatillas negras, zapatos de vestir">
+                </div>
+
+                <div class="form-group-custom" style="margin-bottom: 12px;">
+                    <label>Pertenencias Declaradas</label>
+                    <textarea name="pertenencias_declaradas" class="form-textarea-custom" placeholder="Mochila, bolso, reloj, billetera, encomienda sellada..."></textarea>
+                </div>
+
+                <div class="form-group-custom">
+                    <label>Fotografía de la Persona (Para Auditoría IA de Ropa)</label>
+                    <input type="file" name="foto_ingreso" accept="image/*" class="form-input-custom" style="padding: 6px;">
+                    <small style="color: #64748b; font-size: 11px;">La IA analizará automáticamente la imagen para extraer y verificar los colores de la ropa.</small>
+                </div>
+            </div>
+
+            <div class="modal-footer-custom">
+                <button type="button" class="btn-search" style="background: #64748b;" onclick="cerrarModales()">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-search" style="background: #0f172a;">
+                    ✅ Guardar e Ingresar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ========================================================================= -->
+<!-- JAVASCRIPT: LÓGICA DE CONTROL DE AFORO, PERTENENCIAS Y AUDITORÍA IA       -->
+<!-- ========================================================================= -->
 <script>
+let currentVisitaId = null;
 
-function cargarPagina(page){
+// Cargar página de la tabla general vía AJAX
+function cargarPagina(page) {
+    const periodo = document.querySelector('select[name="periodo"]')?.value || 'todo';
+    const buscar = document.querySelector('input[name="buscar"]')?.value || '';
 
-    fetch(
-
-        `/accesos/ajax/?page=${page}`
-
-    )
-
-    .then(response => response.json())
-
-    .then(data => {
-
-        document.getElementById(
-            'tabla-accesos'
-        ).innerHTML =
-            data.tabla;
-
-
-        document.getElementById(
-            'pagination-accesos'
-        ).innerHTML =
-            data.paginacion;
-
-    });
-
+    fetch(`/accesos/ajax/?page=${page}&periodo=${periodo}&buscar=${encodeURIComponent(buscar)}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('tabla-accesos').innerHTML = data.tabla;
+            document.getElementById('pagination-accesos').innerHTML = data.paginacion;
+        })
+        .catch(err => console.error('Error cargando página:', err));
 }
 
-document.addEventListener(
-
-    'click',
-
-    function(e){
-
-        if(
-
-            e.target.classList.contains(
-                'btn-page'
-            )
-
-        ){
-
-            const page =
-                e.target.dataset.page;
-
-            cargarPagina(page);
-
-        }
-
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('btn-page')) {
+        const page = e.target.dataset.page;
+        cargarPagina(page);
     }
+});
 
-);
+// ABRIR Y POBLAR FICHA DE VISITA
+function verFichaVisita(id) {
+    currentVisitaId = id;
+    document.getElementById('modal-v-id').value = id;
+
+    fetch(`/accesos/visita/${id}/json/`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                alert(data.error || 'No se pudo cargar la información.');
+                return;
+            }
+
+            const v = data.visita;
+            document.getElementById('modal-v-nombre').innerText = v.nombre;
+            document.getElementById('modal-v-rut').innerText = v.rut;
+            document.getElementById('modal-v-tel').innerText = v.telefono;
+            document.getElementById('modal-v-interno').innerText = v.interno;
+            document.getElementById('modal-v-parentesco').innerText = v.parentesco;
+
+            // Badge de estado
+            const badgeCont = document.getElementById('modal-v-badge-container');
+            if (!v.ha_egresado) {
+                badgeCont.innerHTML = `<span class="tag-status badge-en-recinto" style="font-size:12px; padding:4px 10px;">🏢 En Recinto</span>`;
+                document.getElementById('btn-registrar-egreso-modal').style.display = 'inline-block';
+            } else if (v.alerta_vestimenta) {
+                badgeCont.innerHTML = `<span class="tag-status badge-alerta-ropa" style="font-size:12px; padding:4px 10px;">🚨 Alerta de Vestimenta</span>`;
+                document.getElementById('btn-registrar-egreso-modal').style.display = 'none';
+            } else {
+                badgeCont.innerHTML = `<span class="tag-status badge-egreso-ok" style="font-size:12px; padding:4px 10px;">✅ Egresó Conforme</span>`;
+                document.getElementById('btn-registrar-egreso-modal').style.display = 'none';
+            }
+
+            // Fotos
+            document.getElementById('modal-v-hora-ingreso').innerText = v.fecha_ingreso ? v.fecha_ingreso.split(' ')[1] : '--:--';
+            document.getElementById('modal-v-foto-ingreso').src = v.foto_ingreso_url || '/static/img/no-face.jpg';
+
+            const fotoEgrImg = document.getElementById('modal-v-foto-egreso');
+            const phEgr = document.getElementById('modal-v-egreso-placeholder');
+            const horaEgr = document.getElementById('modal-v-hora-egreso');
+
+            if (v.ha_egresado && v.foto_egreso_url) {
+                fotoEgrImg.src = v.foto_egreso_url;
+                fotoEgrImg.style.display = 'block';
+                phEgr.style.display = 'none';
+                horaEgr.innerText = v.fecha_egreso ? v.fecha_egreso.split(' ')[1] : '--:--';
+            } else {
+                fotoEgrImg.style.display = 'none';
+                phEgr.style.display = 'block';
+                horaEgr.innerText = 'Pendiente';
+            }
+
+            // Veredicto IA
+            const iaBox = document.getElementById('modal-v-ia-box');
+            const iaPill = document.getElementById('modal-v-ia-pill');
+            const iaDictamen = document.getElementById('modal-v-ia-dictamen');
+            const scoreSup = document.getElementById('modal-v-score-sup');
+            const scoreInf = document.getElementById('modal-v-score-inf');
+
+            if (v.alerta_vestimenta) {
+                iaBox.className = 'ia-verdict-box alerta';
+                iaPill.className = 'ia-score-pill danger';
+                iaPill.innerText = `🚨 ${Math.round(v.similitud_vestimenta)}% Coincidencia`;
+            } else {
+                iaBox.className = 'ia-verdict-box';
+                iaPill.className = 'ia-score-pill ok';
+                iaPill.innerText = v.ha_egresado ? `✅ ${Math.round(v.similitud_vestimenta)}% Coincidencia` : 'En Espera de Salida';
+            }
+
+            iaDictamen.innerText = v.dictamen_ia || 'Sin dictamen disponible.';
+            scoreSup.innerText = `${Math.round(v.coincidencia_superior)}%`;
+            scoreInf.innerText = `${Math.round(v.coincidencia_inferior)}%`;
+
+            // Formulario de pertenencias
+            document.getElementById('modal-v-prenda-sup').value = v.prenda_superior;
+            document.getElementById('modal-v-color-sup').value = v.color_superior;
+            document.getElementById('modal-v-prenda-inf').value = v.prenda_inferior;
+            document.getElementById('modal-v-color-inf').value = v.color_inferior;
+            document.getElementById('modal-v-calzado').value = v.calzado;
+            document.getElementById('modal-v-pertenencias').value = v.pertenencias;
+            document.getElementById('modal-v-observaciones').value = v.observaciones_guardia;
+
+            document.getElementById('modal-ficha-visita').style.display = 'flex';
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+}
+
+// GUARDAR PERTENENCIAS Y ATUENDO
+function guardarPertenenciasVisita() {
+    if (!currentVisitaId) return;
+
+    const formData = new FormData();
+    formData.append('prenda_superior', document.getElementById('modal-v-prenda-sup').value);
+    formData.append('color_superior', document.getElementById('modal-v-color-sup').value);
+    formData.append('prenda_inferior', document.getElementById('modal-v-prenda-inf').value);
+    formData.append('color_inferior', document.getElementById('modal-v-color-inf').value);
+    formData.append('calzado', document.getElementById('modal-v-calzado').value);
+    formData.append('pertenencias', document.getElementById('modal-v-pertenencias').value);
+    formData.append('observaciones', document.getElementById('modal-v-observaciones').value);
+
+    fetch(`/accesos/visita/${currentVisitaId}/guardar/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Pertenencias y descripción de vestimenta guardadas correctamente.');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Error al guardar datos.');
+    });
+}
+
+// RE-ANALIZAR CON INTELIGENCIA ARTIFICIAL
+function reanalizarVestimentaIA() {
+    if (!currentVisitaId) return;
+
+    const iaDictamen = document.getElementById('modal-v-ia-dictamen');
+    iaDictamen.innerText = '⚙️ Analizando imágenes con redes neuronales y visión artificial...';
+
+    fetch(`/accesos/visita/${currentVisitaId}/analizar-ia/`, {
+        method: 'POST'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Análisis de vestimenta completado por la Inteligencia Artificial.');
+            verFichaVisita(currentVisitaId);
+        } else {
+            alert(data.error || 'No se pudo realizar el análisis.');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Error al conectar con el motor de IA.');
+    });
+}
+
+// REGISTRAR EGRESO DIRECTO DESDE EL MODAL
+function registrarEgresoVisita() {
+    if (!currentVisitaId) return;
+    if (!confirm('¿Desea registrar el egreso oficial de este visitante?')) return;
+
+    const formData = new FormData();
+    formData.append('puerta_egreso', 'Puesto de Control 1 [Egreso]');
+
+    fetch(`/accesos/visita/${currentVisitaId}/egreso/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Egreso registrado exitosamente.');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Error al registrar egreso.');
+    });
+}
+
+// NUEVO VISITANTE
+function abrirModalNuevoVisitante() {
+    document.getElementById('form-nuevo-visitante').reset();
+    document.getElementById('modal-nuevo-visitante').style.display = 'flex';
+}
+
+function enviarNuevoVisitante(e) {
+    e.preventDefault();
+    const form = document.getElementById('form-nuevo-visitante');
+    const formData = new FormData(form);
+
+    fetch('/accesos/visita/crear/', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Visitante externo y pertenencias registradas exitosamente.');
+            cerrarModales();
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Error al registrar visitante.');
+    });
+}
+
+function cerrarModales() {
+    document.getElementById('modal-ficha-visita').style.display = 'none';
+    document.getElementById('modal-nuevo-visitante').style.display = 'none';
+}
+
+// Cerrar con Escape
+window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        cerrarModales();
+    }
+});
 </script>
 
-{% endblock %}      
+{% endblock %}

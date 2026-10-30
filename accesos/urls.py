@@ -1,9 +1,13 @@
 from django.urls import path
-from .views import accesos, accesos_ajax, exportar_accesos_csv
-
+from . import views
 
 urlpatterns = [
-    path('', accesos, name='accesos'),
-    path('ajax/', accesos_ajax, name='accesos_ajax'),
-    path('exportar-csv/', exportar_accesos_csv, name='exportar_accesos_csv'),
+    path('', views.accesos, name='accesos'),
+    path('ajax/', views.accesos_ajax, name='accesos_ajax'),
+    path('exportar-csv/', views.exportar_accesos_csv, name='exportar_accesos_csv'),
+    path('visita/<int:visita_id>/json/', views.visita_detalle_json, name='visita_detalle_json'),
+    path('visita/<int:visita_id>/guardar/', views.visita_guardar_pertenencias, name='visita_guardar_pertenencias'),
+    path('visita/<int:visita_id>/analizar-ia/', views.visita_analizar_ia, name='visita_analizar_ia'),
+    path('visita/<int:visita_id>/egreso/', views.visita_registrar_egreso_ajax, name='visita_registrar_egreso_ajax'),
+    path('visita/crear/', views.visita_crear_ajax, name='visita_crear_ajax'),
 ]
