@@ -7,6 +7,38 @@ Monitoreo Biométrico en Tiempo Real
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/monitoreo.css' %}?v=1.2">
+<style>
+@keyframes bannerPulse {
+    0% { transform: scale(1); box-shadow: 0 0 15px rgba(220, 38, 38, 0.7); }
+    100% { transform: scale(1.008); box-shadow: 0 0 35px rgba(239, 68, 68, 1); }
+}
+
+@keyframes iconShake {
+    0% { transform: rotate(-8deg); }
+    100% { transform: rotate(8deg); }
+}
+
+@keyframes viewportAlertGlow {
+    0% { box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.4), 0 0 15px rgba(239, 68, 68, 0.5); border-color: #ef4444; }
+    100% { box-shadow: inset 0 0 40px rgba(239, 68, 68, 0.9), 0 0 35px rgba(239, 68, 68, 1); border-color: #f87171; }
+}
+
+.viewport-alarma-activa {
+    border: 3px solid #ef4444 !important;
+    animation: viewportAlertGlow 0.8s infinite alternate !important;
+}
+
+.item-fuga-critica {
+    background: linear-gradient(135deg, rgba(127, 29, 29, 0.55) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+    border: 2px solid #ef4444 !important;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.45) !important;
+}
+
+.item-fuga-critica h4 {
+    color: #fca5a5 !important;
+    font-weight: 800;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -59,6 +91,23 @@ Monitoreo Biométrico en Tiempo Real
         </div>
 
         <div class="camera-viewport" id="camera-viewport-container" style="position: relative; background: #000; border-radius: 12px; overflow: hidden; height: 480px; display: flex; align-items: center; justify-content: center;">
+            <!-- BANNER DE ALERTA CRÍTICA: EGRESO DE INTERNO -->
+            <div id="alerta-fuga-banner" style="display: none; position: absolute; top: 12px; left: 12px; right: 12px; background: rgba(185, 28, 28, 0.96); border: 2px solid #ef4444; border-radius: 8px; padding: 12px 18px; color: #ffffff; z-index: 50; box-shadow: 0 0 35px rgba(239, 68, 68, 0.85); align-items: center; justify-content: space-between; gap: 12px; animation: bannerPulse 1s infinite alternate;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 32px; animation: iconShake 0.4s infinite alternate;">🚨</span>
+                    <div>
+                        <div style="font-size: 13.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+                            ¡ALERTA MÁXIMA DE SEGURIDAD! INTENTO DE EGRESO NO AUTORIZADO
+                        </div>
+                        <div id="alerta-fuga-detalle" style="font-size: 11.5px; color: #fecaca; margin-top: 3px;">
+                            Interno detectado en control de egresos. El paso ha sido bloqueado y denegado automáticamente.
+                        </div>
+                    </div>
+                </div>
+                <button type="button" onclick="silenciarAlertaFuga()" style="background: #ffffff; color: #991b1b; font-weight: 800; font-size: 11px; padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer; text-transform: uppercase; white-space: nowrap;">
+                    Silenciar
+                </button>
+            </div>
             <!-- Stream Servidor (OpenCV / RTSP) -->
             <img id="camera-stream" 
                  src="{% if camara_activa %}{% url 'video_feed' %}?cam_id={{ camara_activa.id }}{% else %}about:blank{% endif %}" 
@@ -144,6 +193,66 @@ const captureCtx = captureCanvas.getContext('2d');
 function initAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+
+let _ultimoIdAlertaFuga = null;
+let _alarmaFugaTimer = null;
+
+function reproducirAlarmaFuga() {
+    if (!audioHabilitado) return;
+    initAudio();
+    if (!audioCtx) return;
+    try {
+        const now = audioCtx.currentTime;
+        for (let i = 0; i < 3; i++) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+
+            const startT = now + (i * 0.22);
+            osc.frequency.setValueAtTime(550, startT);
+            osc.frequency.exponentialRampToValueAtTime(950, startT + 0.11);
+            gain.gain.setValueAtTime(0.28, startT);
+            gain.gain.exponentialRampToValueAtTime(0.01, startT + 0.20);
+            osc.start(startT);
+            osc.stop(startT + 0.20);
+        }
+    } catch(e) {
+        console.warn('Alarma fuga sound error:', e);
+    }
+}
+
+function mostrarAlertaFugaBanner(nombre, rut, coincidencia) {
+    const banner = document.getElementById('alerta-fuga-banner');
+    const detalle = document.getElementById('alerta-fuga-detalle');
+    const viewport = document.getElementById('camera-viewport-container');
+
+    if (detalle) {
+        detalle.innerHTML = `<strong>${nombre}</strong> detectado en <strong>CÁMARA DE EGRESO</strong> (${Math.round(coincidencia)}% coincidencia).<br>El paso ha sido <b style="color:#ffffff; text-decoration:underline;">DENEGADO Y BLOQUEADO</b> automáticamente.`;
+    }
+    if (banner) banner.style.display = 'flex';
+    if (viewport) {
+        viewport.classList.add('viewport-alarma-activa');
+    }
+
+    if (_alarmaFugaTimer) clearTimeout(_alarmaFugaTimer);
+    _alarmaFugaTimer = setTimeout(() => {
+        silenciarAlertaFuga();
+    }, 12000);
+}
+
+function silenciarAlertaFuga() {
+    const banner = document.getElementById('alerta-fuga-banner');
+    const viewport = document.getElementById('camera-viewport-container');
+    if (banner) banner.style.display = 'none';
+    if (viewport) viewport.classList.remove('viewport-alarma-activa');
+    if (_alarmaFugaTimer) {
+        clearTimeout(_alarmaFugaTimer);
+        _alarmaFugaTimer = null;
     }
 }
 
@@ -517,6 +626,9 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
         let strokeColor = '#f59e0b';
         if (r.estado === 'PERMITIDO') strokeColor = '#10b981';
         else if (r.estado === 'DENEGADO') strokeColor = '#ef4444';
+        if (r.es_alerta_interno) {
+            strokeColor = '#dc2626'; // Rojo de alarma máxima
+        }
 
         // 1. Marco táctico
         ctx.strokeStyle = strokeColor;
@@ -545,7 +657,10 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
         }
 
         // 3. Badge táctico
-        const labelText = `${r.nombre} (${Math.round(r.coincidencia)}%)`;
+        let labelText = `${r.nombre} (${Math.round(r.coincidencia)}%)`;
+        if (r.es_alerta_interno) {
+            labelText = `🚨 DENEGADO [INTERNO]: ${r.nombre} (${Math.round(r.coincidencia)}%)`;
+        }
         ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
         const textWidth = ctx.measureText(labelText).width;
         const pillW = textWidth + 24;
@@ -568,8 +683,14 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
         ctx.fillStyle = '#ffffff';
         ctx.fillText(labelText, pillX + 12, pillY - 8);
 
-        if (r.nuevo_registro) {
+        if (r.es_alerta_interno) {
+            reproducirAlarmaFuga();
+            mostrarAlertaFugaBanner(r.nombre, r.rut, r.coincidencia);
+        } else if (r.nuevo_registro) {
             reproducirTono(r.estado);
+        }
+
+        if (r.nuevo_registro) {
             agregarDeteccionEnVivo(r);
         }
     });
@@ -584,7 +705,10 @@ function agregarDeteccionEnVivo(r) {
 
     let itemClass = 'item-warning';
     let badgeClass = 'badge-warning';
-    if (r.estado === 'PERMITIDO') {
+    if (r.es_alerta_interno) {
+        itemClass = 'item-fuga-critica';
+        badgeClass = 'badge-danger';
+    } else if (r.estado === 'PERMITIDO') {
         itemClass = 'item-approved';
         badgeClass = 'badge-success';
     } else if (r.estado === 'DENEGADO') {
@@ -594,6 +718,8 @@ function agregarDeteccionEnVivo(r) {
 
     const flujoColor = currentFlujo === 'ingreso' ? '#10b981' : '#f87171';
     const flujoTag = currentFlujo === 'ingreso' ? '[INGRESO]' : '[EGRESO]';
+    const alertaNotice = r.es_alerta_interno ? `<div style="color:#ef4444; font-size:10px; font-weight:800; margin-top:2px;">🚨 ¡ALERTA: INTENTO DE EGRESO NO AUTORIZADO!</div>` : '';
+    const badgeLabel = r.es_alerta_interno ? `🚨 DENEGADO ${Math.round(r.coincidencia)}%` : `${Math.round(r.coincidencia)}%`;
 
     const item = document.createElement('div');
     item.className = `detection-item ${itemClass}`;
@@ -602,13 +728,14 @@ function agregarDeteccionEnVivo(r) {
             <img src="${r.avatar_url || '/static/img/no-face.jpg'}" alt="face">
         </div>
         <div class="det-info">
-            <h4>${r.nombre}</h4>
+            <h4 style="${r.es_alerta_interno ? 'color:#fca5a5; font-weight:800;' : ''}">${r.nombre}</h4>
             <span>${r.tipo} • ${r.hora}</span>
             <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${currentCameraNombre} <b style="color:${flujoColor};">${flujoTag}</b></small>
+            ${alertaNotice}
         </div>
         <div class="det-badge">
-            <span class="badge ${badgeClass}">
-                ${Math.round(r.coincidencia)}%
+            <span class="badge ${badgeClass}" style="${r.es_alerta_interno ? 'background:#dc2626; color:#fff; font-weight:800; padding:4px 8px;' : ''}">
+                ${badgeLabel}
             </span>
         </div>
     `;
@@ -658,7 +785,10 @@ function renderizarListadoDetecciones(items) {
     const html = items.map(acc => {
         let itemClass = 'item-warning';
         let badgeClass = 'badge-warning';
-        if (acc.resultado === 'PERMITIDO') {
+        if (acc.es_alerta_interno) {
+            itemClass = 'item-fuga-critica';
+            badgeClass = 'badge-danger';
+        } else if (acc.resultado === 'PERMITIDO') {
             itemClass = 'item-approved';
             badgeClass = 'badge-success';
         } else if (acc.resultado === 'DENEGADO') {
@@ -668,6 +798,8 @@ function renderizarListadoDetecciones(items) {
 
         const tagColor = acc.flujo === 'egreso' ? '#f87171' : '#10b981';
         const tagText = acc.flujo === 'egreso' ? '[EGRESO]' : '[INGRESO]';
+        const alertaNotice = acc.es_alerta_interno ? `<div style="color:#ef4444; font-size:10px; font-weight:800; margin-top:2px;">🚨 ¡ALERTA: INTENTO DE EGRESO NO AUTORIZADO!</div>` : '';
+        const badgeLabel = acc.es_alerta_interno ? `🚨 DENEGADO ${acc.coincidencia}%` : `${acc.coincidencia}%`;
 
         return `
             <div class="detection-item ${itemClass}">
@@ -675,13 +807,14 @@ function renderizarListadoDetecciones(items) {
                     <img src="${acc.foto_url || '/static/img/no-face.jpg'}" alt="face">
                 </div>
                 <div class="det-info">
-                    <h4>${acc.nombre}</h4>
+                    <h4 style="${acc.es_alerta_interno ? 'color:#fca5a5; font-weight:800;' : ''}">${acc.nombre}</h4>
                     <span>${acc.tipo} • ${acc.hora}</span>
                     <small style="color: #94a3b8; font-size: 10px; display: block;">📍 ${acc.camara} <b style="color:${tagColor};">${tagText}</b></small>
+                    ${alertaNotice}
                 </div>
                 <div class="det-badge">
-                    <span class="badge ${badgeClass}">
-                        ${acc.coincidencia}%
+                    <span class="badge ${badgeClass}" style="${acc.es_alerta_interno ? 'background:#dc2626; color:#fff; font-weight:800; padding:4px 8px;' : ''}">
+                        ${badgeLabel}
                     </span>
                 </div>
             </div>
@@ -689,6 +822,16 @@ function renderizarListadoDetecciones(items) {
     }).join('');
 
     list.innerHTML = html;
+
+    // Si la detección más reciente es un intento de egreso de interno, disparar alarma sonora y banner
+    if (items.length > 0 && items[0].es_alerta_interno && currentFlujo === 'egreso') {
+        const topItem = items[0];
+        if (!_ultimoIdAlertaFuga || _ultimoIdAlertaFuga !== topItem.id) {
+            _ultimoIdAlertaFuga = topItem.id;
+            mostrarAlertaFugaBanner(topItem.nombre, '', topItem.coincidencia);
+            reproducirAlarmaFuga();
+        }
+    }
 }
 
 setInterval(actualizarFeedDetecciones, 3000);
