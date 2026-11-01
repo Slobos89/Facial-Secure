@@ -1265,23 +1265,24 @@ async function eliminarCamaraAsignada(camId, nombre){
 
 function verEnMonitoreo(camId, nombre){
     cerrarModalEscanerCamaras();
-    localStorage.setItem('monitoreo_camara_modo', server:);
+    const modoServer = 'server:' + camId;
+    localStorage.setItem('monitoreo_camara_modo', modoServer);
     localStorage.setItem('monitoreo_camara_nombre', nombre);
     const sel = document.getElementById('selector-camara-hud');
     if(sel){
-        sel.value = server:;
+        sel.value = modoServer;
         if(typeof cambiarModoCamara === 'function'){
-            cambiarModoCamara(server:);
+            cambiarModoCamara(modoServer);
         } else if(typeof cambiarCamaraStream === 'function'){
             cambiarCamaraStream(camId);
         }
     } else {
         const selDash = document.getElementById('dash-cam-select-ingreso');
         if(selDash && typeof cambiarCamaraDashDual === 'function'){
-            selDash.value = server:;
-            cambiarCamaraDashDual('ingreso', server:, true);
+            selDash.value = modoServer;
+            cambiarCamaraDashDual('ingreso', modoServer, true);
         } else {
-            window.location.href = /monitoreo/?cam_id=;
+            window.location.href = `/monitoreo/?cam_id=${camId}`;
         }
     }
 }
