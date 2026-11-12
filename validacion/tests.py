@@ -69,7 +69,9 @@ class BiometriaDactilarTestCase(TestCase):
             resuelto=False
         )
 
+        self.user = User.objects.create_user(username='tester_val', password='password123')
         self.client = Client()
+        self.client.login(username='tester_val', password='password123')
 
     def test_matching_mismo_template_exacto(self):
         """Verifica que el mismo template tenga 100% de match."""

@@ -6,12 +6,35 @@ Centro de Validación Biometría Dual
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/validacion.css' %}?v=1.0">
+<link rel="stylesheet" href="{% static 'css/validacion.css' %}?v=1.1">
 {% endblock %}
 
 {% block content %}
 
 <div class="validation-container">
+    <!-- BARRA SUPERIOR DE FILTROS & ACCIONES (IGUAL AL DASHBOARD, POR DEFECTO HOY) -->
+    <div class="top-controls-bar">
+        <div class="top-controls-left">
+            <span style="font-weight: 700; font-size: 14px; color: #0f172a;">📅 Período de Análisis:</span>
+            <form method="GET" id="period-form" style="margin: 0;">
+                <select name="periodo" id="select-periodo" class="select" onchange="this.form.submit()" style="height: 36px; padding: 0 12px; font-size: 12px; border-radius: 6px;">
+                    <option value="hoy" {% if periodo == 'hoy' %}selected{% endif %}>Hoy (Turno Actual)</option>
+                    <option value="7" {% if periodo == '7' %}selected{% endif %}>Últimos 7 días</option>
+                    <option value="30" {% if periodo == '30' %}selected{% endif %}>Últimos 30 días</option>
+                    <option value="todo" {% if periodo == 'todo' %}selected{% endif %}>Historial Completo (Global)</option>
+                </select>
+            </form>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <a href="{% url 'exportar_pdf' %}?periodo={{ periodo }}" class="btn-export-compact" style="background: #ef4444; color: #ffffff; text-decoration: none; height: 36px; padding: 0 14px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                📄 Reporte Ejecutivo PDF
+            </a>
+            <a href="/accesos/exportar-csv/?periodo={{ periodo }}" class="btn-export-compact" style="background: #10b981; color: #ffffff; text-decoration: none; height: 36px; padding: 0 14px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                📊 Base CSV
+            </a>
+        </div>
+    </div>
+
     <!-- KPIS OPERATIVOS -->
     <div class="kpis-row">
         <div class="val-kpi-card kpi-amber">
@@ -32,7 +55,7 @@ Centro de Validación Biometría Dual
             <div class="val-kpi-icon">⛔</div>
             <div class="val-kpi-info">
                 <h3 id="kpi-rechazados">{{ rechazados }}</h3>
-                <span>Rechazadas Hoy</span>
+                <span>Rechazadas {% if periodo == 'hoy' %}Hoy{% else %}en el Período{% endif %}</span>
             </div>
         </div>
     </div>
@@ -43,7 +66,9 @@ Centro de Validación Biometría Dual
         <span><span class="shortcut-key">A</span> Aprobar caso actual</span>
         <span><span class="shortcut-key">R</span> Rechazar caso actual</span>
         <span><span class="shortcut-key">H</span> Disparar sensor de huella</span>
-        <span style="margin-left: auto; color: #38bdf8;">🟢 Cola operativa en vivo</span>
+        <span style="margin-left: auto; color: #38bdf8;">
+            🟢 Cola operativa en vivo ({% if periodo == 'hoy' %}Turno de Hoy{% elif periodo == '7' %}Últimos 7 días{% elif periodo == '30' %}Últimos 30 días{% else %}Historial Completo{% endif %})
+        </span>
     </div>
 
     <!-- COLA DE REVISIÓN BIOMÉTRICA -->
@@ -166,8 +191,8 @@ Centro de Validación Biometría Dual
         {% empty %}
         <div class="empty-state-panel" id="empty-state">
             <div style="font-size: 36px; margin-bottom: 10px;">✨</div>
-            <h3 style="margin: 0 0 6px 0; color: #0f172a;">No hay validaciones pendientes</h3>
-            <p style="margin: 0; font-size: 13px;">Todos los accesos están autorizados o han sido procesados correctamente.</p>
+            <h3 style="margin: 0 0 6px 0; color: #0f172a;">No hay validaciones pendientes {% if periodo == 'hoy' %}en el día de hoy{% endif %}</h3>
+            <p style="margin: 0; font-size: 13px;">Todos los accesos del período seleccionado están autorizados o han sido procesados correctamente.</p>
         </div>
         {% endfor %}
     </div>
@@ -176,11 +201,17 @@ Centro de Validación Biometría Dual
 <script src="{% static 'js/secugen.js' %}"></script>
 <script>
 /* ========================================================
-   ACTUALIZACIÓN AUTOMÁTICA Y POLLING EN VIVO
+   ACTUALIZACIÓN AUTOMÁTICA Y POLLING EN VIVO (RESPETANDO FILTRO DE PERÍODO)
    ======================================================== */
+function obtenerPeriodoActual() {
+    const sel = document.getElementById('select-periodo');
+    return sel ? sel.value : '{{ periodo|default:"hoy" }}';
+}
+
 async function actualizarKPIs() {
     try {
-        const response = await fetch('/validacion/kpis/');
+        const periodo = obtenerPeriodoActual();
+        const response = await fetch(`/validacion/kpis/?periodo=${encodeURIComponent(periodo)}`);
         const data = await response.json();
         document.getElementById('kpi-pendientes').textContent = data.pendientes;
         document.getElementById('kpi-aprobados').textContent = data.aprobados;
@@ -190,19 +221,22 @@ async function actualizarKPIs() {
 
 async function actualizarCards() {
     try {
-        const response = await fetch('/validacion/cards/');
+        const periodo = obtenerPeriodoActual();
+        const response = await fetch(`/validacion/cards/?periodo=${encodeURIComponent(periodo)}`);
         const data = await response.json();
 
         const queue = document.getElementById('validation-queue');
         const emptyState = document.getElementById('empty-state');
 
         if (data.cards.length === 0) {
-            if (!emptyState && queue.children.length === 0) {
+            queue.querySelectorAll('.val-card').forEach(c => c.remove());
+            if (!document.getElementById('empty-state')) {
+                const msgHoy = periodo === 'hoy' ? ' en el día de hoy' : '';
                 queue.innerHTML = `
                     <div class="empty-state-panel" id="empty-state">
                         <div style="font-size: 36px; margin-bottom: 10px;">✨</div>
-                        <h3 style="margin: 0 0 6px 0; color: #0f172a;">No hay validaciones pendientes</h3>
-                        <p style="margin: 0; font-size: 13px;">Todos los accesos están autorizados o han sido procesados correctamente.</p>
+                        <h3 style="margin: 0 0 6px 0; color: #0f172a;">No hay validaciones pendientes${msgHoy}</h3>
+                        <p style="margin: 0; font-size: 13px;">Todos los accesos del período seleccionado están autorizados o han sido procesados correctamente.</p>
                     </div>
                 `;
             }

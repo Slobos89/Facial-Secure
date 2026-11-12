@@ -145,6 +145,7 @@ def crear_persona(request):
                 )
 
                 contador = 0
+                primer_rostro_bytes = None
 
                 for foto_data in capturas:
 
@@ -153,8 +154,6 @@ def crear_persona(request):
                         format, imgstr = foto_data.split(
                             ';base64,'
                         )
-
-                        ext = format.split('/')[-1]
 
                         image_data = base64.b64decode(
                             imgstr
@@ -168,26 +167,18 @@ def crear_persona(request):
                             image_pil
                         )
 
-                        print('PROCESANDO CAPTURA')
-
                         if rostro is None:
-
-                            print('NO DETECTADO')
-
                             continue
 
                         if rostro.mode == 'RGBA':
-
-                            rostro = rostro.convert(
-                                'RGB'
-                            )
+                            rostro = rostro.convert('RGB')
 
                         rostro_io = BytesIO()
+                        rostro.save(rostro_io, format='JPEG')
+                        raw_bytes = rostro_io.getvalue()
 
-                        rostro.save(
-                            rostro_io,
-                            format='JPEG'
-                        )
+                        if primer_rostro_bytes is None:
+                            primer_rostro_bytes = raw_bytes
 
                         rostro_db = RostroCapturado(
                             persona=persona
@@ -195,30 +186,36 @@ def crear_persona(request):
 
                         rostro_db.imagen.save(
                             f'{persona.rut}_{contador}.jpg',
-                            ContentFile(
-                                rostro_io.getvalue()
-                            ),
+                            ContentFile(raw_bytes),
                             save=True
                         )
-
-                        print('ROSTRO GUARDADO')
 
                         contador += 1
 
                     except Exception as e:
+                        print('ERROR CAPTURA:', e)
 
-                        print(
-                            'ERROR CAPTURA:',
-                            e
-                        )
+                if contador > 0:
+                    if primer_rostro_bytes:
+                        from usuarios.utils.security import encrypt_bytes
+                        filename = f"perfil_{persona.id}_{uuid.uuid4().hex[:6]}.jpg"
+                        persona.foto.save(filename, ContentFile(encrypt_bytes(primer_rostro_bytes)), save=False)
+                        persona.foto_rostro.save(filename, ContentFile(encrypt_bytes(primer_rostro_bytes)), save=False)
+                    persona.biometria_facial = True
+                    persona.estado_enrolamiento = 'completo'
+                    persona.save()
+
             # Entrenamiento Incremental Zero-Knowledge automático
-            entrenar_modelo()
+            try:
+                entrenar_modelo()
+            except Exception as e:
+                print('ERROR ENTRENANDO:', e)
 
-            return JsonResponse({
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
 
-                'success': True
-
-            })
+            messages.success(request, 'Usuario enrolado y registrado correctamente.')
+            return redirect('usuarios')
 
     else:
 
@@ -234,6 +231,14 @@ def crear_persona(request):
 
 @login_required
 def registrar_gendarme(request):
+    perfil = getattr(request.user, 'perfilusuario', None)
+    es_admin = request.user.is_superuser or (perfil and perfil.rol == 'ADMIN')
+    if not es_admin:
+        messages.error(
+            request,
+            'Acceso Denegado (RBAC): Los funcionarios con rol Gendarme no tienen autorización para registrar ni enrolar nuevas cuentas institucionales. Esta función es exclusiva de la Administración.'
+        )
+        return redirect('usuarios')
 
     if request.method == 'POST':
 
@@ -328,9 +333,83 @@ def registrar_gendarme(request):
 
         perfil.save()
 
+        # =====================
+        # HUELLA DACTILAR (OPCIONAL / EN EL ACTO)
+        # =====================
+        huella_tpl = request.POST.get('huella_template')
+        huella_cal = int(request.POST.get('huella_calidad') or 0)
+        huella_fmt = request.POST.get('huella_formato') or 'ANSI378'
+
+        if huella_tpl and len(huella_tpl.strip()) > 10:
+            HuellaDactilar.objects.update_or_create(
+                persona=persona,
+                defaults={
+                    'template': huella_tpl.strip(),
+                    'calidad': huella_cal,
+                    'formato': huella_fmt,
+                }
+            )
+
+        # =====================
+        # BIOMETRÍA FACIAL (CAPTURAS IA EN EL ACTO)
+        # =====================
+        capturas_json = request.POST.get('capturas')
+        contador = 0
+        primer_rostro_bytes = None
+
+        if capturas_json:
+            try:
+                capturas = json.loads(capturas_json)
+                for foto_data in capturas:
+                    try:
+                        format_str, imgstr = foto_data.split(';base64,')
+                        image_data = base64.b64decode(imgstr)
+                        image_pil = Image.open(BytesIO(image_data))
+                        rostro = detectar_y_recortar_rostro(image_pil)
+
+                        if rostro is None:
+                            # Si el recorte estricto no detectó rostro en ese frame, usar el frame RGB redimensionado como respaldo
+                            rostro = image_pil.convert('RGB').resize((160, 160))
+
+                        if rostro.mode == 'RGBA':
+                            rostro = rostro.convert('RGB')
+
+                        rostro_io = BytesIO()
+                        rostro.save(rostro_io, format='JPEG')
+                        raw_bytes = rostro_io.getvalue()
+
+                        if primer_rostro_bytes is None:
+                            primer_rostro_bytes = raw_bytes
+
+                        rostro_db = RostroCapturado(persona=persona)
+                        rostro_db.imagen.save(
+                            f'{persona.rut}_{contador}.jpg',
+                            ContentFile(raw_bytes),
+                            save=True
+                        )
+                        contador += 1
+                    except Exception as e:
+                        print('ERROR CAPTURA GENDARME:', e)
+            except Exception as e:
+                print('ERROR JSON CAPTURAS GENDARME:', e)
+
+        if contador > 0:
+            if primer_rostro_bytes:
+                from usuarios.utils.security import encrypt_bytes
+                filename = f"perfil_{persona.id}_{uuid.uuid4().hex[:6]}.jpg"
+                persona.foto.save(filename, ContentFile(encrypt_bytes(primer_rostro_bytes)), save=False)
+                persona.foto_rostro.save(filename, ContentFile(encrypt_bytes(primer_rostro_bytes)), save=False)
+            persona.biometria_facial = True
+            persona.estado_enrolamiento = 'completo' if (huella_tpl and len(huella_tpl.strip()) > 10) else 'parcial'
+            persona.save()
+            try:
+                entrenar_modelo()
+            except Exception as e:
+                print('ERROR ENTRENANDO MODELO:', e)
+
         messages.success(
             request,
-            'Gendarme registrado correctamente'
+            'Gendarme registrado y enrolado correctamente.'
         )
 
         return redirect('usuarios')
@@ -607,6 +686,9 @@ def editar_usuario(request, persona_id):
         persona=persona
     ).first()
 
+    from .models import ConfiguracionCamara
+    camaras = ConfiguracionCamara.objects.filter(activa=True).order_by('id')
+
     return render(
 
         request,
@@ -618,6 +700,7 @@ def editar_usuario(request, persona_id):
             'persona': persona,
             'primer_rostro': primer_rostro,
             'huella': huella,
+            'camaras': camaras,
 
         }
     )
@@ -721,26 +804,27 @@ def reenrolar_rostro(request, persona_id):
     else:
         return JsonResponse({
             'success': False,
-            'error': 'No se pudo procesar ningún fotograma facial de la cámara IP.'
+            'error': 'No se pudo procesar ningún fotograma facial válido de la cámara seleccionada.'
         })
 
 
 @login_required
 def capturar_frame_ip(request):
-    """Obtiene el último frame capturado de la cámara IP Yoosee en tiempo real."""
+    """Obtiene el último frame capturado de la cámara seleccionada en tiempo real."""
     import cv2
     from monitoreo.views import get_shared_ip_camera
-    cam = get_shared_ip_camera()
+    cam_id = request.GET.get('cam_id')
+    cam = get_shared_ip_camera(cam_id=cam_id) if cam_id else get_shared_ip_camera()
     
     ret, frame = False, None
-    for _ in range(50):
+    for _ in range(30):
         ret, frame = cam.get_latest_frame(max_age_seconds=4.0)
         if ret and frame is not None:
             break
         time.sleep(0.1)
 
     if not ret or frame is None:
-        return JsonResponse({'success': False, 'error': 'No se pudo obtener imagen de la cámara IP'})
+        return JsonResponse({'success': False, 'error': 'No se pudo obtener imagen de la cámara seleccionada'})
     
     _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
     b64 = 'data:image/jpeg;base64,' + base64.b64encode(jpeg.tobytes()).decode('utf-8')

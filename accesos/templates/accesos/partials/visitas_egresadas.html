@@ -1,0 +1,42 @@
+{% for v in visitas_egresadas %}
+    <div class="visita-card egr-card {% if v.alerta_vestimenta %}alerta-cambio{% endif %}" onclick="verFichaVisita({{ v.id }})" title="Click para ver peritaje comparativo de vestimenta">
+        <div class="visita-avatar">
+            {% if v.get_foto_egreso_url %}
+                <img src="{{ v.get_foto_egreso_url }}" alt="{{ v.nombre_visitante }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <div class="avatar-ph" style="display: none;">👤</div>
+            {% elif v.get_foto_ingreso_url %}
+                <img src="{{ v.get_foto_ingreso_url }}" alt="{{ v.nombre_visitante }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <div class="avatar-ph" style="display: none;">👤</div>
+            {% else %}
+                <div class="avatar-ph">👤</div>
+            {% endif %}
+        </div>
+        <div class="visita-info">
+            <div class="visita-topline">
+                <h4>{{ v.nombre_visitante }}</h4>
+                {% if v.alerta_vestimenta %}
+                    <span class="tag-status badge-alerta-ropa">🚨 Alerta Ropa</span>
+                {% else %}
+                    <span class="tag-status badge-ia-ok">🤖 Ropa OK ({{ v.similitud_vestimenta|floatformat:0 }}%)</span>
+                {% endif %}
+            </div>
+            <div class="visita-meta">
+                <span>🕒 Salida: {{ v.fecha_egreso|date:"H:i" }}</span> • 
+                <span>🚪 {{ v.puerta_egreso|default:'Puesto de Salida' }}</span>
+            </div>
+            <div class="visita-clothing-pills">
+                <span class="c-pill {% if v.alerta_vestimenta %}pill-danger{% endif %}">
+                    Similitud IA: <strong>{{ v.similitud_vestimenta|floatformat:1 }}%</strong>
+                </span>
+                <span class="c-pill">Superior: {{ v.coincidencia_superior|floatformat:0 }}%</span>
+                <span class="c-pill">Inferior: {{ v.coincidencia_inferior|floatformat:0 }}%</span>
+            </div>
+            <div class="visita-belongings-preview">
+                📋 <em>{{ v.dictamen_ia|truncatechars:65|default:'Validación conforme' }}</em>
+            </div>
+        </div>
+        <div class="visita-action-arrow">🔍</div>
+    </div>
+{% empty %}
+    <div class="empty-col">Aún no se han registrado egresos de visitantes en este período.</div>
+{% endfor %}

@@ -160,26 +160,49 @@ Editar Usuario - {{ persona.nombre }} {{ persona.apellido }} | facIAL Secure
 
             <section class="panel">
 
-                <div class="panel-header">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                     <h3 class="panel-title">
-                        Enrolamiento Biométrico Facial (Cámara Principal IP)
+                        📷 Enrolamiento y Actualización Biométrica Facial
                     </h3>
+                    <button type="button" onclick="abrirModalEscanerCamaras('escanear')" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer;">
+                        🔍 Escanear Red / Cámaras
+                    </button>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; display: block; margin-bottom: 5px;">
+                        📹 Seleccionar Dispositivo de Video:
+                    </label>
+                    <select id="select-camara-dispositivo" onchange="cambiarDispositivoEdicion()" style="width: 100%; height: 40px; font-size: 13px; padding: 0 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: 600; color: #0f172a;">
+                        <optgroup label="💻 Cámaras del Navegador / USB / Iriun" id="optgroup-browser-cams">
+                            <option value="browser:default">📹 Cámara Local / Predeterminada</option>
+                        </optgroup>
+                        <optgroup label="📡 Cámaras Asignadas en Servidor / Red IP" id="optgroup-server-cams">
+                            {% for c in camaras %}
+                                <option value="server:{{ c.id }}">
+                                    {{ c.nombre }} ({% if c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
+                                </option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
                 </div>
 
                 <div class="camera-container" id="camera-box">
                     <div id="camera-placeholder" class="camera-placeholder">
                         <div class="camera-icon">📷</div>
-                        <span style="font-weight: 700; font-size: 15px; color: #0f172a;">Cámara Principal IP Yoosee</span>
-                        <small style="color: #64748b; font-size: 12px;">IP: 192.168.100.34 • Protocolo RTSP / ONVIF</small>
-                        <button type="button" class="btn btn-primary" style="margin-top: 10px;" onclick="iniciarCamaraIP()">
-                            ▶ Iniciar Transmisión
+                        <span style="font-weight: 700; font-size: 15px; color: #0f172a;">Visor de Captura Biométrica</span>
+                        <small style="color: #64748b; font-size: 12px;">Selecciona una cámara arriba y presiona "Iniciar Cámara"</small>
+                        <button type="button" class="btn btn-primary" style="margin-top: 10px;" onclick="iniciarCamaraEdicion()">
+                            ▶ Iniciar Cámara
                         </button>
                     </div>
 
+                    <video id="video-local-edit" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
+                    <canvas id="canvas-local-edit" style="display: none;"></canvas>
                     <img id="camera-stream" src="" alt="Transmisión Cámara IP" style="display: none; width: 100%; height: 100%; object-fit: cover;">
 
                     <div id="camera-live-badge" class="camera-live-badge" style="display: none;">
-                        <span class="pulse-dot"></span> IP 192.168.100.34 EN VIVO
+                        <span class="pulse-dot"></span> CÁMARA ACTIVA EN VIVO
                     </div>
                 </div>
 
@@ -188,9 +211,9 @@ Editar Usuario - {{ persona.nombre }} {{ persona.apellido }} | facIAL Secure
                         type="button"
                         class="btn btn-primary"
                         id="btn-toggle-camara"
-                        onclick="toggleCamaraIP()"
+                        onclick="toggleCamaraEdicion()"
                     >
-                        📷 Conectar Cámara IP
+                        📹 Iniciar Cámara
                     </button>
 
                     <button
@@ -199,7 +222,7 @@ Editar Usuario - {{ persona.nombre }} {{ persona.apellido }} | facIAL Secure
                         id="capturar-btn"
                         disabled
                     >
-                        ⚡ Iniciar Reenrolamiento IA
+                        ⚡ Iniciar Reenrolamiento IA (10 muestras)
                     </button>
                 </div>
 
@@ -218,7 +241,7 @@ Editar Usuario - {{ persona.nombre }} {{ persona.apellido }} | facIAL Secure
                     </div>
 
                     <p id="capture-status">
-                        Conecta la cámara IP para iniciar el reenrolamiento facial...
+                        Selecciona e inicia la cámara para actualizar el registro facial...
                     </p>
                 </div>
 
@@ -282,8 +305,9 @@ Editar Usuario - {{ persona.nombre }} {{ persona.apellido }} | facIAL Secure
 
 <script src="{% static 'js/secugen.js' %}"></script>
 <script>
-const cameraBox = document.getElementById('camera-box');
 const cameraPlaceholder = document.getElementById('camera-placeholder');
+const videoLocal = document.getElementById('video-local-edit');
+const canvasLocal = document.getElementById('canvas-local-edit');
 const cameraStream = document.getElementById('camera-stream');
 const cameraBadge = document.getElementById('camera-live-badge');
 const btnToggleCamara = document.getElementById('btn-toggle-camara');
@@ -291,46 +315,132 @@ const capturarBtn = document.getElementById('capturar-btn');
 const progressFill = document.getElementById('progress-fill');
 const captureStatus = document.getElementById('capture-status');
 const capturasInput = document.getElementById('capturas');
+const selectCamara = document.getElementById('select-camara-dispositivo');
 
 let camaraActiva = false;
+let localStream = null;
+let modoActual = 'browser'; // 'browser' o 'server'
 let capturas = [];
 let capturando = false;
 const streamUrl = "{% url 'video_feed' %}";
 const capturarFrameUrl = "{% url 'capturar_frame_ip' %}";
 const reenrolarUrl = "/usuarios/reenrolar-rostro/{{ persona.id }}/";
 
-function iniciarCamaraIP() {
-    if (!camaraActiva) {
-        toggleCamaraIP();
+async function listarDispositivosNavegador() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const optGroup = document.getElementById('optgroup-browser-cams');
+        if (!optGroup) return;
+
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        if (videoDevices.length > 0) {
+            const currentVal = selectCamara ? selectCamara.value : '';
+            optGroup.innerHTML = videoDevices.map((d, idx) => {
+                const label = d.label || `Cámara Local / USB #${idx + 1}`;
+                return `<option value="browser:${d.deviceId}">📹 ${label}</option>`;
+            }).join('');
+            if (currentVal && Array.from(selectCamara.options).some(o => o.value === currentVal)) {
+                selectCamara.value = currentVal;
+            }
+        }
+    } catch (e) {
+        console.warn('No se pudieron listar dispositivos:', e);
     }
 }
 
-function toggleCamaraIP() {
-    camaraActiva = !camaraActiva;
-    if (camaraActiva) {
-        cameraStream.src = streamUrl + '?t=' + Date.now();
+listarDispositivosNavegador();
+
+function detenerStreamsActuales() {
+    if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+    }
+    videoLocal.srcObject = null;
+    videoLocal.style.display = 'none';
+    cameraStream.src = '';
+    cameraStream.style.display = 'none';
+    cameraBadge.style.display = 'none';
+}
+
+async function iniciarCamaraEdicion() {
+    detenerStreamsActuales();
+    const val = selectCamara ? selectCamara.value : 'browser:default';
+
+    if (val.startsWith('server:')) {
+        modoActual = 'server';
+        const camId = val.split(':')[1];
+        cameraStream.src = `${streamUrl}?cam_id=${encodeURIComponent(camId)}&t=${Date.now()}`;
         cameraStream.style.display = 'block';
         cameraPlaceholder.style.display = 'none';
         cameraBadge.style.display = 'flex';
-        btnToggleCamara.textContent = '⏹ Detener Cámara';
-        btnToggleCamara.style.background = '#64748b';
-        capturarBtn.disabled = false;
-        captureStatus.innerText = 'Cámara IP conectada. Haz clic en "Iniciar Reenrolamiento IA"';
+        camaraActiva = true;
     } else {
-        cameraStream.src = '';
-        cameraStream.style.display = 'none';
+        modoActual = 'browser';
+        const deviceId = val.replace('browser:', '');
+        try {
+            const constraints = {
+                video: (deviceId && deviceId !== 'default') ? { deviceId: { exact: deviceId } } : true,
+                audio: false
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            localStream = stream;
+            videoLocal.srcObject = stream;
+            videoLocal.style.display = 'block';
+            cameraPlaceholder.style.display = 'none';
+            cameraBadge.style.display = 'flex';
+            camaraActiva = true;
+            await listarDispositivosNavegador();
+        } catch (err) {
+            alert('No se pudo acceder a la cámara seleccionada: ' + err.message);
+            cameraPlaceholder.style.display = 'flex';
+            camaraActiva = false;
+            return;
+        }
+    }
+
+    btnToggleCamara.textContent = '⏹ Detener Cámara';
+    btnToggleCamara.style.background = '#64748b';
+    capturarBtn.disabled = false;
+    captureStatus.innerText = 'Cámara activa. Haz clic en "Iniciar Reenrolamiento IA (10 muestras)".';
+}
+
+function toggleCamaraEdicion() {
+    if (camaraActiva) {
+        detenerStreamsActuales();
         cameraPlaceholder.style.display = 'flex';
-        cameraBadge.style.display = 'none';
-        btnToggleCamara.textContent = '📷 Conectar Cámara IP';
+        camaraActiva = false;
+        btnToggleCamara.textContent = '📹 Iniciar Cámara';
         btnToggleCamara.style.background = '#2563eb';
         capturarBtn.disabled = true;
-        captureStatus.innerText = 'Cámara detenida. Conecta la cámara para reenrolar.';
+        captureStatus.innerText = 'Cámara detenida. Inicia la cámara para reenrolar.';
+    } else {
+        iniciarCamaraEdicion();
+    }
+}
+
+function cambiarDispositivoEdicion() {
+    if (camaraActiva) {
+        iniciarCamaraEdicion();
     }
 }
 
 /* =========================
-   REENROLAMIENTO CON CÁMARA IP
+   REENROLAMIENTO IA (CÁMARA LOCAL O SERVIDOR)
 ========================= */
+const instruccionesEdicion = [
+    'Mire al frente',
+    'Mire levemente a la izquierda',
+    'Mire levemente a la derecha',
+    'Mire hacia arriba',
+    'Mire hacia abajo',
+    'Acérquese un poco',
+    'Aléjese un poco',
+    'Mantenga expresión neutra',
+    'Sonría levemente',
+    'Parpadee naturalmente'
+];
+
 capturarBtn.addEventListener('click', async () => {
     if (capturando || !camaraActiva) return;
 
@@ -338,7 +448,7 @@ capturarBtn.addEventListener('click', async () => {
     capturando = true;
     capturarBtn.disabled = true;
     btnToggleCamara.disabled = true;
-    captureStatus.innerText = 'Iniciando captura de fotogramas desde la Cámara IP...';
+    captureStatus.innerText = 'Iniciando captura de 10 fotogramas faciales...';
     progressFill.style.width = '0%';
     progressFill.style.background = 'linear-gradient(90deg, #3b82f6, #10b981)';
 
@@ -347,26 +457,59 @@ capturarBtn.addEventListener('click', async () => {
 
     const intervalo = setInterval(async () => {
         try {
-            const resp = await fetch(capturarFrameUrl);
-            const data = await resp.json();
-            if (data.success && data.image) {
-                capturas.push(data.image);
+            if (modoActual === 'browser') {
+                const ctx = canvasLocal.getContext('2d');
+                canvasLocal.width = 640;
+                canvasLocal.height = 480;
+                ctx.drawImage(videoLocal, 0, 0, canvasLocal.width, canvasLocal.height);
+                const imgB64 = canvasLocal.toDataURL('image/jpeg', 0.9);
+                capturas.push(imgB64);
                 contador++;
-                const porcentaje = (contador / totalCapturas) * 100;
-                progressFill.style.width = porcentaje + '%';
-                captureStatus.innerText = `Capturando rostro: ${contador}/${totalCapturas} fotogramas procesados`;
+            } else {
+                let capturedFromImg = false;
+                try {
+                    if (cameraStream && cameraStream.naturalWidth > 0) {
+                        const ctx = canvasLocal.getContext('2d');
+                        canvasLocal.width = 640;
+                        canvasLocal.height = 480;
+                        ctx.drawImage(cameraStream, 0, 0, canvasLocal.width, canvasLocal.height);
+                        const imgB64 = canvasLocal.toDataURL('image/jpeg', 0.9);
+                        if (imgB64 && imgB64.length > 100) {
+                            capturas.push(imgB64);
+                            contador++;
+                            capturedFromImg = true;
+                        }
+                    }
+                } catch (e) {}
 
-                if (contador >= totalCapturas) {
-                    clearInterval(intervalo);
-                    captureStatus.innerText = 'Procesando biometría y reentrenando modelo de IA...';
-                    capturasInput.value = JSON.stringify(capturas);
-                    await enviarReenrolamiento();
+                if (!capturedFromImg) {
+                    const val = selectCamara ? selectCamara.value : '';
+                    const camId = val.startsWith('server:') ? val.split(':')[1] : '';
+                    const url = camId ? `${capturarFrameUrl}?cam_id=${encodeURIComponent(camId)}` : capturarFrameUrl;
+                    const resp = await fetch(url);
+                    const data = await resp.json();
+                    if (data.success && data.image) {
+                        capturas.push(data.image);
+                        contador++;
+                    }
                 }
             }
+
+            const porcentaje = (contador / totalCapturas) * 100;
+            progressFill.style.width = porcentaje + '%';
+            const instr = instruccionesEdicion[contador - 1] || 'Procesando...';
+            captureStatus.innerText = `Captura ${contador}/${totalCapturas} - ${instr}`;
+
+            if (contador >= totalCapturas) {
+                clearInterval(intervalo);
+                captureStatus.innerText = 'Procesando biometría y reentrenando modelo de IA...';
+                capturasInput.value = JSON.stringify(capturas);
+                await enviarReenrolamiento();
+            }
         } catch (err) {
-            console.error('Error al capturar frame IP:', err);
+            console.error('Error al capturar fotograma:', err);
         }
-    }, 400);
+    }, 1000);
 });
 
 async function enviarReenrolamiento() {
@@ -400,7 +543,7 @@ async function enviarReenrolamiento() {
             capturando = false;
             capturarBtn.disabled = false;
             btnToggleCamara.disabled = false;
-            captureStatus.innerText = 'Intenta nuevamente posicionando el rostro frente a la cámara IP.';
+            captureStatus.innerText = 'Intenta nuevamente posicionando el rostro frente a la cámara.';
         }
     } catch (err) {
         console.error(err);

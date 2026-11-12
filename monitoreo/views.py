@@ -241,7 +241,7 @@ def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
                             persona = best_persona
                             estado = 'DENEGADO'
                             color_box = (0, 0, 255) # Rojo táctico
-                            label_text = f"🚨 SPOOFING DETECTADO [PANTALLA/FOTO] ({analisis_liveness['score']}%)"
+                            label_text = f"[ANTI-SPOOFING] FOTO/PANTALLA BLOQUEADA (Sim: {coincidencia:.0f}%)"
 
                         # REGLA 2: EGRESO PARA INTERNOS -> PROTOCOLO LOCKDOWN
                         elif is_egreso_cam and es_interno and coincidencia >= 45.0:
@@ -253,6 +253,15 @@ def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
                                 motivo=f"ALERTA FUGA: Detección de Interno ({persona.nombre} {persona.apellido}) en Cámara de Egreso {nombre_cam_registrado}",
                                 origen='AUTOMATICO_FUGA'
                             )
+
+                        # REGLA 3: CONTROL DE TRÁNSITO SECUENCIAL (ANTI-PASSBACK)
+                        elif not is_egreso_cam and coincidencia >= 65.0 and getattr(best_persona, 'esta_dentro_del_recinto', lambda: False)():
+                            # Ya ingresó al penal: no volver a detectar en el ingreso hasta que se haga el egreso
+                            continue
+
+                        elif is_egreso_cam and coincidencia >= 65.0 and not es_interno and not getattr(best_persona, 'esta_dentro_del_recinto', lambda: False)():
+                            # Ya egresó del penal: no volver a detectar en el egreso hasta que se haga el ingreso
+                            continue
 
                         elif coincidencia >= 65.0:
                             persona = best_persona
@@ -294,7 +303,12 @@ def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
 
                 # Dibujar recuadro táctico
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color_box, 2)
-                if is_egreso_cam and bool(persona and getattr(persona, 'tipo_persona', '') == 'interno') and coincidencia >= 45.0:
+                if not analisis_liveness['es_real']:
+                    cv2.rectangle(frame, (max(0, x1 - 4), max(0, y1 - 4)), (min(w, x2 + 4), min(h, y2 + 4)), (0, 0, 255), 2)
+                    cv2.rectangle(frame, (0, 0), (w, 36), (0, 0, 180), -1)
+                    cv2.putText(frame, "ALERTA ANTI-SPOOFING: SUPLANTACION CON FOTO O PANTALLA DETECTADA", (14, 24),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 2)
+                elif is_egreso_cam and bool(persona and getattr(persona, 'tipo_persona', '') == 'interno') and coincidencia >= 45.0:
                     cv2.rectangle(frame, (0, 0), (w, 38), (0, 0, 200), -1)
                     cv2.putText(frame, "ALERTA MAXIMA: INTENTO DE EGRESO NO AUTORIZADO DE INTERNO", (15, 25),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.52, (255, 255, 255), 2)
@@ -314,16 +328,49 @@ def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
                 except Exception:
                     pass
 
-                cv2.putText(frame, label_text, (x1, max(25, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_box, 2)
+                cv2.putText(frame, label_text, (x1, max(25, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color_box, 2)
 
-                # Registrar acceso en la BD (cooldown de 5 segundos por sujeto en esta cámara)
-                registro_key = f"{persona.id if persona else 'desconocido'}_{cam_pk}"
-                if registro_key not in ultimo_registro_tiempo or (ahora - ultimo_registro_tiempo[registro_key]) > 5.0:
-                    ultimo_registro_tiempo[registro_key] = ahora
+                # Etiqueta inferior de Anti-Spoofing en el recuadro
+                spoof_tag = (
+                    f"ANTI-SPOOFING: HUMANO VIVO ({analisis_liveness['score']:.0f}%)"
+                    if analisis_liveness['es_real']
+                    else f"ANTI-SPOOFING: FALSO/2D ({analisis_liveness['score']:.0f}% VIDA) - BLOQUEADO"
+                )
+                spoof_color = (0, 230, 118) if analisis_liveness['es_real'] else (0, 0, 255)
+                cv2.putText(frame, spoof_tag, (x1, min(h - 10, y2 + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.48, spoof_color, 2)
+
+                # Registrar acceso en la BD únicamente cuando la cámara tiene un flujo operativo asignado ('ingreso' o 'egreso')
+                if flujo and (str(flujo).lower() in ['ingreso', 'egreso']):
+                    registro_key = f"{persona.id if persona else 'desconocido'}_{cam_pk}_{str(flujo).lower()}"
+                    if registro_key not in ultimo_registro_tiempo or (ahora - ultimo_registro_tiempo[registro_key]) > 5.0:
+                        ultimo_registro_tiempo[registro_key] = ahora
                     try:
                         rostro_color = frame[y1:y2, x1:x2]
                         if rostro_color.size > 0:
-                            _, buf = cv2.imencode('.jpg', rostro_color)
+                            # Recorte de persona (cabeza + torso/vestimenta)
+                            fh = y2 - y1
+                            fw = x2 - x1
+                            hf, wf = frame.shape[:2]
+                            cy1 = max(0, int(y1 - 0.25 * fh))
+                            cy2 = min(hf, int(y2 + 3.2 * fh))
+                            cx1 = max(0, int(x1 - 0.7 * fw))
+                            cx2 = min(wf, int(x2 + 0.7 * fw))
+                            cuerpo_crop = frame[cy1:cy2, cx1:cx2]
+                            if cuerpo_crop.size == 0:
+                                cuerpo_crop = rostro_color
+
+                            # Auditoría de vestimenta IA
+                            from accesos.ai_vestimenta import analizar_vestimenta_individual
+                            try:
+                                analisis_ropa = analizar_vestimenta_individual(cuerpo_crop)
+                            except Exception:
+                                analisis_ropa = None
+
+                            desc_ropa = ""
+                            if analisis_ropa and analisis_ropa.get('exito'):
+                                desc_ropa = f"👕 {analisis_ropa['color_superior']} | 👖 {analisis_ropa['color_inferior']}"
+
+                            _, buf = cv2.imencode('.jpg', cuerpo_crop, [cv2.IMWRITE_JPEG_QUALITY, 88])
                             enc_bytes = encrypt_bytes(buf.tobytes())
 
                             es_spoof = not analisis_liveness['es_real']
@@ -337,24 +384,33 @@ def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
                             else:
                                 nombre_detectado_bd = persona.nombre if persona else "Sujeto Desconocido"
 
+                            estado_bd = 'REVISION' if (es_spoof and persona and coincidencia >= 45.0 and not es_alerta_fuga) else estado
                             acceso = Acceso.objects.create(
                                 persona=persona,
                                 nombre_detectado=nombre_detectado_bd,
                                 coincidencia=coincidencia,
-                                resultado=estado,
+                                resultado=estado_bd,
                                 camara=nombre_cam_registrado,
-                                resuelto=False if es_alerta_fuga else (True if estado == 'PERMITIDO' else False)
+                                descripcion_vestimenta=desc_ropa,
+                                resuelto=False if es_alerta_fuga else (True if estado_bd == 'PERMITIDO' else False)
                             )
                             acceso.foto_validacion.save(
                                 f"{uuid.uuid4()}.jpg",
                                 ContentFile(enc_bytes),
                                 save=True
                             )
+                            if estado == 'PERMITIDO':
+                                from accesos.models import sincronizar_visita_externa_desde_acceso
+                                sincronizar_visita_externa_desde_acceso(
+                                    acceso,
+                                    frame=cuerpo_crop,
+                                    analisis_ropa=analisis_ropa
+                                )
                     except Exception as e:
                         print("Error registrando acceso:", e)
 
         # Codificar en JPEG a 25-30 FPS
-        _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 92])
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
         
@@ -424,6 +480,7 @@ def detectar_rostros(request):
             ahora = time.time()
 
             resultados = []
+            aviso_transito = None
 
             for face in faces:
                 fx, fy, fw, fh = int(face[0]), int(face[1]), int(face[2]), int(face[3])
@@ -462,10 +519,11 @@ def detectar_rostros(request):
 
                         # REGLA 1: DETECCIÓN DE SPOOFING (FOTO / PANTALLA)
                         if not analisis_liveness['es_real']:
-                            persona = best_persona
+                            persona = best_persona if coincidencia >= 45.0 else None
                             permitido = False
                             estado = 'DENEGADO'
-                            nombre = f"🚨 SPOOFING DETECTADO [PANTALLA/FOTO] ({analisis_liveness['score']}%)"
+                            sujeto_ref = f"{best_persona.nombre} {best_persona.apellido}" if (best_persona and coincidencia >= 45.0) else "Sujeto"
+                            nombre = f"🚨 SPOOFING [FOTO/PANTALLA]: {sujeto_ref}"
 
                         # REGLA 2: EGRESO PARA INTERNOS -> PROTOCOLO LOCKDOWN
                         elif is_egreso_cam and es_interno and coincidencia >= 45.0:
@@ -478,6 +536,17 @@ def detectar_rostros(request):
                                 motivo=f"ALERTA FUGA: Detección de Interno ({persona.nombre} {persona.apellido}) en Cámara de Egreso {camara_nombre}",
                                 origen='AUTOMATICO_FUGA'
                             )
+
+                        # REGLA 3: CONTROL DE TRÁNSITO SECUENCIAL (ANTI-PASSBACK)
+                        elif not is_egreso_cam and coincidencia >= 65.0 and getattr(best_persona, 'esta_dentro_del_recinto', lambda: False)():
+                            # Ya ingresó al penal: no volver a detectar en el ingreso hasta que se haga el egreso
+                            aviso_transito = f"ℹ️ {best_persona.nombre} {best_persona.apellido} ya ingresó al recinto (En permanencia). Cambie a pestaña EGRESOS para registrar su salida."
+                            continue
+
+                        elif is_egreso_cam and coincidencia >= 65.0 and not es_interno and not getattr(best_persona, 'esta_dentro_del_recinto', lambda: False)():
+                            # Ya egresó del penal: no volver a detectar en el egreso hasta que se haga el ingreso
+                            aviso_transito = f"ℹ️ {best_persona.nombre} {best_persona.apellido} ya completó su egreso (Fuera del penal). Cambie a pestaña INGRESOS para registrar entrada."
+                            continue
 
                         elif coincidencia >= 65.0:
                             persona = best_persona
@@ -499,15 +568,18 @@ def detectar_rostros(request):
                             estado = 'DENEGADO'
                             nombre = "Sujeto Desconocido"
                             persona = None
+                    elif not analisis_liveness['es_real']:
+                        estado = 'DENEGADO'
+                        nombre = "🚨 SPOOFING [FOTO/PANTALLA DETECTADA]"
                 except Exception as e:
                     print("Error en inferencia webcam:", e)
 
-                # Cooldown de 5 segundos por sujeto para no duplicar registros en la BD
+                # Cooldown de 4 segundos por sujeto y estado para no bloquear transiciones a REVISION
                 user_id = request.user.id if request.user.is_authenticated else 'anon'
-                registro_key = f"{persona.id if persona else 'desconocido'}_{user_id}"
+                registro_key = f"{persona.id if persona else 'desconocido'}_{estado}_{user_id}"
                 nuevo_registro = False
                 with _browser_cooldown_lock:
-                    if registro_key not in _browser_cooldowns or (ahora - _browser_cooldowns[registro_key]) > 5.0:
+                    if registro_key not in _browser_cooldowns or (ahora - _browser_cooldowns[registro_key]) > 4.0:
                         _browser_cooldowns[registro_key] = ahora
                         nuevo_registro = True
 
@@ -516,19 +588,45 @@ def detectar_rostros(request):
                 rostro_color = frame[y1:y2, x1:x2]
                 if nuevo_registro and rostro_color.size > 0:
                     try:
-                        _, buffer = cv2.imencode('.jpg', rostro_color)
+                        # Recorte de persona (cabeza + torso/vestimenta)
+                        fh = y2 - y1
+                        fw = x2 - x1
+                        hf, wf = frame.shape[:2]
+                        cy1 = max(0, int(y1 - 0.25 * fh))
+                        cy2 = min(hf, int(y2 + 3.2 * fh))
+                        cx1 = max(0, int(x1 - 0.7 * fw))
+                        cx2 = min(wf, int(x2 + 0.7 * fw))
+                        cuerpo_crop = frame[cy1:cy2, cx1:cx2]
+                        if cuerpo_crop.size == 0:
+                            cuerpo_crop = rostro_color
+
+                        # Auditoría de vestimenta IA
+                        from accesos.ai_vestimenta import analizar_vestimenta_individual
+                        try:
+                            analisis_ropa = analizar_vestimenta_individual(cuerpo_crop)
+                        except Exception:
+                            analisis_ropa = None
+
+                        desc_ropa = ""
+                        if analisis_ropa and analisis_ropa.get('exito'):
+                            desc_ropa = f"👕 {analisis_ropa['color_superior']} | 👖 {analisis_ropa['color_inferior']}"
+
+                        _, buffer = cv2.imencode('.jpg', cuerpo_crop, [cv2.IMWRITE_JPEG_QUALITY, 88])
                         enc_bytes = encrypt_bytes(buffer.tobytes())
 
                         is_alerta_fuga = es_alerta_interno
                         nombre_guardar = f"¡ALERTA FUGA! {persona.nombre} {persona.apellido} (Interno)" if is_alerta_fuga else nombre
+                        es_spoof_conocido = (not analisis_liveness['es_real']) and (persona is not None) and (coincidencia >= 45.0) and (not is_alerta_fuga)
+                        estado_guardar = 'REVISION' if es_spoof_conocido else estado
 
                         acceso = Acceso.objects.create(
                             persona=persona,
                             nombre_detectado=nombre_guardar,
                             coincidencia=coincidencia,
-                            resultado=estado,
+                            resultado=estado_guardar,
                             camara=camara_nombre,
-                            resuelto=False if is_alerta_fuga else (True if estado == 'PERMITIDO' else False)
+                            descripcion_vestimenta=desc_ropa,
+                            resuelto=False if is_alerta_fuga else (True if estado_guardar == 'PERMITIDO' else False)
                         )
                         foto_name = f"{uuid.uuid4()}.jpg"
                         acceso.foto_validacion.save(
@@ -536,6 +634,14 @@ def detectar_rostros(request):
                             ContentFile(enc_bytes),
                             save=True
                         )
+                        if estado == 'PERMITIDO':
+                            from accesos.models import sincronizar_visita_externa_desde_acceso
+                            sincronizar_visita_externa_desde_acceso(
+                                acceso,
+                                usuario=request.user,
+                                frame=cuerpo_crop,
+                                analisis_ropa=analisis_ropa
+                            )
                         avatar_url = f"/media/secure/{acceso.foto_validacion.name}"
                     except Exception as e:
                         print("Error guardando acceso desde navegador:", e)
@@ -581,11 +687,11 @@ def detectar_rostros(request):
                     'lockdown_activado': ProtocoloLockdown.esta_activo()
                 })
 
-            return JsonResponse({'rostros': resultados})
+            return JsonResponse({'rostros': resultados, 'aviso_transito': aviso_transito})
         except Exception as e:
-            return JsonResponse({'rostros': [], 'error': str(e)})
+            return JsonResponse({'rostros': [], 'error': str(e), 'aviso_transito': None})
 
-    return JsonResponse({'rostros': []})
+    return JsonResponse({'rostros': [], 'aviso_transito': None})
 
 
 @login_required
@@ -852,8 +958,17 @@ def seleccionar_camara_ajax(request):
             if not cam:
                 return JsonResponse({'success': False, 'error': 'Cámara no encontrada'})
 
+            ConfiguracionCamara.objects.exclude(id=cam.id).update(activa=False)
             cam.activa = True
             cam.save()
+            with _camera_lock:
+                for k in list(_camera_instances.keys()):
+                    if k != cam.id:
+                        try:
+                            _camera_instances[k].release()
+                        except Exception:
+                            pass
+                        del _camera_instances[k]
             get_shared_ip_camera(cam_id=cam.id, force_restart=True)
 
             return JsonResponse({

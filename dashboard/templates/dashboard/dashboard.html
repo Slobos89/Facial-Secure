@@ -6,7 +6,7 @@ Centro de Control y Monitoreo | Dashboard
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=1.0">
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=2.2">
 {% endblock %}
 
 {% block content %}
@@ -84,13 +84,13 @@ Centro de Control y Monitoreo | Dashboard
     <!-- MONITOR EN VIVO Y CÁMARAS -->
     <div class="dashboard-grid-2">
         <!-- FEED EN TIEMPO REAL -->
-        <div class="panel">
+        <div class="panel feed-panel">
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <div class="panel-title" style="display: flex; align-items: center; gap: 8px;">
                     <span>⚡ Feed de Accesos en Vivo</span>
                     <span style="background: #dcfce7; color: #15803d; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px;">LIVE AUTO-SYNC</span>
                 </div>
-                <small style="color: #64748b;">Clic para inspeccionar evento</small>
+                <small style="color: #64748b;">Clic en cualquier fila para inspeccionar evidencia</small>
             </div>
             <div class="feed-container" id="event-feed">
                 {% for ev in eventos %}
@@ -110,19 +110,36 @@ Centro de Control y Monitoreo | Dashboard
                     </div>
                     <div class="feed-info">
                         <h4>{{ ev.nombre }}</h4>
-                        <span>{{ ev.tipo }} • {{ ev.camara }} • <b>{{ ev.fecha }} {{ ev.hora }}</b></span>
+                        <span>RUT: <b>{{ ev.rut }}</b> • {{ ev.tipo }}</span>
                     </div>
-                    <div>
+                    <div class="feed-meta-col">
+                        <strong style="color: #0f172a;">📹 {{ ev.camara }}</strong>
+                        <span style="color: #64748b;">🕒 {{ ev.fecha }} {{ ev.hora }}</span>
+                    </div>
+                    <div class="feed-score-col">
+                        <div style="display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; color: #475569;">
+                            <span>Confianza IA</span>
+                            <span>{{ ev.coincidencia }}%</span>
+                        </div>
+                        <div class="feed-score-bar-bg">
+                            <div class="feed-score-bar-fill" style="width: {{ ev.coincidencia }}%; background: {% if ev.resultado == 'DENEGADO' or ev.resultado == 'RECHAZADO' %}#ef4444{% elif ev.resultado == 'REVISION' %}#f59e0b{% else %}#10b981{% endif %};"></div>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
                         <span class="feed-badge {% if ev.resultado == 'DENEGADO' or ev.resultado == 'RECHAZADO' %}badge-danger{% elif ev.resultado == 'REVISION' %}badge-warning{% else %}badge-success{% endif %}">
-                            {{ ev.resultado }} ({{ ev.coincidencia }}%)
+                            {{ ev.resultado }}
                         </span>
                     </div>
                 </div>
                 {% empty %}
-                <div style="text-align: center; padding: 40px; color: #64748b;">
+                <div style="text-align: center; padding: 60px 20px; color: #64748b;">
                     <span>Sin eventos registrados en este período</span>
                 </div>
                 {% endfor %}
+            </div>
+            <div class="feed-footer-bar">
+                <span>🔄 Sincronización automática activa (cada 4s) • Mostrando últimos {{ eventos|length }} eventos</span>
+                <a href="{% url 'accesos' %}" style="color: #2563eb; font-weight: 700; text-decoration: none;">Ver bitácora completa →</a>
             </div>
         </div>
 
@@ -167,7 +184,7 @@ Centro de Control y Monitoreo | Dashboard
                     </div>
                     <div style="background: #000; border-radius: 6px; overflow: hidden; height: 165px; position: relative; display: flex; align-items: center; justify-content: center;">
                         <img id="dash-video-ingreso" 
-                             src="{% if camaras.first %}{% url 'video_feed' %}?cam_id={{ camaras.first.id }}{% else %}about:blank{% endif %}" 
+                             src="{% if camaras.first %}{% url 'video_feed' %}?cam_id={{ camaras.first.id }}&flujo=ingreso{% else %}about:blank{% endif %}" 
                              alt="Cámara Ingresos" 
                              style="width: 100%; height: 100%; object-fit: cover;">
                         <video id="dash-client-video-ingreso" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
@@ -202,7 +219,7 @@ Centro de Control y Monitoreo | Dashboard
                     </div>
                     <div style="background: #000; border-radius: 6px; overflow: hidden; height: 165px; position: relative; display: flex; align-items: center; justify-content: center;">
                         <img id="dash-video-egreso" 
-                             src="{% if camaras|length > 1 %}{% url 'video_feed' %}?cam_id={{ camaras.1.id }}{% elif camaras.first %}{% url 'video_feed' %}?cam_id={{ camaras.first.id }}{% else %}about:blank{% endif %}" 
+                             src="{% if camaras|length > 1 %}{% url 'video_feed' %}?cam_id={{ camaras.1.id }}&flujo=egreso{% elif camaras.first %}{% url 'video_feed' %}?cam_id={{ camaras.first.id }}&flujo=egreso{% else %}about:blank{% endif %}" 
                              alt="Cámara Egresos" 
                              style="width: 100%; height: 100%; object-fit: cover;">
                         <video id="dash-client-video-egreso" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
@@ -381,7 +398,8 @@ function cerrarModalInspeccion() {
    ======================================================== */
 async function actualizarDashboard() {
     try {
-        const currentPeriod = new URLSearchParams(window.location.search).get('periodo') || 'hoy';
+        const selectPeriodo = document.getElementById('select-periodo');
+        const currentPeriod = (selectPeriodo && selectPeriodo.value) || new URLSearchParams(window.location.search).get('periodo') || 'todo';
         const response = await fetch(`/dashboard/data/?periodo=${encodeURIComponent(currentPeriod)}`);
         const data = await response.json();
 
@@ -395,13 +413,16 @@ async function actualizarDashboard() {
             feed.innerHTML = data.eventos.map(ev => {
                 let borderClass = 'feed-success';
                 let badgeClass = 'badge-success';
+                let barColor = '#10b981';
 
                 if (ev.resultado === 'DENEGADO' || ev.resultado === 'RECHAZADO') {
                     borderClass = 'feed-danger';
                     badgeClass = 'badge-danger';
+                    barColor = '#ef4444';
                 } else if (ev.resultado === 'REVISION') {
                     borderClass = 'feed-warning';
                     badgeClass = 'badge-warning';
+                    barColor = '#f59e0b';
                 }
 
                 return `
@@ -421,11 +442,24 @@ async function actualizarDashboard() {
                         </div>
                         <div class="feed-info">
                             <h4>${ev.nombre}</h4>
-                            <span>${ev.tipo} • ${ev.camara} • <b>${ev.fecha} ${ev.hora}</b></span>
+                            <span>RUT: <b>${ev.rut}</b> • ${ev.tipo}</span>
                         </div>
-                        <div>
+                        <div class="feed-meta-col">
+                            <strong style="color: #0f172a;">📹 ${ev.camara}</strong>
+                            <span style="color: #64748b;">🕒 ${ev.fecha} ${ev.hora}</span>
+                        </div>
+                        <div class="feed-score-col">
+                            <div style="display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; color: #475569;">
+                                <span>Confianza IA</span>
+                                <span>${ev.coincidencia}%</span>
+                            </div>
+                            <div class="feed-score-bar-bg">
+                                <div class="feed-score-bar-fill" style="width: ${ev.coincidencia}%; background: ${barColor};"></div>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
                             <span class="feed-badge ${badgeClass}">
-                                ${ev.resultado} (${ev.coincidencia}%)
+                                ${ev.resultado}
                             </span>
                         </div>
                     </div>

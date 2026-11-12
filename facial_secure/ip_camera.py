@@ -93,8 +93,12 @@ class YooseeIPCamera:
         threading.Thread(target=forward, args=(camera_sock, client_sock, True), daemon=True).start()
 
     def _capture_worker_ip(self):
+        from urllib.parse import quote
         os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|analyzeduration;500000|probesize;500000|fflags;nobuffer|flags;low_delay"
-        url = f"rtsp://{self.user}:{self.password}@127.0.0.1:{self.proxy_port}/{self.stream}"
+        safe_user = quote(str(self.user), safe="")
+        safe_pass = quote(str(self.password), safe="")
+        clean_stream = str(self.stream or "onvif2").lstrip("/")
+        url = f"rtsp://{safe_user}:{safe_pass}@127.0.0.1:{self.proxy_port}/{clean_stream}"
         
         while self.running:
             print(f"[YooseeIPCamera] Conectando worker a stream IP ({self.ip}/{self.stream})...")

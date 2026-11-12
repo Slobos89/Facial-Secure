@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from usuarios.models import Acceso
@@ -7,88 +8,99 @@ from django.utils import timezone
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 
+
+def _construir_filtro_fecha(periodo):
+    """Construye el diccionario de filtro por fecha igual que en el Dashboard (por defecto 'hoy')."""
+    ahora = timezone.now()
+    inicio_dia = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+    if periodo == 'hoy':
+        return {'fecha_hora__gte': min(inicio_dia, ahora - timedelta(hours=24))}
+    elif periodo == '7':
+        return {'fecha_hora__gte': ahora - timedelta(days=7)}
+    elif periodo == '30':
+        return {'fecha_hora__gte': ahora - timedelta(days=30)}
+    elif periodo == 'todo':
+        return {}
+    return {'fecha_hora__gte': min(inicio_dia, ahora - timedelta(hours=24))}
+
+
 @login_required
 def validacion_biometrica(request):
+    periodo = request.GET.get('periodo', 'hoy')
+    filtro_fecha = _construir_filtro_fecha(periodo)
 
     accesos = Acceso.objects.filter(
-        resultado='REVISION'
+        resultado='REVISION',
+        **filtro_fecha
     ).select_related(
         'persona'
     ).order_by('-fecha_hora')
 
-    hoy = timezone.now().date()
-
     pendientes = Acceso.objects.filter(
         resultado='REVISION',
-        fecha_hora__date=hoy
+        **filtro_fecha
     ).count()
 
     aprobados = Acceso.objects.filter(
         resultado='APROBADO_MANUAL',
-        fecha_hora__date=hoy
+        **filtro_fecha
     ).count()
 
     rechazados = Acceso.objects.filter(
         resultado='RECHAZADO',
-        fecha_hora__date=hoy
+        **filtro_fecha
     ).count()
 
     context = {
-
         'accesos': accesos,
-
         'pendientes': pendientes,
-
         'aprobados': aprobados,
-
-        'rechazados': rechazados
-
+        'rechazados': rechazados,
+        'periodo': periodo,
     }
 
     return render(
-
         request,
-
         'validacion/validacion.html',
-
         context
-
     )
+
 
 @login_required
 def kpis_validacion(request):
-
-    hoy = timezone.now().date()
+    periodo = request.GET.get('periodo', 'hoy')
+    filtro_fecha = _construir_filtro_fecha(periodo)
 
     pendientes = Acceso.objects.filter(
         resultado='REVISION',
-        fecha_hora__date=hoy
+        **filtro_fecha
     ).count()
 
     aprobados = Acceso.objects.filter(
         resultado='APROBADO_MANUAL',
-        fecha_hora__date=hoy
+        **filtro_fecha
     ).count()
 
     rechazados = Acceso.objects.filter(
         resultado='RECHAZADO',
-        fecha_hora__date=hoy
+        **filtro_fecha
     ).count()
 
     return JsonResponse({
-
         'pendientes': pendientes,
-
         'aprobados': aprobados,
-
         'rechazados': rechazados
-
     })
+
 
 @login_required
 def cards_validacion(request):
+    periodo = request.GET.get('periodo', 'hoy')
+    filtro_fecha = _construir_filtro_fecha(periodo)
+
     accesos = Acceso.objects.filter(
-        resultado='REVISION'
+        resultado='REVISION',
+        **filtro_fecha
     ).select_related(
         'persona'
     ).order_by(
@@ -119,41 +131,33 @@ def cards_validacion(request):
         'cards': data
     })
 
+
 @csrf_exempt
 @login_required
 def actualizar_estado(request):
-
     if request.method == 'POST':
-
-        data = json.loads(
-            request.body
-        )
-
+        data = json.loads(request.body)
         acceso_id = data.get('id')
-
         estado = data.get('estado')
 
-
-        acceso = Acceso.objects.get(
-            id=acceso_id
-        )
-
+        acceso = Acceso.objects.select_related('persona').get(id=acceso_id)
         acceso.resultado = estado
         acceso.resuelto = True
-
+        if request.user.is_authenticated:
+            acceso.resuelto_por = request.user
+        acceso.fecha_resolucion = timezone.now()
         acceso.save()
 
+        if estado in ['PERMITIDO', 'APROBADO_MANUAL']:
+            from accesos.models import sincronizar_visita_externa_desde_acceso
+            sincronizar_visita_externa_desde_acceso(acceso, usuario=request.user)
 
         return JsonResponse({
-
             'success': True
-
         })
 
     return JsonResponse({
-
         'success': False
-
     })
 
 
@@ -226,8 +230,13 @@ def validar_huella_acceso(request):
     if resultado_match['match']:
         acceso.resultado = 'APROBADO_MANUAL'
         acceso.resuelto = True
+        if request.user.is_authenticated:
+            acceso.resuelto_por = request.user
+        acceso.fecha_resolucion = timezone.now()
         acceso.save()
 
+        from accesos.models import sincronizar_visita_externa_desde_acceso
+        sincronizar_visita_externa_desde_acceso(acceso, usuario=request.user)
 
         return JsonResponse({
             'success': True,
@@ -245,5 +254,3 @@ def validar_huella_acceso(request):
             'persona': f'{acceso.persona.nombre} {acceso.persona.apellido}',
             'mensaje': f"Huella NO coincide con el registro ({resultado_match['score']}% coincidencia). Posible suplantación."
         })
-
-

@@ -204,6 +204,53 @@ def accesos_ajax(request):
     })
 
 
+@login_required
+def visitas_live_ajax(request):
+    """Retorna en JSON el estado en tiempo real del balance de visitas, aforo y tarjetas de ingreso/egreso."""
+    periodo = request.GET.get('periodo', 'todo')
+    hoy = now().date()
+
+    visitas_qs = VisitaExterna.objects.select_related('persona', 'acceso_ingreso', 'acceso_egreso').all()
+    if periodo == 'hoy':
+        visitas_qs = visitas_qs.filter(fecha_ingreso__date=hoy)
+    elif periodo in ['semana', '7']:
+        visitas_qs = visitas_qs.filter(fecha_ingreso__date__gte=hoy - timedelta(days=7))
+    elif periodo in ['mes', '30']:
+        visitas_qs = visitas_qs.filter(fecha_ingreso__date__gte=hoy - timedelta(days=30))
+
+    total_ingresos = visitas_qs.count()
+    total_egresos = visitas_qs.filter(fecha_egreso__isnull=False).count()
+    dentro_penal = max(0, total_ingresos - total_egresos)
+    alertas_vestimenta = visitas_qs.filter(alerta_vestimenta=True).count()
+
+    visitas_ingresadas = list(visitas_qs.order_by('-fecha_ingreso')[:25])
+    visitas_egresadas = list(visitas_qs.filter(fecha_egreso__isnull=False).order_by('-fecha_egreso')[:25])
+    visitas_tiempo_excedido = [v for v in visitas_ingresadas if not v.ha_egresado and v.tiempo_excedido]
+    total_tiempo_excedido = len(visitas_tiempo_excedido)
+
+    ingresadas_html = render_to_string('accesos/partials/visitas_ingresadas.html', {
+        'visitas_ingresadas': visitas_ingresadas
+    }, request=request)
+
+    egresadas_html = render_to_string('accesos/partials/visitas_egresadas.html', {
+        'visitas_egresadas': visitas_egresadas
+    }, request=request)
+
+    tasa_retorno = round((total_egresos / total_ingresos * 100), 1) if total_ingresos > 0 else 100.0
+
+    return JsonResponse({
+        'success': True,
+        'ingresadas_html': ingresadas_html,
+        'egresadas_html': egresadas_html,
+        'dentro_penal': dentro_penal,
+        'total_egresos': total_egresos,
+        'total_ingresos': total_ingresos,
+        'alertas_vestimenta': alertas_vestimenta,
+        'total_tiempo_excedido': total_tiempo_excedido,
+        'tasa_retorno': tasa_retorno
+    })
+
+
 # ========================================================
 # ENDPOINTS AJAX: DETALLES, VESTIMENTA Y GESTIÓN DE VISITAS
 # ========================================================
@@ -213,10 +260,8 @@ def visita_detalle_json(request, visita_id):
     try:
         visita = VisitaExterna.objects.select_related('persona').get(id=visita_id)
         
-        foto_ingreso_url = visita.foto_ingreso.url if visita.foto_ingreso else (
-            visita.persona.foto.url if visita.persona and visita.persona.foto else '/static/img/no-face.jpg'
-        )
-        foto_egreso_url = visita.foto_egreso.url if visita.foto_egreso else None
+        foto_ingreso_url = visita.get_foto_ingreso_url or '/static/img/no-face.jpg'
+        foto_egreso_url = visita.get_foto_egreso_url
 
         tiempo_limite_str = visita.tiempo_limite.strftime('%d/%m/%Y %H:%M:%S') if visita.tiempo_limite else None
 

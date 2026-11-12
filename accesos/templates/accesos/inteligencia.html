@@ -241,34 +241,62 @@ Matriz de Inteligencia de Visitas Cruzadas | facIAL Secure
     </div>
 
     <!-- PANEL DEL GRAFO DE RED INTERACTIVO -->
-    <div class="graph-panel">
+    <div class="graph-panel" style="position: relative;">
         <div class="graph-header">
             <div>
                 <h3 style="font-size: 16px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
                     <span>🕸️</span> Topología de Red: Grafo de Conexiones Visitante - Interno
                 </h3>
-                <small style="color: #94a3b8; font-size: 12px;">Visualización gráfica en tiempo real de nodos y aristas de vinculación.</small>
+                <small style="color: #94a3b8; font-size: 12px;">
+                    Interactivo: arrastra los nodos con el mouse o haz clic sobre un sujeto/interno para aislar su red de vínculos.
+                </small>
             </div>
-            <div class="graph-legend">
-                <div class="legend-item">
-                    <span class="legend-dot" style="background: #ef4444;"></span>
-                    <span>Visitante Alto Riesgo</span>
+            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                <div class="graph-legend">
+                    <div class="legend-item">
+                        <span class="legend-dot" style="background: #ef4444; box-shadow: 0 0 8px #ef4444;"></span>
+                        <span>Visitante Alto Riesgo</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot" style="background: #f59e0b;"></span>
+                        <span>Visitante Observación</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot" style="background: #10b981;"></span>
+                        <span>Visitante Normal</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot" style="background: #3b82f6;"></span>
+                        <span>Interno / Pabellón</span>
+                    </div>
                 </div>
-                <div class="legend-item">
-                    <span class="legend-dot" style="background: #f59e0b;"></span>
-                    <span>Visitante Observación</span>
-                </div>
-                <div class="legend-item">
-                    <span class="legend-dot" style="background: #10b981;"></span>
-                    <span>Visitante Normal</span>
-                </div>
-                <div class="legend-item">
-                    <span class="legend-dot" style="background: #3b82f6;"></span>
-                    <span>Interno / Pabellón</span>
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" onclick="resetGraphLayout()" style="background: #1e293b; color: #e2e8f0; border: 1px solid #475569; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">
+                        🔄 Reorganizar
+                    </button>
+                    <button type="button" id="btnTogglePhysics" onclick="toggleGraphPhysics()" style="background: #1e3a8a; color: #93c5fd; border: 1px solid #3b82f6; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">
+                        ⚡ Física: ON
+                    </button>
+                    <button type="button" id="btnClearSelection" onclick="clearNodeSelection()" style="display: none; background: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">
+                        ✖ Quitar Filtro Nodo
+                    </button>
                 </div>
             </div>
         </div>
-        <canvas id="networkCanvas"></canvas>
+
+        <div style="position: relative;">
+            <canvas id="networkCanvas" style="height: 430px; cursor: grab;"></canvas>
+            <!-- Tarjeta Flotante Inspector de Nodo -->
+            <div id="nodeInspectorCard" style="display: none; position: absolute; top: 14px; right: 14px; width: 280px; background: rgba(15, 23, 42, 0.94); border: 1px solid #475569; border-radius: 12px; padding: 14px; color: #f8fafc; box-shadow: 0 10px 25px rgba(0,0,0,0.5); backdrop-filter: blur(6px); pointer-events: none; z-index: 10;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span id="inspBadge" style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 99px; text-transform: uppercase;">NODO</span>
+                    <span id="inspType" style="font-size: 11px; color: #94a3b8;"></span>
+                </div>
+                <div id="inspTitle" style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 4px;"></div>
+                <div id="inspSub" style="font-size: 11px; color: #cbd5e1; margin-bottom: 8px;"></div>
+                <div id="inspConnections" style="font-size: 11px; color: #93c5fd; border-top: 1px solid #334155; padding-top: 8px; line-height: 1.4;"></div>
+            </div>
+        </div>
     </div>
 
     <!-- FILTROS DE TABLA DE INTELIGENCIA -->
@@ -392,106 +420,394 @@ Matriz de Inteligencia de Visitas Cruzadas | facIAL Secure
         </table>
     </div>
 
-{% endblock %}
-
-{% block extra_js %}
 <script>
-    // RENDERIZADO DEL GRAFO INTERACTIVO EN CANVAS HTML5
+(function() {
     const grafoData = JSON.parse('{{ grafo_json|escapejs }}');
     const canvas = document.getElementById('networkCanvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
+    const nodes = grafoData.nodes || [];
+    const edges = grafoData.edges || [];
+    const nodeMap = {};
+
+    let physicsEnabled = true;
+    let hoveredNode = null;
+    let selectedNode = null;
+    let draggingNode = null;
+    let dragMoved = false;
+    let pulseTick = 0;
+
     function resizeCanvas() {
-        canvas.width = canvas.parentElement.clientWidth;
-        canvas.height = 380;
+        canvas.width = canvas.parentElement.clientWidth || 900;
+        canvas.height = 430;
     }
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
 
-    // Inicializar posiciones de los nodos con un layout de fuerza simple
-    const nodes = grafoData.nodes;
-    const edges = grafoData.edges;
+    function initPositions() {
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const visitors = nodes.filter(n => n.tipo === 'visitante');
+        const inmates = nodes.filter(n => n.tipo === 'interno');
 
-    const nodeMap = {};
-    nodes.forEach((node, index) => {
-        // Distribuir en círculo inicial
-        const angle = (index / (nodes.length || 1)) * 2 * Math.PI;
-        const radius = Math.min(canvas.width, canvas.height) * 0.35;
-        node.x = canvas.width / 2 + Math.cos(angle) * radius + (Math.random() - 0.5) * 40;
-        node.y = canvas.height / 2 + Math.sin(angle) * radius + (Math.random() - 0.5) * 40;
-        node.vx = 0;
-        node.vy = 0;
-        nodeMap[node.id] = node;
+        // Distribuir visitantes e internos en dos hemisferios/anillos para claridad inmediata
+        visitors.forEach((n, idx) => {
+            const spread = Math.min(canvas.height * 0.72, 300);
+            const step = visitors.length > 1 ? spread / (visitors.length - 1) : 0;
+            n.x = canvas.width * 0.27 + (idx % 2 === 0 ? -28 : 28);
+            n.y = (cy - spread / 2) + idx * step;
+            n.vx = 0;
+            n.vy = 0;
+            nodeMap[n.id] = n;
+        });
+
+        inmates.forEach((n, idx) => {
+            const spread = Math.min(canvas.height * 0.72, 300);
+            const step = inmates.length > 1 ? spread / (inmates.length - 1) : 0;
+            n.x = canvas.width * 0.73 + (idx % 2 === 0 ? 28 : -28);
+            n.y = (cy - spread / 2) + idx * step;
+            n.vx = 0;
+            n.vy = 0;
+            nodeMap[n.id] = n;
+        });
+    }
+
+    initPositions();
+    window.addEventListener('resize', () => {
+        resizeCanvas();
+        initPositions();
     });
 
-    let hoveredNode = null;
+    window.resetGraphLayout = function() {
+        clearNodeSelection();
+        initPositions();
+    };
+
+    window.toggleGraphPhysics = function() {
+        physicsEnabled = !physicsEnabled;
+        const btn = document.getElementById('btnTogglePhysics');
+        if (btn) {
+            btn.textContent = physicsEnabled ? '⚡ Física: ON' : '⏸️ Física: OFF';
+            btn.style.background = physicsEnabled ? '#1e3a8a' : '#334155';
+        }
+    };
+
+    window.clearNodeSelection = function() {
+        selectedNode = null;
+        const btn = document.getElementById('btnClearSelection');
+        if (btn) btn.style.display = 'none';
+        updateInspector(null);
+    };
+
+    function getConnectedSet(targetNode) {
+        const connectedIds = new Set([targetNode.id]);
+        const connectedEdges = [];
+        edges.forEach(e => {
+            if (e.source === targetNode.id) {
+                connectedIds.add(e.target);
+                connectedEdges.push(e);
+            } else if (e.target === targetNode.id) {
+                connectedIds.add(e.source);
+                connectedEdges.push(e);
+            }
+        });
+        return { connectedIds, connectedEdges };
+    }
+
+    function updateInspector(node) {
+        const card = document.getElementById('nodeInspectorCard');
+        if (!card) return;
+        if (!node) {
+            card.style.display = 'none';
+            return;
+        }
+        card.style.display = 'block';
+        const badge = document.getElementById('inspBadge');
+        const typeEl = document.getElementById('inspType');
+        const titleEl = document.getElementById('inspTitle');
+        const subEl = document.getElementById('inspSub');
+        const connEl = document.getElementById('inspConnections');
+
+        if (node.tipo === 'visitante') {
+            typeEl.textContent = '👤 Visitante Externo';
+            if (node.riesgo === 'ALTO') {
+                badge.textContent = '🔴 ALTO RIESGO';
+                badge.style.background = 'rgba(239,68,68,0.2)';
+                badge.style.color = '#fca5a5';
+                badge.style.border = '1px solid #ef4444';
+            } else if (node.riesgo === 'MEDIO') {
+                badge.textContent = '🟡 OBSERVACIÓN';
+                badge.style.background = 'rgba(245,158,11,0.2)';
+                badge.style.color = '#fde68a';
+                badge.style.border = '1px solid #f59e0b';
+            } else {
+                badge.textContent = '🟢 NORMAL';
+                badge.style.background = 'rgba(16,185,129,0.2)';
+                badge.style.color = '#a7f3d0';
+                badge.style.border = '1px solid #10b981';
+            }
+        } else {
+            typeEl.textContent = '🏢 Población Penal';
+            badge.textContent = 'INTERNO RECLUIDO';
+            badge.style.background = 'rgba(59,130,246,0.2)';
+            badge.style.color = '#93c5fd';
+            badge.style.border = '1px solid #3b82f6';
+        }
+
+        titleEl.textContent = node.label;
+        subEl.textContent = node.sublabel || '';
+
+        const { connectedEdges } = getConnectedSet(node);
+        const linkedNames = connectedEdges.map(e => {
+            const otherId = e.source === node.id ? e.target : e.source;
+            const other = nodeMap[otherId];
+            return other ? `• <strong>${other.label}</strong> (${e.label})` : '';
+        }).filter(Boolean);
+
+        connEl.innerHTML = linkedNames.length
+            ? `<div style="color:#94a3b8; font-size:10px; text-transform:uppercase; margin-bottom:3px;">Vínculos Detectados (${linkedNames.length}):</div>` + linkedNames.join('<br>')
+            : 'Sin vínculos registrados.';
+    }
+
+    function findNodeAt(mx, my) {
+        for (let i = nodes.length - 1; i >= 0; i--) {
+            const n = nodes[i];
+            if (Math.hypot(n.x - mx, n.y - my) <= n.size + 6) {
+                return n;
+            }
+        }
+        return null;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const hit = findNodeAt(mx, my);
+        dragMoved = false;
+        if (hit) {
+            draggingNode = hit;
+            canvas.style.cursor = 'grabbing';
+        }
+    });
 
     canvas.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-        hoveredNode = null;
 
-        for (let i = 0; i < nodes.length; i++) {
-            const n = nodes[i];
-            const dist = Math.hypot(n.x - mx, n.y - my);
-            if (dist <= n.size) {
-                hoveredNode = n;
-                break;
+        if (draggingNode) {
+            dragMoved = true;
+            draggingNode.x = Math.max(40, Math.min(canvas.width - 40, mx));
+            draggingNode.y = Math.max(40, Math.min(canvas.height - 50, my));
+            draggingNode.vx = 0;
+            draggingNode.vy = 0;
+            updateInspector(draggingNode);
+            return;
+        }
+
+        hoveredNode = findNodeAt(mx, my);
+        canvas.style.cursor = hoveredNode ? 'pointer' : 'grab';
+        updateInspector(selectedNode || hoveredNode);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (draggingNode) {
+            if (!dragMoved) {
+                if (selectedNode === draggingNode) {
+                    clearNodeSelection();
+                } else {
+                    selectedNode = draggingNode;
+                    const btn = document.getElementById('btnClearSelection');
+                    if (btn) btn.style.display = 'inline-block';
+                    updateInspector(selectedNode);
+                }
             }
+            draggingNode = null;
+            canvas.style.cursor = hoveredNode ? 'pointer' : 'grab';
         }
     });
 
-    function drawGraph() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    function stepPhysics() {
+        if (!physicsEnabled || nodes.length <= 1) return;
 
-        // Si no hay nodos suficientes, mostrar mensaje
+        // Repulsión suave entre todos los nodos
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const a = nodes[i];
+                const b = nodes[j];
+                let dx = b.x - a.x;
+                let dy = b.y - a.y;
+                let dist = Math.hypot(dx, dy) || 1;
+                const minDist = 115;
+                if (dist < minDist) {
+                    const force = ((minDist - dist) / minDist) * 0.45;
+                    const fx = (dx / dist) * force;
+                    const fy = (dy / dist) * force;
+                    if (a !== draggingNode) { a.vx -= fx; a.vy -= fy; }
+                    if (b !== draggingNode) { b.vx += fx; b.vy += fy; }
+                }
+            }
+        }
+
+        // Atracción elástica en aristas y separación horizontal Visitante (izq) vs Interno (der)
+        edges.forEach(e => {
+            const s = nodeMap[e.source];
+            const t = nodeMap[e.target];
+            if (!s || !t) return;
+            const dx = t.x - s.x;
+            const dy = t.y - s.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const ideal = 250;
+            const diff = (dist - ideal) * 0.003;
+            const fx = (dx / dist) * diff;
+            const fy = (dy / dist) * diff;
+            if (s !== draggingNode) { s.vx += fx; s.vy += fy; }
+            if (t !== draggingNode) { t.vx -= fx; t.vy -= fy; }
+        });
+
+        nodes.forEach(n => {
+            if (n === draggingNode) return;
+            const targetX = n.tipo === 'visitante' ? canvas.width * 0.28 : canvas.width * 0.72;
+            n.vx += (targetX - n.x) * 0.008;
+            n.vy += (canvas.height / 2 - n.y) * 0.002;
+            n.vx *= 0.84;
+            n.vy *= 0.84;
+            n.x = Math.max(55, Math.min(canvas.width - 55, n.x + n.vx));
+            n.y = Math.max(45, Math.min(canvas.height - 55, n.y + n.vy));
+        });
+    }
+
+    function drawBackgroundGrid() {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.25)';
+        ctx.lineWidth = 1;
+        const step = 40;
+        for (let x = 0; x < canvas.width; x += step) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += step) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+
+        // Etiquetas de columna (Zona Visitantes vs Zona Módulos/Internos)
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('ZONA EXTERNA: VISITANTES AUDITADOS', 18, 24);
+        ctx.textAlign = 'right';
+        ctx.fillText('ZONA INTERNA: POBLACIÓN PENAL & MÓDULOS', canvas.width - 18, 24);
+        ctx.restore();
+    }
+
+    function drawGraph() {
+        pulseTick += 0.035;
+        stepPhysics();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBackgroundGrid();
+
         if (nodes.length === 0) {
-            ctx.fillStyle = '#64748b';
+            ctx.fillStyle = '#94a3b8';
             ctx.font = '14px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText('No hay suficientes datos de vínculos para generar el grafo.', canvas.width / 2, canvas.height / 2);
             return;
         }
 
-        // Dibujar Aristas (Líneas de conexión)
-        edges.forEach(edge => {
+        const focusNode = selectedNode || hoveredNode;
+        const focusSet = focusNode ? getConnectedSet(focusNode).connectedIds : null;
+
+        // 1. Dibujar Aristas (Conexiones)
+        edges.forEach((edge, idx) => {
             const s = nodeMap[edge.source];
             const t = nodeMap[edge.target];
-            if (s && t) {
-                ctx.beginPath();
-                ctx.moveTo(s.x, s.y);
-                ctx.lineTo(t.x, t.y);
-                ctx.strokeStyle = edge.color || '#475569';
-                ctx.lineWidth = edge.width || 1.5;
-                ctx.stroke();
+            if (!s || !t) return;
 
-                // Etiqueta del vínculo en el medio
-                if (edge.label && edge.width > 2) {
-                    const midX = (s.x + t.x) / 2;
-                    const midY = (s.y + t.y) / 2;
-                    ctx.fillStyle = '#94a3b8';
-                    ctx.font = '10px Inter, sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(edge.label, midX, midY - 4);
-                }
+            const isHighlighted = !focusNode || (focusNode.id === s.id || focusNode.id === t.id);
+            ctx.save();
+            ctx.globalAlpha = isHighlighted ? 0.95 : 0.14;
+
+            ctx.beginPath();
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(t.x, t.y);
+            ctx.strokeStyle = edge.color || '#64748b';
+            ctx.lineWidth = isHighlighted && focusNode ? (edge.width || 1.5) + 1.2 : (edge.width || 1.5);
+            ctx.stroke();
+
+            // Partícula animada viajando por las conexiones de ALTO riesgo o nodo seleccionado
+            if (isHighlighted && (edge.width >= 3 || focusNode)) {
+                const progress = ((pulseTick * 0.45) + idx * 0.23) % 1;
+                const px = s.x + (t.x - s.x) * progress;
+                const py = s.y + (t.y - s.y) * progress;
+                ctx.beginPath();
+                ctx.arc(px, py, 3.5, 0, 2 * Math.PI);
+                ctx.fillStyle = edge.color === '#ef4444' ? '#fca5a5' : '#93c5fd';
+                ctx.fill();
             }
+
+            // Etiqueta de parentesco/motivo en el centro de la línea
+            if (edge.label && (edge.width >= 3 || (focusNode && isHighlighted))) {
+                const midX = (s.x + t.x) / 2;
+                const midY = (s.y + t.y) / 2;
+                ctx.font = '600 10px Inter, sans-serif';
+                const textW = ctx.measureText(edge.label).width + 10;
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                ctx.fillRect(midX - textW / 2, midY - 9, textW, 15);
+                ctx.fillStyle = edge.color === '#ef4444' ? '#fca5a5' : '#cbd5e1';
+                ctx.textAlign = 'center';
+                ctx.fillText(edge.label, midX, midY + 2);
+            }
+            ctx.restore();
         });
 
-        // Dibujar Nodos
+        // 2. Dibujar Nodos
         nodes.forEach(node => {
+            const isFocused = !focusSet || focusSet.has(node.id);
+            ctx.save();
+            ctx.globalAlpha = isFocused ? 1.0 : 0.22;
+
+            // Halo pulsante en nodos de ALTO riesgo
+            if (node.riesgo === 'ALTO') {
+                const pulseRadius = node.size + 5 + Math.sin(pulseTick * 2.2) * 5;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, pulseRadius, 0, 2 * Math.PI);
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Círculo principal del nodo
             ctx.beginPath();
             ctx.arc(node.x, node.y, node.size, 0, 2 * Math.PI);
             ctx.fillStyle = node.color || '#3b82f6';
+            ctx.shadowColor = node.color || '#3b82f6';
+            ctx.shadowBlur = (hoveredNode === node || selectedNode === node) ? 18 : 8;
             ctx.fill();
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = (hoveredNode === node) ? '#ffffff' : 'rgba(255,255,255,0.3)';
-            ctx.stroke();
 
-            // Etiqueta de texto del nodo
+            ctx.lineWidth = (hoveredNode === node || selectedNode === node) ? 3.5 : 2;
+            ctx.strokeStyle = (hoveredNode === node || selectedNode === node) ? '#ffffff' : 'rgba(255,255,255,0.35)';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Iniciales dentro del nodo
+            const parts = (node.label || '').split(' ');
+            const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : (node.label || 'N').slice(0, 2).toUpperCase();
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 11px Inter, sans-serif';
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(initials, node.x, node.y);
+
+            // Etiqueta de nombre bajo el nodo
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 11px Inter, sans-serif';
             ctx.fillText(node.label, node.x, node.y + node.size + 14);
 
             if (node.sublabel) {
@@ -499,12 +815,14 @@ Matriz de Inteligencia de Visitas Cruzadas | facIAL Secure
                 ctx.font = '10px Inter, sans-serif';
                 ctx.fillText(node.sublabel, node.x, node.y + node.size + 26);
             }
+            ctx.restore();
         });
 
-        // Animación suave continua
         requestAnimationFrame(drawGraph);
     }
 
     drawGraph();
+})();
 </script>
+
 {% endblock %}

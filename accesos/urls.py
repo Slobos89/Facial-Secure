@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path('', views.accesos, name='accesos'),
     path('ajax/', views.accesos_ajax, name='accesos_ajax'),
+    path('visitas/live/', views.visitas_live_ajax, name='visitas_live_ajax'),
     path('exportar-csv/', views.exportar_accesos_csv, name='exportar_accesos_csv'),
     path('inteligencia/', views.inteligencia_visitas, name='inteligencia_visitas'),
     path('inteligencia/datos/', views.inteligencia_datos_ajax, name='inteligencia_datos_ajax'),

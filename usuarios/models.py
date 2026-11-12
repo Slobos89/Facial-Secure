@@ -82,6 +82,39 @@ class Persona(models.Model):
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
+
+    def esta_dentro_del_recinto(self):
+        """
+        Control de Tránsito Secuencial / Anti-Passback:
+        Retorna True si la persona se encuentra actualmente dentro del penal
+        (tiene una visita externa activa o su último acceso válido fue de Ingreso).
+        """
+        try:
+            from accesos.models import VisitaExterna
+            from django.db.models import Q
+            q_visita = Q(persona=self)
+            if self.rut:
+                q_visita |= Q(rut_visitante=self.rut)
+            if VisitaExterna.objects.filter(q_visita, fecha_egreso__isnull=True).exists():
+                return True
+        except Exception:
+            pass
+
+        try:
+            from usuarios.models import Acceso
+            ultimo_acceso = Acceso.objects.filter(
+                persona=self,
+                resultado__in=['PERMITIDO', 'APROBADO_MANUAL']
+            ).order_by('-fecha_hora').first()
+
+            if ultimo_acceso:
+                cam_lower = (ultimo_acceso.camara or '').lower()
+                es_egreso = ('egreso' in cam_lower) or ('salida' in cam_lower)
+                return not es_egreso
+        except Exception:
+            pass
+
+        return False
     
 class PerfilUsuario(models.Model):
 
@@ -198,6 +231,21 @@ class Acceso(models.Model):
         blank=True,
         null=True
     )
+
+    descripcion_vestimenta = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        default=''
+    )
+
+    @property
+    def foto_url(self):
+        if self.foto_validacion:
+            return f"/media/secure/{self.foto_validacion.name}"
+        if self.persona and self.persona.foto:
+            return f"/media/secure/{self.persona.foto.name}"
+        return None
 
     resuelto_por = models.ForeignKey(
         User,

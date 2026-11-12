@@ -90,7 +90,7 @@ Monitoreo Biométrico en Tiempo Real
             </div>
         </div>
 
-        <div class="camera-viewport" id="camera-viewport-container" style="position: relative; background: #000; border-radius: 12px; overflow: hidden; height: 480px; display: flex; align-items: center; justify-content: center;">
+        <div class="camera-viewport" id="camera-viewport-container" style="position: relative; background: #000; border-radius: 12px; overflow: hidden; height: 720px; min-height: 720px; display: flex; align-items: center; justify-content: center;">
             <!-- BANNER DE ALERTA CRÍTICA: EGRESO DE INTERNO -->
             <div id="alerta-fuga-banner" style="display: none; position: absolute; top: 12px; left: 12px; right: 12px; background: rgba(185, 28, 28, 0.96); border: 2px solid #ef4444; border-radius: 8px; padding: 12px 18px; color: #ffffff; z-index: 50; box-shadow: 0 0 35px rgba(239, 68, 68, 0.85); align-items: center; justify-content: space-between; gap: 12px; animation: bannerPulse 1s infinite alternate;">
                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -110,9 +110,9 @@ Monitoreo Biométrico en Tiempo Real
             </div>
             <!-- Stream Servidor (OpenCV / RTSP) -->
             <img id="camera-stream" 
-                 src="{% if camara_activa %}{% url 'video_feed' %}?cam_id={{ camara_activa.id }}{% else %}about:blank{% endif %}" 
+                 src="{% if camara_activa %}{% url 'video_feed' %}?cam_id={{ camara_activa.id }}&flujo={{ flujo_inicial|default:'ingreso' }}{% else %}about:blank{% endif %}" 
                  alt="Transmisión en Vivo Cámara IP" 
-                 style="width: 100%; height: 100%; object-fit: cover; display: {% if camara_activa %}block{% else %}none{% endif %};">
+                 style="width: 100%; height: 100%; object-fit: contain; display: {% if camara_activa %}block{% else %}none{% endif %};">
 
             <!-- Stream Cliente (Navegador / Iriun / WebRTC) -->
             <video id="client-video" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
@@ -373,6 +373,11 @@ function cambiarFlujoMonitoreo(flujo) {
             teleFlujo.innerText = 'CONTROL DE INGRESO';
             teleFlujo.style.color = '#10b981';
         }
+        const telStatusIng = document.getElementById('telemetry-status');
+        if (telStatusIng) {
+            telStatusIng.innerText = 'OPERATIVO';
+            telStatusIng.style.color = '#4ade80';
+        }
     } else {
         btnEgreso.className = 'flujo-tab-btn active-egreso';
         btnIngreso.className = 'flujo-tab-btn';
@@ -385,6 +390,11 @@ function cambiarFlujoMonitoreo(flujo) {
         if (teleFlujo) {
             teleFlujo.innerText = 'CONTROL DE EGRESO';
             teleFlujo.style.color = '#f87171';
+        }
+        const telStatusEgr = document.getElementById('telemetry-status');
+        if (telStatusEgr) {
+            telStatusEgr.innerText = 'OPERATIVO';
+            telStatusEgr.style.color = '#4ade80';
         }
     }
 
@@ -406,6 +416,16 @@ function cambiarFlujoMonitoreo(flujo) {
             }
         } else if (sel && sel.value) {
             cambiarModoCamara(sel.value, false);
+        }
+    }
+
+    // Actualizar stream del servidor al nuevo flujo si está activo
+    const streamImg = document.getElementById('camera-stream');
+    if (streamImg && streamImg.style.display !== 'none' && streamImg.src && !streamImg.src.includes('about:blank')) {
+        const selVal = document.getElementById('selector-camara-hud')?.value || '';
+        if (selVal.startsWith('server:')) {
+            const camId = selVal.replace('server:', '');
+            streamImg.src = "{% url 'video_feed' %}?cam_id=" + camId + "&flujo=" + flujo + "&t=" + Date.now();
         }
     }
 
@@ -586,6 +606,20 @@ async function procesarFrameCliente() {
             if (res.ok) {
                 const data = await res.json();
                 dibujarOverlaysCliente(data.rostros || [], targetW, targetH);
+
+                const telStatus = document.getElementById('telemetry-status');
+                if (telStatus) {
+                    if (data.aviso_transito) {
+                        telStatus.innerText = data.aviso_transito;
+                        telStatus.style.color = '#38bdf8'; // Azul táctico informativo
+                    } else if (data.rostros && data.rostros.length > 0) {
+                        telStatus.innerText = 'OBJETIVO DETECTADO';
+                        telStatus.style.color = '#4ade80';
+                    } else {
+                        telStatus.innerText = 'OPERATIVO';
+                        telStatus.style.color = '#4ade80';
+                    }
+                }
             }
         } catch(e) {
             console.warn('Error en frame cliente:', e);
@@ -623,19 +657,52 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
         const w = r.w * scaleX;
         const h = r.h * scaleY;
 
+        const esSpoofing = Boolean(r.es_spoofing || (r.prueba_vida && !r.prueba_vida.es_real));
+
         let strokeColor = '#f59e0b';
-        if (r.estado === 'PERMITIDO') strokeColor = '#10b981';
-        else if (r.estado === 'DENEGADO') strokeColor = '#ef4444';
-        if (r.es_alerta_interno) {
-            strokeColor = '#dc2626'; // Rojo de alarma máxima
+        if (esSpoofing || r.es_alerta_interno) {
+            strokeColor = '#dc2626'; // Rojo de alarma crítica
+        } else if (r.estado === 'PERMITIDO') {
+            strokeColor = '#10b981';
+        } else if (r.estado === 'DENEGADO') {
+            strokeColor = '#ef4444';
         }
 
-        // 1. Marco táctico
+        // 1. Marco táctico (con reacción visual directa de Anti-Spoofing)
+        if (esSpoofing) {
+            // Fondo translúcido rojo sobre el rostro falso (foto/pantalla)
+            ctx.fillStyle = 'rgba(220, 38, 38, 0.16)';
+            ctx.fillRect(x, y, w, h);
+
+            // Doble recuadro exterior de bloqueo biométrico
+            ctx.save();
+            ctx.strokeStyle = '#f43f5e';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.strokeRect(x - 5, y - 5, w + 10, h + 10);
+            ctx.restore();
+
+            // Banner superior en el visor alertando ataque de presentación 2D
+            const bannerH = 30;
+            ctx.fillStyle = 'rgba(185, 28, 28, 0.92)';
+            ctx.fillRect(0, 0, overlay.width, bannerH);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
+            const motivoSpoof = (r.prueba_vida && r.prueba_vida.alertas && r.prueba_vida.alertas[0])
+                ? ` — ${r.prueba_vida.alertas[0]}`
+                : '';
+            ctx.fillText(
+                `🚨 BLOQUEO ANTI-SPOOFING: FOTO O PANTALLA 2D DETECTADA (Similitud ${Math.round(r.coincidencia)}% RECHAZADA)${motivoSpoof}`,
+                14,
+                20
+            );
+        }
+
         ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = esSpoofing ? 3 : 2;
         ctx.strokeRect(x, y, w, h);
 
-        const bracket = Math.min(18, w * 0.25, h * 0.25);
+        const bracket = Math.min(20, w * 0.25, h * 0.25);
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(x, y + bracket); ctx.lineTo(x, y); ctx.lineTo(x + bracket, y);
@@ -656,19 +723,21 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
             });
         }
 
-        // 3. Badge táctico
+        // 3. Badge táctico superior (Identidad + % Coincidencia)
         let labelText = `${r.nombre} (${Math.round(r.coincidencia)}%)`;
         if (r.es_alerta_interno) {
             labelText = `🚨 DENEGADO [INTERNO]: ${r.nombre} (${Math.round(r.coincidencia)}%)`;
+        } else if (esSpoofing) {
+            labelText = `${r.nombre} (Sim: ${Math.round(r.coincidencia)}% → BLOQUEADO)`;
         }
         ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
         const textWidth = ctx.measureText(labelText).width;
         const pillW = textWidth + 24;
         const pillH = 26;
         const pillX = Math.max(10, Math.min(x, overlay.width - pillW - 10));
-        const pillY = Math.max(pillH + 4, y - 8);
+        const pillY = Math.max(pillH + 34, y - 8);
 
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.fillStyle = esSpoofing ? 'rgba(127, 29, 29, 0.95)' : 'rgba(15, 23, 42, 0.9)';
         ctx.beginPath();
         if (ctx.roundRect) {
             ctx.roundRect(pillX, pillY - pillH, pillW, pillH, 6);
@@ -682,6 +751,39 @@ function dibujarOverlaysCliente(rostros, sourceW, sourceH) {
 
         ctx.fillStyle = '#ffffff';
         ctx.fillText(labelText, pillX + 12, pillY - 8);
+
+        // 4. Etiqueta HUD inferior en el recuadro: Estado Anti-Spoofing (Prueba de Vida)
+        if (r.prueba_vida) {
+            const scoreVida = Math.round(r.prueba_vida.score || 0);
+            const alertaDetalle = (r.prueba_vida.alertas && r.prueba_vida.alertas.length > 0)
+                ? ` • ${r.prueba_vida.alertas[0]}`
+                : '';
+            const livenessText = esSpoofing
+                ? `🚨 ANTI-SPOOFING: FOTO / PANTALLA 2D (${scoreVida}% Vida)${alertaDetalle}`
+                : `🛡️ ANTI-SPOOFING: HUMANO VIVO 3D (${scoreVida}% Vida)`;
+
+            ctx.font = 'bold 11.5px system-ui, -apple-system, sans-serif';
+            const liveTextW = ctx.measureText(livenessText).width;
+            const livePillW = liveTextW + 20;
+            const livePillH = 24;
+            const livePillX = Math.max(10, Math.min(x, overlay.width - livePillW - 10));
+            const livePillY = Math.min(overlay.height - livePillH - 6, y + h + 6);
+
+            ctx.fillStyle = esSpoofing ? 'rgba(220, 38, 38, 0.95)' : 'rgba(6, 78, 59, 0.92)';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(livePillX, livePillY, livePillW, livePillH, 6);
+            } else {
+                ctx.rect(livePillX, livePillY, livePillW, livePillH);
+            }
+            ctx.fill();
+            ctx.strokeStyle = esSpoofing ? '#fecaca' : '#10b981';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(livenessText, livePillX + 10, livePillY + 16);
+        }
 
         if (r.es_alerta_interno) {
             reproducirAlarmaFuga();

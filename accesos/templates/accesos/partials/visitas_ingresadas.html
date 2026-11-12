@@ -1,0 +1,62 @@
+{% for v in visitas_ingresadas %}
+    <div class="visita-card ing-card {% if not v.ha_egresado %}en-recinto{% endif %} {% if not v.ha_egresado and v.tiempo_excedido %}tiempo-excedido{% endif %}" 
+         onclick="verFichaVisita({{ v.id }})" 
+         title="Click para ver pertenencias e inspección">
+        <div class="visita-avatar">
+            {% if v.get_foto_ingreso_url %}
+                <img src="{{ v.get_foto_ingreso_url }}" alt="{{ v.nombre_visitante }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <div class="avatar-ph" style="display: none;">👤</div>
+            {% else %}
+                <div class="avatar-ph">👤</div>
+            {% endif %}
+        </div>
+        <div class="visita-info">
+            <div class="visita-topline">
+                <h4>{{ v.nombre_visitante }}</h4>
+                <div class="visita-estado-container">
+                    {% if not v.ha_egresado %}
+                        <span class="tag-status badge-en-recinto">🏢 En Recinto</span>
+                        <!-- CUENTA ATRÁS DE 3 HORAS DEBAJO DEL ICONO -->
+                        <span class="tag-timer timer-cuenta-atras" 
+                              id="timer-visita-{{ v.id }}"
+                              data-ingreso="{{ v.fecha_ingreso|date:'c' }}"
+                              data-visita-id="{{ v.id }}"
+                              data-nombre="{{ v.nombre_visitante }}"
+                              data-interno="{{ v.interno_a_visitar|default:'Interno' }}">
+                            ⏳ 03:00:00
+                        </span>
+                    {% else %}
+                        <span class="tag-status badge-egreso-ok">✅ Egresó</span>
+                        <span style="font-size: 10px; color: #15803d; font-weight: 700; margin-top: 2px;">
+                            Visita Concluida
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="visita-meta">
+                <span>RUT: {{ v.rut_visitante|default:'---' }}</span> • 
+                <span>🕒 Entrada: {{ v.fecha_ingreso|date:"H:i" }}</span> •
+                <span style="color:#0284c7;">Visita a: {{ v.interno_a_visitar|default:'Interno'|truncatechars:18 }}</span>
+            </div>
+            <div class="visita-clothing-pills">
+                <span class="c-pill">👕 {{ v.color_superior|default:'Superior' }} ({{ v.prenda_superior|default:'Ropa'|truncatechars:16 }})</span>
+                <span class="c-pill">👖 {{ v.color_inferior|default:'Inferior' }} ({{ v.prenda_inferior|default:'Ropa'|truncatechars:16 }})</span>
+            </div>
+            {% if v.pertenencias_declaradas %}
+                <div class="visita-belongings-preview">
+                    🎒 <em>{{ v.pertenencias_declaradas|truncatechars:48 }}</em>
+                </div>
+            {% endif %}
+            {% if not v.ha_egresado and v.tiempo_excedido %}
+                <div style="margin-top: 6px;">
+                    <button type="button" class="btn-parlante-card" onclick="event.stopPropagation(); abrirModalMegafonia({{ v.id }})">
+                        📢 Activar Parlantes
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+        <div class="visita-action-arrow">👉</div>
+    </div>
+{% empty %}
+    <div class="empty-col">No hay registros de ingreso de visitas en este período.</div>
+{% endfor %}

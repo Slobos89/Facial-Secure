@@ -25,26 +25,49 @@ PALETA_COLORES = [
 
 
 def _cargar_imagen(img_or_path):
-    """Carga imagen desde ruta, objeto de Django ImageField o numpy array."""
+    """Carga imagen desde ruta, objeto de Django ImageField o numpy array con soporte de descifrado."""
     if img_or_path is None:
         return None
     if isinstance(img_or_path, np.ndarray):
         return img_or_path
     
     # Si es un FieldFile de Django o archivo
-    path = getattr(img_or_path, 'path', None)
+    path = None
+    try:
+        if bool(img_or_path):
+            path = getattr(img_or_path, 'path', None)
+    except Exception:
+        path = None
     if not path and isinstance(img_or_path, str):
         path = img_or_path
         
     if path and os.path.exists(path):
-        img = cv2.imread(path)
-        return img
+        try:
+            with open(path, 'rb') as fp:
+                raw = fp.read()
+            from usuarios.utils.security import decrypt_bytes
+            try:
+                raw = decrypt_bytes(raw)
+            except Exception:
+                pass
+            nparr = np.frombuffer(raw, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is not None:
+                return img
+        except Exception:
+            pass
+        return cv2.imread(path)
     
     # Intentar leer desde buffer en memoria
     try:
         if hasattr(img_or_path, 'read'):
             img_or_path.seek(0)
             bytes_data = img_or_path.read()
+            from usuarios.utils.security import decrypt_bytes
+            try:
+                bytes_data = decrypt_bytes(bytes_data)
+            except Exception:
+                pass
             nparr = np.frombuffer(bytes_data, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             return img

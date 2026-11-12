@@ -89,7 +89,12 @@ class DeepFaceEngine:
                 self.detector.setScoreThreshold(0.55)
 
         if faces is None or len(faces) == 0:
-            return None, None
+            # Si la imagen ya viene recortada (ej. 200x200 de RostroCapturado), extraer embedding directamente en 112x112
+            with self.infer_lock:
+                aligned_face = cv2.resize(image_bgr, (112, 112))
+                feature = self.recognizer.feature(aligned_face)
+                feature_norm = feature / (np.linalg.norm(feature) + 1e-7)
+                return aligned_face, feature_norm.flatten()
 
         best_face = max(faces, key=lambda f: f[2] * f[3])
         return self.align_and_extract_feature(image_bgr, best_face)

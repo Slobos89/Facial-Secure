@@ -115,16 +115,17 @@ def discover_onvif_cameras(timeout=1.5):
                 elif ':80/' in text or ':80 ' in text: port_onvif = 80
                 elif ':5000' in text: port_onvif = 5000
 
+                es_hikvision = ('hikvision' in text.lower()) or ('8000' in text)
                 cameras.append({
                     'id': f'ip_{ip.replace(".", "_")}',
                     'tipo': 'ip_yoosee',
-                    'nombre': f'Cámara IP ONVIF ({ip})',
+                    'nombre': f'Cámara IP Hikvision ({ip})' if es_hikvision else f'Cámara IP ONVIF ({ip})',
                     'ip': ip,
-                    'puerto_onvif': port_onvif,
+                    'puerto_onvif': 80 if es_hikvision else port_onvif,
                     'puerto_rtsp': 554,
-                    'stream': 'onvif2',
+                    'stream': 'Streaming/Channels/102' if es_hikvision else 'onvif2',
                     'icono': '📡',
-                    'metodo_descubrimiento': 'WS-Discovery (ONVIF)'
+                    'metodo_descubrimiento': 'WS-Discovery (Hikvision ONVIF)' if es_hikvision else 'WS-Discovery (ONVIF)'
                 })
             except socket.timeout:
                 break
@@ -171,17 +172,18 @@ def probe_single_ip(ip):
     elif 8080 in open_ports:
         onvif_port = 8080
 
+    es_hikvision = (8000 in open_ports)
     return {
         'id': f'ip_{ip.replace(".", "_")}',
         'tipo': 'ip_yoosee',
-        'nombre': f'Cámara Wi-Fi / IP ({ip})',
+        'nombre': f'Cámara IP Hikvision ({ip})' if es_hikvision else f'Cámara Wi-Fi / IP ({ip})',
         'ip': ip,
-        'puerto_onvif': onvif_port,
+        'puerto_onvif': 80 if es_hikvision else onvif_port,
         'puerto_rtsp': 554 if 554 in open_ports else open_ports[0],
-        'stream': 'onvif2',
+        'stream': 'Streaming/Channels/102' if es_hikvision else 'onvif2',
         'icono': '📡',
         'puertos_detectados': open_ports,
-        'metodo_descubrimiento': 'Escaneo TCP Subred LAN/Wi-Fi'
+        'metodo_descubrimiento': 'Escaneo TCP Subred (Hikvision SDK 8000/RTSP 554)' if es_hikvision else 'Escaneo TCP Subred LAN/Wi-Fi'
     }
 
 

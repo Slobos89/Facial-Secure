@@ -7,3 +7,12 @@ modelo/*.yml
 db.sqlite3
 *.sql
 *.exe
+
+# Cache y entornos de pruebas
+.pytest_cache/
+
+# Archivos multimedia de validaciones y pruebas dinámicas
+media/validaciones/
+media/visitas/
+media/rostros_dataset/
+media/rostros_recortados/

@@ -6,196 +6,392 @@ Registrar Gendarme | facIAL Secure
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/registrar_gendarme.css' %}?v=1.0">
+<link rel="stylesheet" href="{% static 'css/registrar_gendarme.css' %}?v=3.0">
 {% endblock %}
 
 {% block content %}
 <div class="gendarme-wrapper">
-    <div class="gendarme-header">
-        
-        <h1>Registrar Gendarme</h1>
-        <p>Crear nueva cuenta institucional</p>
-        
-    </div>
 
-    <form method="POST">
-        
-
-
-
-        <div class="gendarme-layout">
-
-            <!-- DATOS PERSONALES -->
-
-            <section class="panel">
-
-                <div class="panel-header">
-                    <h2>📝 Información Personal</h2>
-                </div>
-
-                <div class="form-grid">
-
-                    <div class="form-group">
-                        <label>Nombre</label>
-                        <input type="text" name="nombre" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Apellido</label>
-                        <input type="text" name="apellido" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>RUT</label>
-                        <input
-                            type="text"
-                            id="rut"
-                            name="rut"
-                            maxlength="12"
-                            placeholder = "12.345.678-9"
-                            required>
-                    </div>
-
-                </div>
-
-            </section>
-
-            <!-- ACCESO -->
-
-            <section class="panel">
-
-                <div class="panel-header">
-                    <h2>🔑 Credenciales de Acceso</h2>
-                </div>
-
-                <div class="form-grid">
-
-                    <div class="form-group">
-                        <label>Usuario</label>
-                        <input type="text" name="username" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Contraseña</label>
-                        <input type="password" name="password" required>
-                    </div>
-
-                </div>
-
-            </section>
-
-            <!-- BIOMETRIA -->
-
-            <section class="panel">
-
-                <div class="panel-header">
-                    <h2>🧬 Estado Biométrico</h2>
-                </div>
-
-                <div class="gendarme-status">
-
-                    <div class="bio-item">
-                        <span>Facial</span>
-                        <strong class="warning">
-                            Pendiente
-                        </strong>
-                    </div>
-
-                    <div class="bio-item">
-                        <span>Huella</span>
-                        <strong class="warning">
-                            Pendiente
-                        </strong>
-                    </div>
-
-                    <div class="bio-item">
-                        <span>Estado</span>
-                        <strong class="warning">
-                            Sin enrolar
-                        </strong>
-                    </div>
-
-                </div>
-
-                <div class="gendarme-help">
-                    El enrolamiento facial y dactilar se realizará posteriormente
-                    desde la opción <strong>Editar Usuario</strong>.
-                </div>
-
-            </section>
-            {% csrf_token %}
-            {% if messages %}
-            <div style="max-width: 600px; margin: 0 auto 20px auto;">
-                {% for message in messages %}
-                    <div style="padding: 12px 20px; margin-bottom: 10px; border-radius: 8px; font-weight: 500; font-size: 0.95rem; 
-                        {% if message.tags == 'error' %}background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca;
-                        {% elif message.tags == 'success' %}background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;
-                        {% else %}background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe;{% endif %}">
-                        <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}" style="margin-right: 8px;"></i>
-                        {{ message }}
-                    </div>
-                {% endfor %}
+    <!-- ENCABEZADO ENCUADRADO -->
+    <section class="gendarme-header-panel">
+        <div class="gendarme-header-left">
+            <div class="gendarme-header-icon">🛡️</div>
+            <div>
+                <h1>Registrar Gendarme</h1>
+                <p>Crear nueva cuenta institucional de funcionario con enrolamiento facial IA y huella dactilar en el acto</p>
             </div>
-            {% endif %}
+        </div>
+        <div>
+            <a href="{% if request.user.is_authenticated %}{% url 'usuarios' %}{% else %}{% url 'login' %}{% endif %}" class="btn btn-secondary" style="text-decoration: none; font-size: 13px; padding: 8px 14px; border-radius: 8px;">
+                ← Volver a Usuarios
+            </a>
+        </div>
+    </section>
 
-            <!-- BOTONES -->
+    <form method="POST" id="form-registrar-gendarme">
+        {% csrf_token %}
 
-            <section class="panel">
-
-                <div class="gendarme-actions">
-
-                    <button
-                        type="submit"
-                        class="btn btn-primary">
-
-                        Registrar Gendarme
-
-                    </button>
-
-                    <a
-                        href="{% if request.user.is_authenticated %}{% url 'usuarios' %}{% else %}{% url 'login' %}{% endif %}"
-                        class="btn btn-secondary">
-
-                        Cancelar
-
-                    </a>
-
+        {% if messages %}
+        <div style="margin-bottom: 16px;">
+            {% for message in messages %}
+                <div style="padding: 12px 18px; margin-bottom: 10px; border-radius: 10px; font-weight: 600; font-size: 13px;
+                    {% if message.tags == 'error' %}background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca;
+                    {% elif message.tags == 'success' %}background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;
+                    {% else %}background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe;{% endif %}">
+                    {{ message }}
                 </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
+        <!-- LAYOUT DE 2 COLUMNAS: DATOS + BIOMETRÍA EN EL ACTO -->
+        <div class="gendarme-two-cols">
+
+            <!-- COLUMNA IZQUIERDA: DATOS PERSONALES + CREDENCIALES + ESTADO BIOMÉTRICO -->
+            <div class="gendarme-col-stack">
+
+                <!-- 1. DATOS PERSONALES -->
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2>📝 Información Personal del Funcionario</h2>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" name="nombre" placeholder="Ej: Roberto" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Apellido</label>
+                            <input type="text" name="apellido" placeholder="Ej: Soto Valenzuela" required>
+                        </div>
+
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>RUT (Validación Módulo 11)</label>
+                            <input
+                                type="text"
+                                id="rut"
+                                name="rut"
+                                maxlength="12"
+                                placeholder="12.345.678-9"
+                                required>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. CREDENCIALES DE ACCESO -->
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2>🔑 Credenciales de Acceso al Sistema</h2>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label>Usuario Institucional</label>
+                            <input type="text" name="username" placeholder="Ej: r.soto" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Contraseña (mín. 8 caracteres)</label>
+                            <input type="password" name="password" placeholder="••••••••" required>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. RESUMEN DE ESTADO BIOMÉTRICO EN TIEMPO REAL -->
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2>🧬 Estado de Enrolamiento en esta Sesión</h2>
+                    </div>
+
+                    <div class="bio-grid">
+                        <div class="bio-item">
+                            <label>Reconocimiento Facial</label>
+                            <strong id="estado-facial">No enrolado</strong>
+                        </div>
+
+                        <div class="bio-item">
+                            <label>Huella Dactilar</label>
+                            <strong id="estado-huella">No enrolada</strong>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- COLUMNA DERECHA: CAPTURA FACIAL IA Y SENSOR DACTILAR SECUGEN -->
+            <section class="panel" style="display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div class="panel-header">
+                        <h2>📷 Captura Biométrica (Facial IA & Huella SecuGen)</h2>
+                    </div>
+
+                    <div style="margin-bottom: 10px;">
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; display: block; margin-bottom: 4px;">
+                            📹 Dispositivo de Video:
+                        </label>
+                        <select id="select-camara-dispositivo" onchange="iniciarCamara()" style="width: 100%; height: 38px; font-size: 12px; padding: 0 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: 600; color: #0f172a;">
+                            <option value="">(Cargando cámaras detectadas...)</option>
+                        </select>
+                    </div>
+
+                    <div class="camera-container">
+                        <video id="video" autoplay playsinline></video>
+                        <canvas id="canvas"></canvas>
+                    </div>
+
+                    <div class="camera-buttons">
+                        <button type="button" class="btn btn-primary" onclick="iniciarCamara()">
+                            📹 Iniciar Cámara
+                        </button>
+
+                        <button type="button" class="btn btn-success" id="capturar-btn">
+                            🧠 Iniciar Captura IA (10 muestras)
+                        </button>
+                    </div>
+
+                    <!-- Inputs ocultos para enviar las muestras faciales y template dactilar -->
+                    <input type="hidden" name="foto_base64" id="foto_base64">
+                    <input type="hidden" name="capturas" id="capturas">
+                    <input type="hidden" name="huella_template" id="huella_template">
+                    <input type="hidden" name="huella_calidad" id="huella_calidad">
+                    <input type="hidden" name="huella_formato" id="huella_formato" value="ANSI378">
+                    <input type="hidden" name="huella_bmp" id="huella_bmp">
+
+                    <div class="capture-progress">
+                        <div class="progress-bar">
+                            <div id="progress-fill" class="progress-fill"></div>
+                        </div>
+                        <p id="capture-status">Esperando captura facial...</p>
+
+                        <div class="fingerprint-panel">
+                            <div class="fingerprint-scanner" onclick="capturarHuellaEnrolamiento()" style="cursor: pointer;" title="Clic para escanear huella con SecuGen">
+                                <div class="fingerprint-icon" id="fingerprint-icon">🖐️</div>
+                            </div>
+
+                            <div class="fingerprint-info">
+                                <h4>Escáner Dactilar (SecuGen)</h4>
+                                <p id="fingerprint-status">Esperando escaneo dactilar...</p>
+                                <button type="button" class="btn btn-secondary" onclick="capturarHuellaEnrolamiento()" style="margin-top: 6px; padding: 5px 12px; font-size: 12px;">
+                                    🖐️ Capturar con SecuGen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
         </div>
 
+        <!-- 4. BARRA DE BOTONES DE ACCIÓN -->
+        <section class="panel" style="padding: 16px 24px;">
+            <div class="gendarme-actions">
+                <a
+                    href="{% if request.user.is_authenticated %}{% url 'usuarios' %}{% else %}{% url 'login' %}{% endif %}"
+                    class="btn btn-secondary"
+                    style="text-decoration: none;">
+                    Cancelar
+                </a>
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                    id="guardar-btn">
+                    🛡️ Registrar y Enrolar Gendarme
+                </button>
+            </div>
+        </section>
+
     </form>
 </div>
 
+<script src="{% static 'js/secugen.js' %}"></script>
 <script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const capturarBtn = document.getElementById('capturar-btn');
+const capturasInput = document.getElementById('capturas');
+const progressFill = document.getElementById('progress-fill');
+const captureStatus = document.getElementById('capture-status');
 
-document.getElementById('rut').addEventListener(
-    'input',
-    function(e){
+let capturas = [];
+let capturando = false;
+let localStream = null;
 
-        let valor = e.target.value
-            .replace(/\./g,'')
-            .replace(/-/g,'');
+/* =========================
+   LISTAR E INICIAR CÁMARA
+========================= */
+async function listarDispositivosVideo() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const select = document.getElementById('select-camara-dispositivo');
+        if (!select) return;
 
-        if(valor.length > 1){
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        if (videoDevices.length > 0) {
+            const currentVal = select.value;
+            select.innerHTML = videoDevices.map((d, idx) => {
+                const label = d.label || `Cámara #${idx + 1}`;
+                return `<option value="${d.deviceId}">${label}</option>`;
+            }).join('');
+            if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+                select.value = currentVal;
+            }
+        } else {
+            select.innerHTML = '<option value="">(No se detectaron cámaras en el navegador)</option>';
+        }
+    } catch (e) {
+        console.warn('Error listando cámaras:', e);
+    }
+}
 
-            let cuerpo = valor.slice(0,-1);
-            let dv = valor.slice(-1);
-
-            cuerpo = cuerpo.replace(
-                /\B(?=(\d{3})+(?!\d))/g,
-                '.'
-            );
-
-            e.target.value =
-                cuerpo + '-' + dv.toUpperCase();
-
+async function iniciarCamara() {
+    try {
+        if (localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+            localStream = null;
         }
 
-    }
-);
+        const select = document.getElementById('select-camara-dispositivo');
+        const deviceId = select && select.value ? select.value : undefined;
 
+        const constraints = {
+            video: deviceId ? { deviceId: { exact: deviceId } } : true,
+            audio: false
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        localStream = stream;
+        video.srcObject = stream;
+        await listarDispositivosVideo();
+    } catch (error) {
+        alert('No se pudo acceder a la cámara seleccionada: ' + error.message);
+        console.error(error);
+    }
+}
+
+if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+    navigator.mediaDevices.enumerateDevices().then(listarDispositivosVideo).catch(() => {});
+}
+
+/* =========================
+   CAPTURA FACIAL IA (10 FRAMES)
+========================= */
+const instrucciones = [
+    'Mire al frente',
+    'Mire levemente a la izquierda',
+    'Mire levemente a la derecha',
+    'Mire hacia arriba',
+    'Mire hacia abajo',
+    'Acérquese un poco',
+    'Aléjese un poco',
+    'Mantenga expresión neutra',
+    'Sonría levemente',
+    'Parpadee naturalmente'
+];
+
+capturarBtn.addEventListener('click', () => {
+    if (capturando) return;
+    if (!localStream) {
+        alert('Primero haga clic en "Iniciar Cámara" antes de comenzar la captura IA.');
+        return;
+    }
+
+    capturas = [];
+    capturando = true;
+    progressFill.style.width = '0%';
+    captureStatus.innerText = 'Capturando dataset facial...';
+
+    let contador = 0;
+    const intervalo = setInterval(() => {
+        const context = canvas.getContext('2d');
+        canvas.width = 640;
+        canvas.height = 480;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imagen = canvas.toDataURL('image/jpeg');
+        capturas.push(imagen);
+        contador++;
+
+        const porcentaje = (contador / 10) * 100;
+        progressFill.style.width = porcentaje + '%';
+        captureStatus.innerText = `Captura ${contador}/10 - ${instrucciones[contador - 1]}`;
+
+        if (contador >= 10) {
+            clearInterval(intervalo);
+            capturando = false;
+            capturasInput.value = JSON.stringify(capturas);
+
+            const estadoFacial = document.getElementById('estado-facial');
+            estadoFacial.innerText = 'Enrolado (10 muestras)';
+            estadoFacial.classList.add('enrolled');
+
+            captureStatus.innerText = '✅ Captura facial lista. Ahora capture la huella dactilar con SecuGen.';
+            capturarHuellaEnrolamiento();
+        }
+    }, 1500);
+});
+
+/* =========================
+   CAPTURA DACTILAR SECUGEN
+========================= */
+async function capturarHuellaEnrolamiento() {
+    const icon = document.getElementById('fingerprint-icon');
+    const status = document.getElementById('fingerprint-status');
+    const estadoHuella = document.getElementById('estado-huella');
+    const templateInput = document.getElementById('huella_template');
+    const calidadInput = document.getElementById('huella_calidad');
+    const bmpInput = document.getElementById('huella_bmp');
+
+    icon.classList.remove('valid');
+    icon.classList.add('scanning');
+    status.innerText = 'Coloque el dedo en el sensor SecuGen...';
+
+    try {
+        const result = await secugenCapture({
+            timeout: 10000,
+            quality: 40,
+            templateFormat: 'ANSI378'
+        });
+
+        icon.classList.remove('scanning');
+
+        if (result.success) {
+            icon.classList.add('valid');
+            status.innerText = `Huella capturada con éxito (Calidad: ${result.quality}%)`;
+            estadoHuella.innerText = `Enrolada (${result.quality}%)`;
+            estadoHuella.classList.add('enrolled');
+
+            templateInput.value = result.template;
+            calidadInput.value = result.quality;
+            if (result.bmpBase64) {
+                bmpInput.value = result.bmpBase64;
+            }
+        } else {
+            icon.classList.remove('valid');
+            status.innerText = result.error || 'Error al capturar huella.';
+            estadoHuella.innerText = 'No enrolada';
+            estadoHuella.classList.remove('enrolled');
+        }
+    } catch (err) {
+        console.error('Error SecuGen:', err);
+        icon.classList.remove('scanning');
+        status.innerText = 'Error de comunicación con el lector SecuGen.';
+    }
+}
+
+/* =========================
+   FORMATEO AUTOMÁTICO DE RUT
+========================= */
+document.getElementById('rut').addEventListener('input', function(e) {
+    let valor = e.target.value.replace(/\./g, '').replace(/-/g, '');
+    if (valor.length > 1) {
+        let cuerpo = valor.slice(0, -1);
+        let dv = valor.slice(-1);
+        cuerpo = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        e.target.value = cuerpo + '-' + dv.toUpperCase();
+    }
+});
 </script>
 {% endblock %}

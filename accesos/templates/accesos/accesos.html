@@ -88,7 +88,7 @@ Control y Registro de Accesos | facIAL Secure
                     <div class="b-icon">📥</div>
                     <div class="b-info">
                         <span class="b-lbl">Ingresos Externos</span>
-                        <span class="b-val">{{ total_ingresos_ext }}</span>
+                        <span class="b-val" id="kpi-ingresos-ext">{{ total_ingresos_ext }}</span>
                     </div>
                     <span class="b-pill green">Total Entradas</span>
                 </div>
@@ -97,22 +97,24 @@ Control y Registro de Accesos | facIAL Secure
                     <div class="b-icon">📤</div>
                     <div class="b-info">
                         <span class="b-lbl">Egresos Externos</span>
-                        <span class="b-val">{{ total_egresos_ext }}</span>
+                        <span class="b-val" id="kpi-egresos-ext">{{ total_egresos_ext }}</span>
                     </div>
                     <span class="b-pill purple">Total Salidas</span>
                 </div>
 
-                <div class="balance-card den {% if dentro_penal > 0 %}alerta-activa{% endif %}">
+                <div class="balance-card den {% if dentro_penal > 0 %}alerta-activa{% endif %}" id="card-dentro-penal">
                     <div class="b-icon">🏢</div>
                     <div class="b-info">
                         <span class="b-lbl">Dentro del Recinto</span>
-                        <span class="b-val">{{ dentro_penal }}</span>
+                        <span class="b-val" id="kpi-dentro-penal">{{ dentro_penal }}</span>
                     </div>
+                    <span id="kpi-pill-dentro" class="b-pill {% if dentro_penal == 0 %}green{% else %}yellow{% endif %}">
                     {% if dentro_penal == 0 %}
-                        <span class="b-pill green">✅ Aforo Cuadrado</span>
+                        ✅ Aforo Cuadrado
                     {% else %}
-                        <span class="b-pill yellow">⚠️ Pendientes ({{ dentro_penal }})</span>
+                        ⚠️ Pendientes ({{ dentro_penal }})
                     {% endif %}
+                    </span>
                 </div>
 
                 <div class="balance-card ia {% if total_tiempo_excedido > 0 %}alerta-activa{% endif %}">
@@ -177,75 +179,13 @@ Control y Registro de Accesos | facIAL Secure
                         <div class="col-title">
                             <span>📥</span> Personas que Ingresan (Entrada)
                         </div>
-                        <span class="col-count">{{ visitas_ingresadas|length }} registradas</span>
+                        <span class="col-count" id="count-ingresados">{{ visitas_ingresadas|length }} registradas</span>
                     </div>
                     <div class="split-col-help">
                         💡 <strong>Temporizador de 3 horas activo:</strong> Cuenta atrás en vivo. Si el tiempo expira, se emite alerta para llamado por parlantes.
                     </div>
                     <div class="split-list" id="lista-ingresados">
-                        {% for v in visitas_ingresadas %}
-                            <div class="visita-card ing-card {% if not v.ha_egresado %}en-recinto{% endif %} {% if not v.ha_egresado and v.tiempo_excedido %}tiempo-excedido{% endif %}" 
-                                 onclick="verFichaVisita({{ v.id }})" 
-                                 title="Click para ver pertenencias e inspección">
-                                <div class="visita-avatar">
-                                    {% if v.foto_ingreso %}
-                                        <img src="{{ v.foto_ingreso.url }}" alt="{{ v.nombre_visitante }}">
-                                    {% elif v.persona and v.persona.foto %}
-                                        <img src="{{ v.persona.foto.url }}" alt="{{ v.nombre_visitante }}">
-                                    {% else %}
-                                        <div class="avatar-ph">👤</div>
-                                    {% endif %}
-                                </div>
-                                <div class="visita-info">
-                                    <div class="visita-topline">
-                                        <h4>{{ v.nombre_visitante }}</h4>
-                                        <div class="visita-estado-container">
-                                            {% if not v.ha_egresado %}
-                                                <span class="tag-status badge-en-recinto">🏢 En Recinto</span>
-                                                <!-- CUENTA ATRÁS DE 3 HORAS DEBAJO DEL ICONO -->
-                                                <span class="tag-timer timer-cuenta-atras" 
-                                                      id="timer-visita-{{ v.id }}"
-                                                      data-ingreso="{{ v.fecha_ingreso|date:'c' }}"
-                                                      data-visita-id="{{ v.id }}"
-                                                      data-nombre="{{ v.nombre_visitante }}"
-                                                      data-interno="{{ v.interno_a_visitar|default:'Interno' }}">
-                                                    ⏳ 03:00:00
-                                                </span>
-                                            {% else %}
-                                                <span class="tag-status badge-egreso-ok">✅ Egresó</span>
-                                                <span style="font-size: 10px; color: #15803d; font-weight: 700; margin-top: 2px;">
-                                                    Visita Concluida
-                                                </span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    <div class="visita-meta">
-                                        <span>RUT: {{ v.rut_visitante|default:'---' }}</span> • 
-                                        <span>🕒 Entrada: {{ v.fecha_ingreso|date:"H:i" }}</span> •
-                                        <span style="color:#0284c7;">Visita a: {{ v.interno_a_visitar|default:'Interno'|truncatechars:18 }}</span>
-                                    </div>
-                                    <div class="visita-clothing-pills">
-                                        <span class="c-pill">👕 {{ v.color_superior|default:'Superior' }} ({{ v.prenda_superior|default:'Ropa'|truncatechars:16 }})</span>
-                                        <span class="c-pill">👖 {{ v.color_inferior|default:'Inferior' }} ({{ v.prenda_inferior|default:'Ropa'|truncatechars:16 }})</span>
-                                    </div>
-                                    {% if v.pertenencias_declaradas %}
-                                        <div class="visita-belongings-preview">
-                                            🎒 <em>{{ v.pertenencias_declaradas|truncatechars:48 }}</em>
-                                        </div>
-                                    {% endif %}
-                                    {% if not v.ha_egresado and v.tiempo_excedido %}
-                                        <div style="margin-top: 6px;">
-                                            <button type="button" class="btn-parlante-card" onclick="event.stopPropagation(); abrirModalMegafonia({{ v.id }})">
-                                                📢 Activar Parlantes
-                                            </button>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                <div class="visita-action-arrow">👉</div>
-                            </div>
-                        {% empty %}
-                            <div class="empty-col">No hay registros de ingreso de visitas en este período.</div>
-                        {% endfor %}
+                        {% include 'accesos/partials/visitas_ingresadas.html' %}
                     </div>
                 </div>
 
@@ -255,52 +195,13 @@ Control y Registro de Accesos | facIAL Secure
                         <div class="col-title">
                             <span>📤</span> Personas que Egresan (Salida)
                         </div>
-                        <span class="col-count">{{ visitas_egresadas|length }} completadas</span>
+                        <span class="col-count" id="count-egresados">{{ visitas_egresadas|length }} completadas</span>
                     </div>
                     <div class="split-col-help">
                         🛡️ <strong>Verificación IA de Atuendo:</strong> Compara que salgan vestidos exactamente igual que al entrar.
                     </div>
                     <div class="split-list" id="lista-egresados">
-                        {% for v in visitas_egresadas %}
-                            <div class="visita-card egr-card {% if v.alerta_vestimenta %}alerta-cambio{% endif %}" onclick="verFichaVisita({{ v.id }})" title="Click para ver peritaje comparativo de vestimenta">
-                                <div class="visita-avatar">
-                                    {% if v.foto_egreso %}
-                                        <img src="{{ v.foto_egreso.url }}" alt="{{ v.nombre_visitante }}">
-                                    {% elif v.foto_ingreso %}
-                                        <img src="{{ v.foto_ingreso.url }}" alt="{{ v.nombre_visitante }}">
-                                    {% else %}
-                                        <div class="avatar-ph">👤</div>
-                                    {% endif %}
-                                </div>
-                                <div class="visita-info">
-                                    <div class="visita-topline">
-                                        <h4>{{ v.nombre_visitante }}</h4>
-                                        {% if v.alerta_vestimenta %}
-                                            <span class="tag-status badge-alerta-ropa">🚨 Alerta Ropa</span>
-                                        {% else %}
-                                            <span class="tag-status badge-ia-ok">🤖 Ropa OK ({{ v.similitud_vestimenta|floatformat:0 }}%)</span>
-                                        {% endif %}
-                                    </div>
-                                    <div class="visita-meta">
-                                        <span>🕒 Salida: {{ v.fecha_egreso|date:"H:i" }}</span> • 
-                                        <span>🚪 {{ v.puerta_egreso|default:'Puesto de Salida' }}</span>
-                                    </div>
-                                    <div class="visita-clothing-pills">
-                                        <span class="c-pill {% if v.alerta_vestimenta %}pill-danger{% endif %}">
-                                            Similitud IA: <strong>{{ v.similitud_vestimenta|floatformat:1 }}%</strong>
-                                        </span>
-                                        <span class="c-pill">Superior: {{ v.coincidencia_superior|floatformat:0 }}%</span>
-                                        <span class="c-pill">Inferior: {{ v.coincidencia_inferior|floatformat:0 }}%</span>
-                                    </div>
-                                    <div class="visita-belongings-preview">
-                                        📋 <em>{{ v.dictamen_ia|truncatechars:65|default:'Validación conforme' }}</em>
-                                    </div>
-                                </div>
-                                <div class="visita-action-arrow">🔍</div>
-                            </div>
-                        {% empty %}
-                            <div class="empty-col">Aún no se han registrado egresos de visitantes en este período.</div>
-                        {% endfor %}
+                        {% include 'accesos/partials/visitas_egresadas.html' %}
                     </div>
                 </div>
             </div>
@@ -847,6 +748,54 @@ function actualizarTemporizadoresVisitas() {
 setInterval(actualizarTemporizadoresVisitas, 1000);
 document.addEventListener('DOMContentLoaded', actualizarTemporizadoresVisitas);
 
+// AUTO-REFRESCO EN VIVO DE VISITAS (CADA 3 SEGUNDOS)
+async function refrescarVisitasEnVivo() {
+    try {
+        const selPeriodo = document.querySelector('select[name="periodo"]') || document.getElementById('select-periodo');
+        const periodo = selPeriodo ? selPeriodo.value : 'todo';
+        const res = await fetch(`{% url 'visitas_live_ajax' %}?periodo=${encodeURIComponent(periodo)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.success) {
+            const listIng = document.getElementById('lista-ingresados');
+            const listEgr = document.getElementById('lista-egresados');
+            if (listIng && data.ingresadas_html) listIng.innerHTML = data.ingresadas_html;
+            if (listEgr && data.egresadas_html) listEgr.innerHTML = data.egresadas_html;
+
+            const kpiIng = document.getElementById('kpi-ingresos-ext');
+            if (kpiIng) kpiIng.innerText = data.total_ingresos;
+            const kpiEgr = document.getElementById('kpi-egresos-ext');
+            if (kpiEgr) kpiEgr.innerText = data.total_egresos;
+            const kpiDen = document.getElementById('kpi-dentro-penal');
+            if (kpiDen) kpiDen.innerText = data.dentro_penal;
+
+            const cardDen = document.getElementById('card-dentro-penal');
+            const pillDen = document.getElementById('kpi-pill-dentro');
+            if (cardDen && pillDen) {
+                if (data.dentro_penal === 0) {
+                    cardDen.classList.remove('alerta-activa');
+                    pillDen.className = 'b-pill green';
+                    pillDen.innerHTML = '✅ Aforo Cuadrado';
+                } else {
+                    cardDen.classList.add('alerta-activa');
+                    pillDen.className = 'b-pill yellow';
+                    pillDen.innerHTML = `⚠️ Pendientes (${data.dentro_penal})`;
+                }
+            }
+
+            const cntExcedidos = document.getElementById('cnt-excedidos');
+            if (cntExcedidos) cntExcedidos.innerText = data.total_tiempo_excedido;
+
+            // Recalcular temporizadores en vivo de inmediato
+            actualizarTemporizadoresVisitas();
+        }
+    } catch(err) {
+        console.warn('Auto-refresco visitas en vivo:', err);
+    }
+}
+setInterval(refrescarVisitasEnVivo, 3000);
+
+
 // Sonido táctico de chime de megafonía
 function reproducirAlarmaTiempoExcedido() {
     try {
@@ -1224,10 +1173,44 @@ function enviarNuevoVisitante(e) {
     });
 }
 
+function verFotoAcceso(url, nombre, fecha, camara, vestimenta) {
+    if (!url) {
+        url = '/static/img/no-face.jpg';
+    }
+    const imgEl = document.getElementById('modal-acceso-img');
+    if (imgEl) imgEl.src = url;
+    
+    const nomEl = document.getElementById('modal-acceso-nombre');
+    if (nomEl) nomEl.textContent = nombre || 'Desconocido';
+    
+    const fecEl = document.getElementById('modal-acceso-fecha');
+    if (fecEl) fecEl.textContent = fecha || '';
+    
+    const camEl = document.getElementById('modal-acceso-camara');
+    if (camEl) camEl.textContent = camara || '';
+    
+    const vBox = document.getElementById('modal-acceso-vestimenta-box');
+    const vTxt = document.getElementById('modal-acceso-vestimenta');
+    if (vestimenta && vestimenta.trim()) {
+        if (vBox) vBox.style.display = 'block';
+        if (vTxt) vTxt.textContent = vestimenta;
+    } else {
+        if (vBox) vBox.style.display = 'none';
+    }
+    
+    const modalEl = document.getElementById('modal-foto-acceso');
+    if (modalEl) modalEl.style.display = 'flex';
+}
+
 function cerrarModales() {
-    document.getElementById('modal-ficha-visita').style.display = 'none';
-    document.getElementById('modal-nuevo-visitante').style.display = 'none';
-    document.getElementById('modal-megafonia').style.display = 'none';
+    const elFicha = document.getElementById('modal-ficha-visita');
+    if (elFicha) elFicha.style.display = 'none';
+    const elNuevo = document.getElementById('modal-nuevo-visitante');
+    if (elNuevo) elNuevo.style.display = 'none';
+    const elMega = document.getElementById('modal-megafonia');
+    if (elMega) elMega.style.display = 'none';
+    const elFoto = document.getElementById('modal-foto-acceso');
+    if (elFoto) elFoto.style.display = 'none';
 }
 
 // Cerrar con Escape
@@ -1237,5 +1220,30 @@ window.addEventListener('keydown', function(e) {
     }
 });
 </script>
+
+
+<!-- MODAL: ZOOM / DETALLE CAPTURA BIOMÉTRICA DE ACCESO -->
+<div class="modal-backdrop-custom" id="modal-foto-acceso" style="display: none; align-items: center; justify-content: center;" onclick="if(event.target === this) cerrarModales();">
+    <div class="modal-dialog-custom" style="max-width: 480px; width: 90%; text-align: center; border: 1px solid #334155;">
+        <div class="modal-header-custom" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; color: #f8fafc; font-weight: 700;">
+                <span>📸</span> Registro Fotográfico y Auditoría
+            </h3>
+            <button type="button" class="modal-close-btn" onclick="cerrarModales()" style="font-size: 22px; cursor: pointer; background: transparent; border: none; color: #94a3b8;">&times;</button>
+        </div>
+        <div class="modal-body-custom" style="padding: 18px;">
+            <div style="width: 100%; max-height: 420px; overflow: hidden; border-radius: 10px; background: #0f172a; margin-bottom: 14px; display: flex; align-items: center; justify-content: center; border: 1px solid #334155;">
+                <img id="modal-acceso-img" src="/static/img/no-face.jpg" alt="Foto Acceso" style="max-width: 100%; max-height: 420px; object-fit: contain; border-radius: 8px;">
+            </div>
+            <h4 id="modal-acceso-nombre" style="margin: 0 0 6px 0; font-size: 17px; color: #f8fafc; font-weight: 800;">---</h4>
+            <div style="font-size: 13px; color: #94a3b8; margin-bottom: 12px;">
+                <span id="modal-acceso-fecha">--:--</span> • <span id="modal-acceso-camara">Cámara</span>
+            </div>
+            <div id="modal-acceso-vestimenta-box" style="display: none; padding: 10px 14px; border-radius: 8px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); font-size: 13px; color: #93c5fd; font-weight: 600;">
+                <span id="modal-acceso-vestimenta">---</span>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

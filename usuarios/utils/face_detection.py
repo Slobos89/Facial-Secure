@@ -1,51 +1,30 @@
 import cv2
 import numpy as np
 from PIL import Image
+from usuarios.utils.deep_learning import DeepFaceEngine
+
 
 def detectar_y_recortar_rostro(image_pil):
     """
-    Detecta el rostro principal en una imagen PIL usando OpenCV Haar Cascades
-    con múltiples pasadas de sensibilidad y selección del rostro dominante.
+    Detecta el rostro principal en una imagen PIL usando el motor Deep Learning
+    OpenCV YuNet (DeepFaceEngine) y recorta la región facial con margen.
+    Si no detecta un rostro frontal estricto, aplica un recorte central de respaldo.
     """
+    if image_pil.mode != 'RGB':
+        image_pil = image_pil.convert('RGB')
+
     image_np = np.array(image_pil)
+    image_bgr = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
 
-    if len(image_np.shape) == 2:
-        gray = image_np
-    elif image_np.shape[2] == 4:
-        image_bgr = cv2.cvtColor(image_np, cv2.COLOR_RGBA2BGR)
-        gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-    else:
-        image_bgr = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
-        gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    faces = []
+    try:
+        engine = DeepFaceEngine.get_instance()
+        faces = engine.detect_faces(image_bgr)
+    except Exception as e:
+        print('Aviso YuNet en detectar_y_recortar_rostro:', e)
 
-    face_cascade = cv2.CascadeClassifier(
-        cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-    )
-
-    # 1. Pasada estándar
-    faces = face_cascade.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=4,
-        minSize=(40, 40)
-    )
-
-    # 2. Pasada de alta sensibilidad si no se detectó
-    if len(faces) == 0:
-        faces = face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.05,
-            minNeighbors=2,
-            minSize=(30, 30)
-        )
-
-    # 3. Pasada con cascade alt2 si aún no se detecta
-    if len(faces) == 0:
-        alt_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_alt2.xml')
-        faces = alt_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=2, minSize=(30, 30))
-
-    if len(faces) == 0:
-        # Fallback: Recorte central 60%
+    if faces is None or len(faces) == 0:
+        # Fallback: Recorte central 70%
         w_img, h_img = image_pil.size
         cx, cy = w_img // 2, h_img // 2
         crop_size = min(w_img, h_img) * 0.7
@@ -57,7 +36,8 @@ def detectar_y_recortar_rostro(image_pil):
         return rostro.resize((200, 200))
 
     # Seleccionar el rostro más grande / dominante
-    x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+    best_face = max(faces, key=lambda f: float(f[2]) * float(f[3]))
+    x, y, w, h = int(best_face[0]), int(best_face[1]), int(best_face[2]), int(best_face[3])
 
     padding_x = int(w * 0.25)
     padding_y = int(h * 0.35)
@@ -66,6 +46,9 @@ def detectar_y_recortar_rostro(image_pil):
     y1 = max(0, y - padding_y)
     x2 = min(image_pil.width, x + w + padding_x)
     y2 = min(image_pil.height, y + h + padding_y)
+
+    if x2 <= x1 or y2 <= y1:
+        return image_pil.resize((200, 200))
 
     rostro = image_pil.crop((x1, y1, x2, y2))
     return rostro.resize((200, 200))

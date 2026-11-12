@@ -380,3 +380,24 @@
         text-align: center;
         color: #64748b;
     }
+
+
+    /* BARRA SUPERIOR DE FILTROS (HOMOLOGADA CON EL DASHBOARD) */
+    .top-controls-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #ffffff;
+        padding: 12px 20px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .top-controls-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
