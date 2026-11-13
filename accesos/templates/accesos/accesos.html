@@ -432,10 +432,54 @@ Control y Registro de Accesos | facIAL Secure
                 </div>
             </div>
 
-            <!-- FORMULARIO EDITABLE DE VESTIMENTA Y PERTENENCIAS -->
+            <!-- FORMULARIO EDITABLE: ASIGNACIÓN DE INTERNO Y DECLARACIÓN DE ATUENDO -->
             <form id="form-pertenencias-visita" onsubmit="event.preventDefault(); guardarPertenenciasVisita();">
                 <input type="hidden" id="modal-v-id" value="">
                 
+                <!-- SECCIÓN ASIGNACIÓN DE INTERNO A VISITAR -->
+                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #0284c7; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="margin: 0; font-size: 13px; font-weight: 800; color: #0369a1; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
+                            <span>🎯</span> Asignación de Interno a Visitar (Control de Guardia)
+                        </h4>
+                        <span id="modal-v-asignacion-status" style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #fef08a; color: #854d0e;">
+                            ⏳ En Espera de Asignación
+                        </span>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group-custom">
+                            <label style="font-weight: 700; color: #1e293b;">Seleccionar Interno (PPL)</label>
+                            <select class="form-input-custom" id="modal-v-interno-select" onchange="alSeleccionarInterno(this)">
+                                <option value="">-- Seleccionar Interno a Visitar --</option>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label style="font-weight: 700; color: #1e293b;">Pabellón / Módulo Asignado</label>
+                            <input type="text" class="form-input-custom" id="modal-v-modulo-input" placeholder="Ej: Pabellón A (Alta Seguridad)">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2" style="margin-top: 8px;">
+                        <div class="form-group-custom">
+                            <label style="font-weight: 700; color: #1e293b;">Vínculo / Parentesco Declarado</label>
+                            <select class="form-input-custom" id="modal-v-parentesco-select">
+                                <option value="Familiar Directo (Cónyuge / Pareja)">Familiar Directo (Cónyuge / Pareja)</option>
+                                <option value="Familiar Directo (Madre / Padre)">Familiar Directo (Madre / Padre)</option>
+                                <option value="Familiar Directo (Hijo / Hija)">Familiar Directo (Hijo / Hija)</option>
+                                <option value="Familiar Indirecto (Hermano / Hermana)">Familiar Indirecto (Hermano / Hermana)</option>
+                                <option value="Familiar Indirecto (Tío / Primo / Otro)">Familiar Indirecto (Tío / Primo / Otro)</option>
+                                <option value="Abogado Defensor / Jurídico">Abogado Defensor / Jurídico</option>
+                                <option value="Visita de Amistad / General">Visita de Amistad / General</option>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label style="font-weight: 700; color: #1e293b;">Nombre Manual (Si no figura en lista)</label>
+                            <input type="text" class="form-input-custom" id="modal-v-interno-manual" placeholder="Escribir nombre si no está en la lista..." oninput="alEscribirInternoManual(this)">
+                        </div>
+                    </div>
+                </div>
+
                 <h4 style="margin: 0 0 10px 0; font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase;">
                     📦 Declaración de Indumentaria y Pertenencias
                 </h4>
@@ -983,7 +1027,10 @@ function verFichaVisita(id) {
             const btnParlante = document.getElementById('btn-parlante-modal');
 
             if (!v.ha_egresado) {
-                if (v.tiempo_excedido) {
+                if (v.estado === 'EN_ESPERA' || v.interno === 'Por asignar en guardia') {
+                    badgeCont.innerHTML = `<span class="tag-status" style="font-size:12px; padding:4px 10px; background:#fef08a; color:#854d0e; border:1px solid #facc15;">⏳ En Espera (Por Asignar)</span>`;
+                    if (btnParlante) btnParlante.style.display = 'none';
+                } else if (v.tiempo_excedido) {
                     badgeCont.innerHTML = `<span class="tag-status badge-alerta-ropa" style="font-size:12px; padding:4px 10px;">🚨 Tiempo Excedido (3h)</span>`;
                     if (btnParlante) btnParlante.style.display = 'inline-block';
                 } else {
@@ -1041,6 +1088,50 @@ function verFichaVisita(id) {
             scoreSup.innerText = `${Math.round(v.coincidencia_superior)}%`;
             scoreInf.innerText = `${Math.round(v.coincidencia_inferior)}%`;
 
+            // Asignación de Interno (Selector dinámico)
+            const selectInterno = document.getElementById('modal-v-interno-select');
+            selectInterno.innerHTML = '<option value="">-- Seleccionar Interno a Visitar --</option>';
+
+            let internoEncontradoEnLista = false;
+            if (data.internos_disponibles && data.internos_disponibles.length > 0) {
+                data.internos_disponibles.forEach(inp => {
+                    const opt = document.createElement('option');
+                    opt.value = inp.nombre_completo;
+                    opt.dataset.modulo = inp.modulo;
+                    opt.innerText = `${inp.nombre_completo} (${inp.modulo})`;
+                    if (v.interno && v.interno.toLowerCase() === inp.nombre_completo.toLowerCase()) {
+                        opt.selected = true;
+                        internoEncontradoEnLista = true;
+                    }
+                    selectInterno.appendChild(opt);
+                });
+            }
+
+            document.getElementById('modal-v-modulo-input').value = v.modulo_interno || '';
+            if (v.parentesco) {
+                const parentescoSel = document.getElementById('modal-v-parentesco-select');
+                for (let i = 0; i < parentescoSel.options.length; i++) {
+                    if (parentescoSel.options[i].value.toLowerCase().includes(v.parentesco.toLowerCase()) || 
+                        v.parentesco.toLowerCase().includes(parentescoSel.options[i].value.toLowerCase())) {
+                        parentescoSel.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            document.getElementById('modal-v-interno-manual').value = (!internoEncontradoEnLista && v.interno && v.interno !== 'Por asignar en guardia') ? v.interno : '';
+
+            const asigStatus = document.getElementById('modal-v-asignacion-status');
+            if (v.interno && v.interno !== 'Por asignar en guardia' && v.estado !== 'EN_ESPERA') {
+                asigStatus.style.background = '#dcfce7';
+                asigStatus.style.color = '#15803d';
+                asigStatus.innerHTML = '✅ Interno Asignado';
+            } else {
+                asigStatus.style.background = '#fef08a';
+                asigStatus.style.color = '#854d0e';
+                asigStatus.innerHTML = '⏳ En Espera de Asignación';
+            }
+
             // Formulario de pertenencias
             document.getElementById('modal-v-prenda-sup').value = v.prenda_superior;
             document.getElementById('modal-v-color-sup').value = v.color_superior;
@@ -1058,11 +1149,34 @@ function verFichaVisita(id) {
         });
 }
 
-// GUARDAR PERTENENCIAS Y ATUENDO
+function alSeleccionarInterno(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    if (opt && opt.dataset.modulo) {
+        document.getElementById('modal-v-modulo-input').value = opt.dataset.modulo;
+        document.getElementById('modal-v-interno-manual').value = '';
+        document.getElementById('modal-v-interno').innerText = opt.value;
+    }
+}
+
+function alEscribirInternoManual(input) {
+    if (input.value.trim()) {
+        document.getElementById('modal-v-interno-select').value = '';
+        document.getElementById('modal-v-interno').innerText = input.value.trim();
+    }
+}
+
+// GUARDAR PERTENENCIAS, ASIGNACIÓN DE INTERNO Y ATUENDO
 function guardarPertenenciasVisita() {
     if (!currentVisitaId) return;
 
+    const selInterno = document.getElementById('modal-v-interno-select').value;
+    const manInterno = document.getElementById('modal-v-interno-manual').value.trim();
+    const finalInterno = selInterno || manInterno;
+
     const formData = new FormData();
+    formData.append('interno_a_visitar', finalInterno);
+    formData.append('modulo_interno', document.getElementById('modal-v-modulo-input').value.trim());
+    formData.append('parentesco_o_motivo', document.getElementById('modal-v-parentesco-select').value);
     formData.append('prenda_superior', document.getElementById('modal-v-prenda-sup').value);
     formData.append('color_superior', document.getElementById('modal-v-color-sup').value);
     formData.append('prenda_inferior', document.getElementById('modal-v-prenda-inf').value);
@@ -1078,7 +1192,7 @@ function guardarPertenenciasVisita() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert('✅ Pertenencias y descripción de vestimenta guardadas correctamente.');
+            alert('✅ Asignación de interno y atuendo guardadas correctamente.');
             location.reload();
         } else {
             alert('Error: ' + data.error);

@@ -15,16 +15,23 @@
                 <h4>{{ v.nombre_visitante }}</h4>
                 <div class="visita-estado-container">
                     {% if not v.ha_egresado %}
-                        <span class="tag-status badge-en-recinto">🏢 En Recinto</span>
-                        <!-- CUENTA ATRÁS DE 3 HORAS DEBAJO DEL ICONO -->
-                        <span class="tag-timer timer-cuenta-atras" 
-                              id="timer-visita-{{ v.id }}"
-                              data-ingreso="{{ v.fecha_ingreso|date:'c' }}"
-                              data-visita-id="{{ v.id }}"
-                              data-nombre="{{ v.nombre_visitante }}"
-                              data-interno="{{ v.interno_a_visitar|default:'Interno' }}">
-                            ⏳ 03:00:00
-                        </span>
+                        {% if v.estado == 'EN_ESPERA' or v.interno_a_visitar == 'Por asignar en guardia' %}
+                            <span class="tag-status badge-en-espera" style="background: #fef08a; color: #854d0e; border: 1px solid #facc15;">⏳ En Espera</span>
+                            <span style="font-size: 10px; color: #b45309; font-weight: 700; margin-top: 2px;">
+                                ⚠️ Asignar Interno
+                            </span>
+                        {% else %}
+                            <span class="tag-status badge-en-recinto">🏢 En Recinto</span>
+                            <!-- CUENTA ATRÁS DE 3 HORAS DEBAJO DEL ICONO -->
+                            <span class="tag-timer timer-cuenta-atras" 
+                                  id="timer-visita-{{ v.id }}"
+                                  data-ingreso="{{ v.fecha_ingreso|date:'c' }}"
+                                  data-visita-id="{{ v.id }}"
+                                  data-nombre="{{ v.nombre_visitante }}"
+                                  data-interno="{{ v.interno_a_visitar|default:'Interno' }}">
+                                ⏳ 03:00:00
+                            </span>
+                        {% endif %}
                     {% else %}
                         <span class="tag-status badge-egreso-ok">✅ Egresó</span>
                         <span style="font-size: 10px; color: #15803d; font-weight: 700; margin-top: 2px;">
@@ -36,7 +43,9 @@
             <div class="visita-meta">
                 <span>RUT: {{ v.rut_visitante|default:'---' }}</span> • 
                 <span>🕒 Entrada: {{ v.fecha_ingreso|date:"H:i" }}</span> •
-                <span style="color:#0284c7;">Visita a: {{ v.interno_a_visitar|default:'Interno'|truncatechars:18 }}</span>
+                <span style="color:{% if v.interno_a_visitar == 'Por asignar en guardia' %}#d97706; font-weight:700;{% else %}#0284c7;{% endif %}">
+                    Visita a: {{ v.interno_a_visitar|default:'Por asignar'|truncatechars:22 }}
+                </span>
             </div>
             <div class="visita-clothing-pills">
                 <span class="c-pill">👕 {{ v.color_superior|default:'Superior' }} ({{ v.prenda_superior|default:'Ropa'|truncatechars:16 }})</span>

@@ -6,7 +6,8 @@ from django.template.loader import render_to_string
 from django.http import JsonResponse, HttpResponse
 from django.utils.timezone import now
 from django.utils import timezone
-from django.db.models import Q
+from django.db import models
+from django.db.models import Q, F
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 
@@ -102,8 +103,8 @@ def accesos(request):
 
     tasa_retorno = round((total_egresos_ext / total_ingresos_ext * 100), 1) if total_ingresos_ext > 0 else 100.0
 
-    # Personas ingresadas (columna izquierda)
-    visitas_ingresadas = list(visitas_qs.order_by('-fecha_ingreso')[:25])
+    # Personas ingresadas (columna izquierda: prioriza los que siguen adentro en el recinto)
+    visitas_ingresadas = list(visitas_qs.order_by(models.F('fecha_egreso').asc(nulls_first=True), '-fecha_ingreso')[:25])
     # Personas egresadas (columna derecha)
     visitas_egresadas = list(visitas_qs.filter(fecha_egreso__isnull=False).order_by('-fecha_egreso')[:25])
 
@@ -223,7 +224,7 @@ def visitas_live_ajax(request):
     dentro_penal = max(0, total_ingresos - total_egresos)
     alertas_vestimenta = visitas_qs.filter(alerta_vestimenta=True).count()
 
-    visitas_ingresadas = list(visitas_qs.order_by('-fecha_ingreso')[:25])
+    visitas_ingresadas = list(visitas_qs.order_by(models.F('fecha_egreso').asc(nulls_first=True), '-fecha_ingreso')[:25])
     visitas_egresadas = list(visitas_qs.filter(fecha_egreso__isnull=False).order_by('-fecha_egreso')[:25])
     visitas_tiempo_excedido = [v for v in visitas_ingresadas if not v.ha_egresado and v.tiempo_excedido]
     total_tiempo_excedido = len(visitas_tiempo_excedido)
@@ -265,12 +266,38 @@ def visita_detalle_json(request, visita_id):
 
         tiempo_limite_str = visita.tiempo_limite.strftime('%d/%m/%Y %H:%M:%S') if visita.tiempo_limite else None
 
+        from usuarios.models import Persona
+        internos_qs = Persona.objects.filter(tipo_persona='interno').order_by('nombre', 'apellido')
+        
+        modulo_map = {
+            'kevin': 'Pabellón A (Alta Seguridad)',
+            'bastian': 'Pabellón B (Mediana Seguridad)',
+            'bastián': 'Pabellón B (Mediana Seguridad)',
+            'jonathan': 'Pabellón C (Baja Seguridad)',
+            'hector': 'Pabellón A (Alta Seguridad)',
+            'héctor': 'Pabellón A (Alta Seguridad)',
+            'alexis': 'Pabellón B (Mediana Seguridad)',
+        }
+        
+        internos_lista = []
+        for inp in internos_qs:
+            nom_c = f"{inp.nombre} {inp.apellido}".strip()
+            first_n = inp.nombre.strip().lower()
+            mod_asig = modulo_map.get(first_n, 'Pabellón General')
+            internos_lista.append({
+                'id': inp.id,
+                'nombre_completo': nom_c,
+                'rut': inp.rut or '',
+                'modulo': mod_asig
+            })
+
         data = {
             'id': visita.id,
             'nombre': visita.nombre_visitante,
             'rut': visita.rut_visitante or '---',
             'telefono': visita.telefono or '---',
-            'interno': visita.interno_a_visitar or 'No especificado',
+            'interno': visita.interno_a_visitar or 'Por asignar en guardia',
+            'modulo_interno': getattr(visita, 'modulo_interno', '') or 'Pabellón General',
             'parentesco': visita.parentesco_o_motivo or 'Visita general',
             'fecha_ingreso': visita.fecha_ingreso.strftime('%d/%m/%Y %H:%M:%S'),
             'puerta_ingreso': visita.puerta_ingreso,
@@ -300,7 +327,11 @@ def visita_detalle_json(request, visita_id):
             'tiempo_excedido': visita.tiempo_excedido,
             'aviso_parlante_emitido': visita.aviso_parlante_emitido
         }
-        return JsonResponse({'success': True, 'visita': data})
+        return JsonResponse({
+            'success': True,
+            'visita': data,
+            'internos_disponibles': internos_lista
+        })
     except VisitaExterna.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Visita externa no encontrada'}, status=404)
 
@@ -308,10 +339,28 @@ def visita_detalle_json(request, visita_id):
 @csrf_exempt
 @login_required
 def visita_guardar_pertenencias(request, visita_id):
-    """Permite al guardia actualizar la descripción de vestimenta y pertenencias en vivo."""
+    """Permite al guardia actualizar la descripción de vestimenta, pertenencias y asignación de interno."""
     if request.method == 'POST':
         try:
             visita = VisitaExterna.objects.get(id=visita_id)
+            
+            # Asignación de Interno a visitar
+            nuevo_interno = request.POST.get('interno_a_visitar', '').strip()
+            if nuevo_interno:
+                visita.interno_a_visitar = nuevo_interno
+            
+            nuevo_modulo = request.POST.get('modulo_interno', '').strip()
+            if nuevo_modulo:
+                visita.modulo_interno = nuevo_modulo
+                
+            nuevo_parentesco = request.POST.get('parentesco_o_motivo', '').strip()
+            if nuevo_parentesco:
+                visita.parentesco_o_motivo = nuevo_parentesco
+
+            # Si estaba en espera y ahora se asignó a un interno válido, pasa a EN_RECINTO
+            if (visita.estado == 'EN_ESPERA' or not visita.estado) and visita.interno_a_visitar and visita.interno_a_visitar != 'Por asignar en guardia':
+                visita.estado = 'EN_RECINTO'
+                
             visita.prenda_superior = request.POST.get('prenda_superior', visita.prenda_superior).strip()
             visita.color_superior = request.POST.get('color_superior', visita.color_superior).strip()
             visita.prenda_inferior = request.POST.get('prenda_inferior', visita.prenda_inferior).strip()
@@ -320,7 +369,13 @@ def visita_guardar_pertenencias(request, visita_id):
             visita.pertenencias_declaradas = request.POST.get('pertenencias', visita.pertenencias_declaradas).strip()
             visita.observaciones_guardia = request.POST.get('observaciones', visita.observaciones_guardia).strip()
             visita.save()
-            return JsonResponse({'success': True, 'mensaje': 'Pertenencias y atuendo actualizados correctamente.'})
+            return JsonResponse({
+                'success': True,
+                'mensaje': 'Pertenencias y asignación de interno guardadas correctamente.',
+                'estado': visita.estado,
+                'interno': visita.interno_a_visitar,
+                'modulo': visita.modulo_interno
+            })
         except VisitaExterna.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Visita no encontrada'}, status=404)
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)

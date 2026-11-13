@@ -12,6 +12,7 @@ class VisitaExterna(models.Model):
     Incluye temporizador reglamentario de 3 horas de permanencia máxima.
     """
     ESTADOS_VISITA = [
+        ('EN_ESPERA', 'En Espera (Asignación de Interno en Guardia)'),
         ('EN_RECINTO', 'En Recinto (Pendiente de Salida)'),
         ('TIEMPO_EXCEDIDO', 'Alerta: Tiempo de Visita Excedido (3 Horas)'),
         ('FINALIZADA', 'Finalizada (Egresó - Conforme)'),
@@ -303,7 +304,7 @@ def sincronizar_visita_externa_desde_acceso(acceso, usuario=None, frame=None, an
             color_inferior=col_inf,
             descripcion_general=f"IA Pórtico: {resumen_ia}",
             dictamen_ia=f"IA Pórtico: {resumen_ia}",
-            estado='EN_RECINTO',
+            estado='EN_ESPERA',
             registrado_por=usuario if (usuario and getattr(usuario, 'is_authenticated', False)) else None
         )
 
