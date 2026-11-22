@@ -58,10 +58,11 @@ body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: #f1f5f9;
     color: var(--text-primary);
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    min-width: 1200px;
 }
 
 /* Scrollbars personalizados */
@@ -90,6 +91,8 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    min-width: 1200px;
+    width: 100%;
 }
 
 .main-layout {
