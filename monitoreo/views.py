@@ -16,7 +16,7 @@ from django.contrib.auth.decorators import login_required
 from usuarios.utils.security import encrypt_bytes
 from usuarios.utils.deep_learning import DeepFaceEngine
 from usuarios.utils.camera_discovery import scan_all_cameras, test_camera_connection
-from facial_secure.ip_camera import YooseeIPCamera
+from facial_secure.ip_camera import CameraStreamManager, YooseeIPCamera
 from django.utils import timezone
 from .models import ProtocoloLockdown
 from modelo.detector_accesorios import detectar_accesorios_prohibidos
@@ -80,7 +80,7 @@ def get_shared_ip_camera(cam_id=None, force_restart=False):
             del _camera_instances[key]
 
         if key not in _camera_instances or not _camera_instances[key].running:
-            _camera_instances[key] = YooseeIPCamera(
+            _camera_instances[key] = CameraStreamManager(
                 tipo=cfg.tipo,
                 ip=cfg.ip,
                 user=cfg.usuario,
@@ -125,7 +125,7 @@ def generar_frame_standby(nombre_cam, cfg=None):
     t_mod = (int(time.time() * 3) % 4)
     puntos = "." * (t_mod + 1)
 
-    if cfg and cfg.tipo == 'ip_yoosee':
+    if cfg and cfg.tipo in ['ip_camera', 'ip_yoosee']:
         url_info = f"rtsp://{cfg.ip}:{cfg.puerto_rtsp}/{cfg.stream}"
         cv2.putText(frame, f"ORIGEN: {url_info}", (35, 140),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.50, (200, 200, 200), 1)
@@ -171,6 +171,8 @@ def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
     else:
         nombre_cam_registrado = nombre_cam
     cam_pk = cfg.id if cfg else 0
+    standby_count = 0
+    is_cloud = bool(os.environ.get('RENDER') or 'render.com' in os.environ.get('DATABASE_URL', ''))
 
     while True:
         cam = get_shared_ip_camera(cam_id=cam_pk)
@@ -179,13 +181,24 @@ def generar_stream_con_reconocimiento(cam_id=None, flujo=None):
             ret, frame = cam.get_latest_frame()
 
         if not ret or frame is None:
+            standby_count += 1
+            # En la nube (Render) evitar colgar el worker sincrónico de Gunicorn indefinidamente
+            if is_cloud and standby_count > 120:
+                frame = generar_frame_standby(nombre_cam, cfg)
+                _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+                break
+
             # Enviar frame de espera dinámico y táctico para informar al usuario en tiempo real
             frame = generar_frame_standby(nombre_cam, cfg)
             _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
-            yield (b'--frame\\r\\n'
-                   b'Content-Type: image/jpeg\\r\\n\\r\\n' + jpeg.tobytes() + b'\\r\\n')
-            time.sleep(0.08)
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+            time.sleep(0.12 if is_cloud else 0.08)
             continue
+
+        standby_count = 0
 
         frame_count += 1
         h, w = frame.shape[:2]
@@ -813,22 +826,22 @@ def asignar_camara_ajax(request):
             except Exception:
                 data = request.POST
 
-            tipo = data.get('tipo', 'ip_yoosee')
-            if tipo == 'ip':
-                tipo = 'ip_yoosee'
+            tipo = data.get('tipo', 'webcam')
+            if tipo in ['ip', 'ip_yoosee', 'ip_camera']:
+                tipo = 'ip_camera'
             nombre = (data.get('nombre') or '').strip()
             if not nombre:
-                nombre = 'Cámara IP' if tipo == 'ip_yoosee' else 'Webcam Local'
+                nombre = 'Cámara IP' if tipo == 'ip_camera' else 'Webcam Local'
             ip = (data.get('ip') or '').strip()
             puerto_onvif = int(data.get('puerto_onvif') or 5000)
             puerto_rtsp = int(data.get('puerto_rtsp') or 554)
             usuario = (data.get('usuario') or 'admin').strip()
-            password = (data.get('password') or 'admin12345').strip()
-            stream = (data.get('stream') or 'onvif2').strip()
+            password = (data.get('password') or '').strip()
+            stream = (data.get('stream') or '').strip()
             webcam_index = int(data.get('webcam_index') or 0)
 
             # Buscar si ya existe para actualizar o crear nueva
-            if tipo == 'ip_yoosee':
+            if tipo in ['ip_camera', 'ip_yoosee']:
                 cam = ConfiguracionCamara.objects.filter(ip=ip).first()
                 if not cam:
                     cam = ConfiguracionCamara(ip=ip)

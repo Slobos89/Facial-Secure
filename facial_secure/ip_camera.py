@@ -6,18 +6,18 @@ import os
 from usuarios.utils.camera_discovery import SuppressStderr
 
 
-class YooseeIPCamera:
+class CameraStreamManager:
     """
-    Controlador de video en tiempo real de ALTA DISPONIBILIDAD para Cámaras IP (ONVIF/H.265)
-    y Webcams Locales USB con captura desacoplada en segundo plano (Producer-Consumer).
+    Controlador de video en tiempo real de ALTA DISPONIBILIDAD para Webcams Locales USB
+    y Cámaras IP de Red (RTSP / ONVIF) con captura desacoplada en segundo plano.
     """
-    def __init__(self, tipo="ip_yoosee", ip="192.168.100.34", user="admin", password="admin12345", proxy_port=8554, stream="onvif2", webcam_index=0):
-        self.tipo = tipo
-        self.ip = ip or "192.168.100.34"
+    def __init__(self, tipo="webcam", ip="", user="admin", password="", proxy_port=8554, stream="", webcam_index=0):
+        self.tipo = tipo or "webcam"
+        self.ip = (ip or "").strip()
         self.user = user or "admin"
-        self.password = password or "admin12345"
+        self.password = password or ""
         self.proxy_port = proxy_port
-        self.stream = stream or "onvif2"
+        self.stream = stream or ""
         self.webcam_index = int(webcam_index or 0)
         
         self.proxy_server = None
@@ -28,7 +28,7 @@ class YooseeIPCamera:
         self.frame_lock = threading.Lock()
         self.active_cap = None
         
-        if self.tipo == 'ip_yoosee':
+        if self.tipo in ['ip_camera', 'ip_yoosee', 'ip']:
             self._start_relay_proxy()
             self.worker_thread = threading.Thread(target=self._capture_worker_ip, daemon=True)
         else:
@@ -37,6 +37,11 @@ class YooseeIPCamera:
         self.worker_thread.start()
 
     def _start_relay_proxy(self):
+        # En la nube no levantar proxy local si la IP es privada
+        is_cloud = bool(os.environ.get('RENDER') or 'render.com' in os.environ.get('DATABASE_URL', ''))
+        if is_cloud and (not self.ip or self.ip.startswith(('192.168.', '10.', '172.', '127.'))):
+            return
+
         try:
             self.proxy_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.proxy_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -50,7 +55,7 @@ class YooseeIPCamera:
             threading.Thread(target=self._proxy_loop, daemon=True).start()
             time.sleep(0.3)
         except Exception as e:
-            print(f"[YooseeIPCamera] Error en proxy: {e}")
+            print(f"[CameraStream] Error en proxy local: {e}")
 
     def _proxy_loop(self):
         while self.running:
@@ -63,7 +68,7 @@ class YooseeIPCamera:
     def _handle_client(self, client_sock):
         try:
             camera_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            camera_sock.settimeout(4.0)
+            camera_sock.settimeout(3.0)
             camera_sock.connect((self.ip, 554))
         except Exception:
             try:
@@ -93,15 +98,22 @@ class YooseeIPCamera:
         threading.Thread(target=forward, args=(camera_sock, client_sock, True), daemon=True).start()
 
     def _capture_worker_ip(self):
+        is_cloud = bool(os.environ.get('RENDER') or 'render.com' in os.environ.get('DATABASE_URL', ''))
+        if is_cloud and (not self.ip or self.ip.startswith(('192.168.', '10.', '172.', '127.'))):
+            print(f"[CameraStream] Entorno Cloud (Render): omitiendo conexión a IP privada ({self.ip or 'no configurada'}).")
+            while self.running:
+                time.sleep(10.0)
+            return
+
         from urllib.parse import quote
         os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|analyzeduration;500000|probesize;500000|fflags;nobuffer|flags;low_delay"
         safe_user = quote(str(self.user), safe="")
         safe_pass = quote(str(self.password), safe="")
-        clean_stream = str(self.stream or "onvif2").lstrip("/")
+        clean_stream = str(self.stream or "").lstrip("/")
         url = f"rtsp://{safe_user}:{safe_pass}@127.0.0.1:{self.proxy_port}/{clean_stream}"
         
         while self.running:
-            print(f"[YooseeIPCamera] Conectando worker a stream IP ({self.ip}/{self.stream})...")
+            print(f"[CameraStream] Conectando worker a stream IP ({self.ip}/{self.stream})...")
             cap = None
             try:
                 cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
@@ -126,16 +138,16 @@ class YooseeIPCamera:
                         else:
                             consecutive_failures += 1
                     except (cv2.error, Exception) as stream_err:
-                        print(f"[YooseeIPCamera] Error en captura RTSP: {stream_err}")
+                        print(f"[CameraStream] Error en captura RTSP: {stream_err}")
                         consecutive_failures += 1
                     
-                    if consecutive_failures > 250:
-                        print("[YooseeIPCamera] Pérdida de señal RTSP prolongada (>4s sin frames). Reconectando...")
+                    if consecutive_failures > 150:
+                        print("[CameraStream] Pérdida de señal RTSP prolongada. Reconectando...")
                         break
                     
                     time.sleep(0.018)
             except (cv2.error, Exception) as e:
-                print(f"[YooseeIPCamera] Excepción en conexión IP: {e}")
+                print(f"[CameraStream] Excepción en conexión IP: {e}")
             finally:
                 if cap is not None:
                     try:
@@ -146,11 +158,19 @@ class YooseeIPCamera:
                     self.active_cap = None
             
             if self.running:
-                time.sleep(1.0)
+                time.sleep(2.0)
 
     def _capture_worker_webcam(self):
+        is_cloud = bool(os.environ.get('RENDER') or 'render.com' in os.environ.get('DATABASE_URL', ''))
+        if is_cloud:
+            # En servidores cloud Linux sin hardware de video, no intentar abrir /dev/video0
+            print(f"[CameraStream] Entorno Cloud (Render): Dispositivo USB de servidor no aplicable. El streaming se realiza vía cliente web.")
+            while self.running:
+                time.sleep(10.0)
+            return
+
         while self.running:
-            print(f"[YooseeIPCamera] Abriendo webcam local #{self.webcam_index}...")
+            print(f"[CameraStream] Abriendo webcam local #{self.webcam_index}...")
             cap = None
             try:
                 with SuppressStderr():
@@ -168,8 +188,8 @@ class YooseeIPCamera:
                     self.active_cap = cap
                 
                 if not cap.isOpened():
-                    print(f"[YooseeIPCamera] Webcam #{self.webcam_index} no disponible o bloqueada. Reintentando...")
-                    time.sleep(2.0)
+                    print(f"[CameraStream] Webcam #{self.webcam_index} no disponible o ocupada. Reintentando...")
+                    time.sleep(3.0)
                     continue
                 
                 while self.running and cap.isOpened():
@@ -182,12 +202,12 @@ class YooseeIPCamera:
                         else:
                             time.sleep(0.05)
                     except (cv2.error, Exception) as read_err:
-                        print(f"[YooseeIPCamera] Error leyendo fotograma webcam: {read_err}")
+                        print(f"[CameraStream] Error leyendo fotograma webcam: {read_err}")
                         time.sleep(0.1)
                         break
                     time.sleep(0.02)
             except (cv2.error, Exception) as e:
-                print(f"[YooseeIPCamera] Excepción abriendo webcam #{self.webcam_index}: {e}")
+                print(f"[CameraStream] Excepción abriendo webcam #{self.webcam_index}: {e}")
             finally:
                 if cap is not None:
                     try:
@@ -198,7 +218,7 @@ class YooseeIPCamera:
                     self.active_cap = None
             
             if self.running:
-                time.sleep(1.0)
+                time.sleep(2.0)
 
     def get_latest_frame(self, max_age_seconds=2.5):
         """Retorna instantáneamente el último frame válido en memoria de forma thread-safe."""
@@ -223,3 +243,7 @@ class YooseeIPCamera:
                 self.proxy_server.close()
             except Exception:
                 pass
+
+
+# Alias de compatibilidad hacia atrás
+YooseeIPCamera = CameraStreamManager

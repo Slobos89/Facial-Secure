@@ -118,7 +118,7 @@ def discover_onvif_cameras(timeout=1.5):
                 es_hikvision = ('hikvision' in text.lower()) or ('8000' in text)
                 cameras.append({
                     'id': f'ip_{ip.replace(".", "_")}',
-                    'tipo': 'ip_yoosee',
+                    'tipo': 'ip_camera',
                     'nombre': f'Cámara IP Hikvision ({ip})' if es_hikvision else f'Cámara IP ONVIF ({ip})',
                     'ip': ip,
                     'puerto_onvif': 80 if es_hikvision else port_onvif,
@@ -175,7 +175,7 @@ def probe_single_ip(ip):
     es_hikvision = (8000 in open_ports)
     return {
         'id': f'ip_{ip.replace(".", "_")}',
-        'tipo': 'ip_yoosee',
+        'tipo': 'ip_camera',
         'nombre': f'Cámara IP Hikvision ({ip})' if es_hikvision else f'Cámara Wi-Fi / IP ({ip})',
         'ip': ip,
         'puerto_onvif': 80 if es_hikvision else onvif_port,

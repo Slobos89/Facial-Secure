@@ -180,7 +180,7 @@ Editar Usuario - {{ persona.nombre }} {{ persona.apellido }} | facIAL Secure
                         <optgroup label="📡 Cámaras Asignadas en Servidor / Red IP" id="optgroup-server-cams">
                             {% for c in camaras %}
                                 <option value="server:{{ c.id }}">
-                                    {{ c.nombre }} ({% if c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
+                                    {{ c.nombre }} ({% if c.tipo == 'ip_camera' or c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
                                 </option>
                             {% endfor %}
                         </optgroup>

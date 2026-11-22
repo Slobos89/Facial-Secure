@@ -1,3 +1,4 @@
+import os
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -331,18 +332,19 @@ class HuellaDactilar(models.Model):
 
 class ConfiguracionCamara(models.Model):
     TIPOS = [
-        ('ip_yoosee', 'Cámara IP (ONVIF / RTSP)'),
         ('webcam', 'Webcam Local (USB / Integrada)'),
+        ('ip_camera', 'Cámara IP (ONVIF / RTSP)'),
+        ('ip_yoosee', 'Cámara IP (Legacy)'),
     ]
 
-    nombre = models.CharField(max_length=120, default="Cámara Principal (IP Yoosee)")
-    tipo = models.CharField(max_length=20, choices=TIPOS, default='ip_yoosee')
-    ip = models.CharField(max_length=50, default='192.168.100.34', blank=True, null=True)
+    nombre = models.CharField(max_length=120, default="Webcam Local (Dispositivo #0)")
+    tipo = models.CharField(max_length=20, choices=TIPOS, default='webcam')
+    ip = models.CharField(max_length=50, default='', blank=True, null=True)
     puerto_onvif = models.IntegerField(default=5000)
     puerto_rtsp = models.IntegerField(default=554)
     usuario = models.CharField(max_length=50, default='admin', blank=True)
-    password = models.CharField(max_length=100, default='admin12345', blank=True)
-    stream = models.CharField(max_length=50, default='onvif2', blank=True)
+    password = models.CharField(max_length=100, default='', blank=True)
+    stream = models.CharField(max_length=50, default='', blank=True)
     webcam_index = models.IntegerField(default=0)
     activa = models.BooleanField(default=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
@@ -352,20 +354,38 @@ class ConfiguracionCamara(models.Model):
         verbose_name_plural = "Configuraciones de Cámara"
 
     def __str__(self):
-        if self.tipo == 'ip_yoosee':
+        if self.tipo in ['ip_camera', 'ip_yoosee']:
             return f"{self.nombre} [{self.ip}]"
         return f"{self.nombre} [Dispositivo #{self.webcam_index}]"
 
     @classmethod
     def get_activa(cls, cam_id=None):
+        is_cloud = bool(os.environ.get('RENDER') or 'render.com' in os.environ.get('DATABASE_URL', ''))
         if cam_id:
             try:
                 cam = cls.objects.filter(id=cam_id).first()
                 if cam:
-                    return cam
+                    # En la nube nunca ruteamos IPs privadas de red local
+                    if is_cloud and cam.tipo in ['ip_camera', 'ip_yoosee'] and cam.ip and cam.ip.startswith(('192.168.', '10.', '172.')):
+                        pass
+                    else:
+                        return cam
             except Exception:
                 pass
-        cam = cls.objects.filter(activa=True).order_by('-fecha_actualizacion').first()
+        
+        # Preferir webcam activa
+        qs = cls.objects.filter(activa=True)
+        if is_cloud:
+            qs = qs.exclude(ip__startswith='192.168.').exclude(ip__startswith='10.').exclude(ip__startswith='172.')
+        
+        # Buscar webcam primero
+        webcam_cam = qs.filter(tipo='webcam').order_by('-fecha_actualizacion').first()
+        if webcam_cam:
+            return webcam_cam
+
+        cam = qs.order_by('-fecha_actualizacion').first()
+        if not cam:
+            cam = cls.objects.filter(tipo='webcam').first()
         if not cam:
             cam = cls.objects.create(
                 nombre="Webcam Local #0",

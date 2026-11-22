@@ -69,7 +69,7 @@ Monitoreo Biométrico en Tiempo Real
                     <optgroup label="📡 Cámaras del Servidor / Red" id="optgroup-servidor">
                         {% for c in camaras %}
                             <option value="server:{{ c.id }}" {% if c.id == camara_activa.id %}selected{% endif %}>
-                                {{ c.nombre }} ({% if c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
+                                {{ c.nombre }} ({% if c.tipo == 'ip_camera' or c.tipo == 'ip_yoosee' %}IP {{ c.ip }}{% else %}Webcam #{{ c.webcam_index }}{% endif %})
                             </option>
                         {% empty %}
                             <option value="" disabled>(Sin cámaras de red / servidor)</option>
@@ -134,7 +134,7 @@ Monitoreo Biométrico en Tiempo Real
                 <span>TIPO SENSOR:</span> <span class="telemetry-val" id="telemetry-sensor">{{ camara_activa.get_tipo_display|default:'Navegador Web' }}</span>
             </div>
             <div class="telemetry-item">
-                <span>PROTOCOLO:</span> <span class="telemetry-val" id="telemetry-proto">{% if camara_activa.tipo == 'ip_yoosee' %}RTSP / ONVIF TCP{% elif camara_activa %}DirectShow / MSMF USB{% else %}HTML5 MediaStream / WebRTC{% endif %}</span>
+                <span>PROTOCOLO:</span> <span class="telemetry-val" id="telemetry-proto">{% if camara_activa.tipo == 'ip_camera' or camara_activa.tipo == 'ip_yoosee' %}RTSP / ONVIF TCP{% elif camara_activa %}DirectShow / MSMF USB{% else %}HTML5 MediaStream / WebRTC{% endif %}</span>
             </div>
             <div class="telemetry-item">
                 <span>MOTOR IA:</span> <span class="telemetry-val">Deep Learning SFace + YuNet</span>

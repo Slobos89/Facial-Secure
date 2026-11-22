@@ -320,8 +320,8 @@
                             <select class="form-input-manual" onchange="if(this.value){document.getElementById('manual_cam_stream').value=this.value; if(this.value.includes('Streaming/Channels')){document.getElementById('manual_cam_puerto_onvif').value='80'; document.getElementById('manual_cam_nombre').value='Cámara Hikvision Acceso';}}">
                                 <option value="Streaming/Channels/102">🎯 Hikvision — Sub-Stream Fluido IA (Streaming/Channels/102)</option>
                                 <option value="Streaming/Channels/101">📹 Hikvision — Main Stream HD (Streaming/Channels/101)</option>
-                                <option value="onvif2" selected>📡 Yoosee / ONVIF Genérica — Sub-Stream (onvif2)</option>
-                                <option value="onvif1">📡 Yoosee / ONVIF Genérica — Main Stream (onvif1)</option>
+                                <option value="onvif2" selected>📡 ONVIF Genérica — Sub-Stream (onvif2)</option>
+                                <option value="onvif1">📡 ONVIF Genérica — Main Stream (onvif1)</option>
                                 <option value="cam/realmonitor?channel=1&subtype=1">📹 Dahua / Amcrest — Sub-Stream</option>
                             </select>
                         </div>
@@ -330,7 +330,7 @@
                             <input type="text" id="manual_cam_stream" class="form-input-manual" value="onvif2" placeholder="Streaming/Channels/102">
                         </div>
                         <div style="grid-column: span 2; margin-top: -4px;">
-                            <small style="color: #64748b; font-size: 11px;">💡 <b>Hikvision:</b> usa <code>Streaming/Channels/102</code> (fluido para IA) o <code>Streaming/Channels/101</code> (HD) con puerto RTSP <code>554</code>. <b>Yoosee:</b> <code>onvif2</code> / <code>onvif1</code>.</small>
+                            <small style="color: #64748b; font-size: 11px;">💡 <b>Hikvision:</b> usa <code>Streaming/Channels/102</code> (fluido para IA) o <code>Streaming/Channels/101</code> (HD) con puerto RTSP <code>554</code>. <b>ONVIF / IP:</b> <code>onvif2</code> / <code>onvif1</code>.</small>
                         </div>
                     </div>
 
@@ -814,7 +814,7 @@ function renderizarCamarasAsignadas(asignadas, activaId){
 
     let html = '';
     asignadas.forEach(cam => {
-        const esIp = (cam.tipo === 'ip_yoosee');
+        const esIp = (cam.tipo === 'ip_camera' || cam.tipo === 'ip_yoosee');
         const icono = esIp ? '📡' : '💻';
         const detalle = esIp 
             ? `IP: <b>${cam.ip}</b> • RTSP: ${cam.puerto_rtsp} • ONVIF: ${cam.puerto_onvif} • Canal: <code>${cam.stream || 'onvif2'}</code>` 
@@ -851,7 +851,7 @@ function renderizarCamarasDescubiertas(ipCameras, webcams, asignadas){
     let html = '';
 
     // Mapear IPs y webcams ya asignadas
-    const ipsAsignadas = new Set(asignadas.filter(a => a.tipo === 'ip_yoosee').map(a => a.ip));
+    const ipsAsignadas = new Set(asignadas.filter(a => a.tipo === 'ip_camera' || a.tipo === 'ip_yoosee').map(a => a.ip));
     const webcamsAsignadas = new Set(asignadas.filter(a => a.tipo === 'webcam').map(a => parseInt(a.webcam_index)));
 
     // 1. Cámaras IP encontradas en la red Wi-Fi / LAN
@@ -1088,7 +1088,7 @@ async function guardarCamaraManual(){
     }
 
     await ejecutarAsignacionCamara({
-        tipo: 'ip_yoosee',
+        tipo: 'ip_camera',
         nombre: nombre,
         ip: ip,
         puerto_onvif: puertoOnvif,
@@ -1111,7 +1111,7 @@ async function conectarYUsarCamaraIP(idx, ip, puertoOnvif, puertoRtsp){
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                tipo: 'ip_yoosee',
+                tipo: 'ip_camera',
                 nombre: nombre,
                 ip: ip,
                 puerto_onvif: puertoOnvif || 5000,
@@ -1191,7 +1191,7 @@ async function asignarNuevaCamaraIP(ip, puertoOnvif, puertoRtsp, nameElemId, use
     const stream = document.getElementById(streamElemId)?.value || 'onvif2';
 
     await ejecutarAsignacionCamara({
-        tipo: 'ip_yoosee',
+        tipo: 'ip_camera',
         nombre: nombre,
         ip: ip,
         puerto_onvif: puertoOnvif || 5000,
@@ -1324,7 +1324,7 @@ function actualizarSelectoresEnPagina(){
             const cur = selMon ? selMon.value : '';
             optServMon.innerHTML = data.asignadas.map(c => `
                 <option value="server:${c.id}" ${('server:' + c.id) == cur ? 'selected' : ''}>
-                    ${c.nombre} (${c.tipo === 'ip_yoosee' ? 'IP ' + c.ip : 'Webcam #' + c.webcam_index})
+                    ${c.nombre} (${(c.tipo === 'ip_camera' || c.tipo === 'ip_yoosee') ? 'IP ' + c.ip : 'Webcam #' + c.webcam_index})
                 </option>
             `).join('');
         }
@@ -1335,7 +1335,7 @@ function actualizarSelectoresEnPagina(){
             const curVal = selectElem ? selectElem.value : '';
             optGroup.innerHTML = data.asignadas.map(c => `
                 <option value="server:${c.id}" ${('server:' + c.id) == curVal ? 'selected' : ''}>
-                    ${c.nombre} (${c.tipo === 'ip_yoosee' ? 'IP ' + c.ip : 'Webcam #' + c.webcam_index})
+                    ${c.nombre} (${(c.tipo === 'ip_camera' || c.tipo === 'ip_yoosee') ? 'IP ' + c.ip : 'Webcam #' + c.webcam_index})
                 </option>
             `).join('');
         });
