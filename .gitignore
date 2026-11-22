@@ -17,3 +17,4 @@ media/visitas/
 media/rostros_dataset/
 media/rostros_recortados/
 *.json
+!backup_datos.json
